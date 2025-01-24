@@ -37,6 +37,14 @@ jobs:
         run: mkdir dist/local dist/local/js dist/local/css && make local
       - name: Setup Pages
         uses: actions/configure-pages@v4
+      # 打包产物并上传
+      - name: Package artifact
+        run: tar -czf dist/local.tar.gz dist/local
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: local
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
