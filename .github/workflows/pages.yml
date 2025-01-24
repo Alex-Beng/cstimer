@@ -19,7 +19,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: ./
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -35,21 +35,14 @@ jobs:
           php-version: '8.0'
       - name: Build cstimer
         run: mkdir dist/local dist/local/js dist/local/css && make local
-      # - name: Setup Pages
-      #   uses: actions/configure-pages@v4
-      # 打包产物并上传
-      - name: Package artifact
-        run: tar -czf dist/local.tar.gz dist/local
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      # 上传产物
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-pages-artifact@v3
         with:
           name: local-cstimer
-          path: dist/local.tar.gz
-
-      # - name: Upload artifact
-      #   uses: actions/upload-pages-artifact@v3
-      #   with:
-      #     path: 'dist/local'
-      # - name: Deploy to GitHub Pages
-      #   id: deployment
-      #   uses: actions/deploy-pages@v4
+          path: 'dist/local'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
