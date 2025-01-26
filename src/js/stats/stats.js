@@ -1,7 +1,14 @@
 "use strict";
 
 var stats = execMain(function(kpretty, round, kpround) {
-	//[[penalty, phaseN end time, phaseN-1 end time, ..., phase1 end time], scramble, comment, timestamp of start, extension]
+	// times[idx][dim]: 两维time
+	//[[penalty, phaseN end time, phaseN-1 end time, ..., phase1 end time], scramble, comment, timestamp of start, extension, prefer]
+	// [0]: penalty + time
+	// [1]: scramble
+	// [2]: comment
+	// [3]: timestamp
+	// [4]: extension
+	// [5]: prefer
 	var times = [];
 	var div = $('<div id="stats">');
 	var stext = $('<textarea rows="10" readonly>');
@@ -90,6 +97,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 		var cntdnf = 0;
 		for (var i = 0; i < times.length; i++) {
 			var curTime = timesAt(i)[0];
+			// penalty 为DNF 或者 未完成
 			if (curTime[0] == -1 || curTime.length <= dim) {
 				cntdnf += 1;
 			} else {
@@ -950,9 +958,11 @@ var stats = execMain(function(kpretty, round, kpround) {
 
 	function timeAtDim(dim, idx) {
 		var curTime = (times[idx] || [[-1, 1]])[0];
+		// dnf
 		if (curTime[0] == -1 || curTime.length <= dim) {
 			return -1;
 		}
+		// 0 -> end time + 罚时
 		var ret = dim == 0 ?
 			(curTime[0] + curTime[1]) :
 			(curTime[curTime.length - dim] - (curTime[curTime.length - dim + 1] || 0));
@@ -1801,6 +1811,9 @@ var stats = execMain(function(kpretty, round, kpround) {
 				floatCfm.proc(times.length - 1);
 			} else if (value[1] == 'cmt') {
 				floatCfm.proc(times.length - 1, 'comment');
+			// 这里加偏好逻辑
+			} else if (value[1] == 'prefer') {
+
 			}
 		} else if (signal == 'ashow' && !value) {
 			table_ctrl.hideAll();
