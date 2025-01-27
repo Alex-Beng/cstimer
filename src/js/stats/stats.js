@@ -1813,7 +1813,9 @@ var stats = execMain(function(kpretty, round, kpround) {
 				floatCfm.proc(times.length - 1, 'comment');
 			// 这里加偏好逻辑
 			} else if (value[1] == 'prefer') {
-
+				logohint.push(LGHINT_PERFER.replace('%s', "Curr"))
+			} else if (value[1] == 'preferlast') {
+				logohint.push(LGHINT_PERFER.replace('%s', "Last"))
 			}
 		} else if (signal == 'ashow' && !value) {
 			table_ctrl.hideAll();

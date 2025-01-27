@@ -618,5 +618,6 @@ var LGHINT_BTNOTSUP = 'Smart cube non pris en charge';
 var LGHINT_BTINVMAC = 'Adresse mac invalide, la connexion à votre smart cube est impossible';
 var LGHINT_AEXPABT = 'Export automatique interrompu';
 var LGHINT_AEXPSUC = 'Export automatique réussi';
-var LGHINT_AEXPFAL = 'Échec de l\'export automatique';
+var LGHINT_AEXPFAL = 'Auto export failed';
+var LGHINT_PERFER = 'Perfer %s Scramble';
 var EASY_SCRAMBLE_HINT = 'Change length to limit upper bound of solution length, input 2 digits to limit both lower (<= 8) and upper bound';

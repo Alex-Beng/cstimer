@@ -618,5 +618,6 @@ var LGHINT_BTNOTSUP = 'Der Smart-Cube wird nicht unterstützt';
 var LGHINT_BTINVMAC = 'Ungültige MAC-Adresse, es kann keine Verbindung zum Smart-Cube hergestellt werden';
 var LGHINT_AEXPABT = 'Automatischer Export abgebrochen';
 var LGHINT_AEXPSUC = 'Automatischer Export erfolgreich';
-var LGHINT_AEXPFAL = 'Automatischer Export fehlgeschlagen';
+var LGHINT_AEXPFAL = 'Auto export failed';
+var LGHINT_PERFER = 'Perfer %s Scramble';
 var EASY_SCRAMBLE_HINT = 'Ändere die Länge, um die Lösungslänge nach oben zu begrenzen. Gebe 2 Ziffern ein um sowohl die untere (<= 8) als auch die obere Grenze festzulegen.';
