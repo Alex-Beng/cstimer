@@ -139,6 +139,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 			return ""
 		}
 		var ret = [];
+		console.log("llltime=", time);
 		ret.push(kpretty(time.at(-1)));
 		for (var j = time.length - 2; j >= 1; j--) {
 			ret.push(kpretty(time[j] - time[j + 1]));
