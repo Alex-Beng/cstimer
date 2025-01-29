@@ -31,15 +31,28 @@ var stats = execMain(function(kpretty, round, kpround) {
 	var isInit = true;
 
 	function push(time) {
+		// the human prefer is the time[4][-1] for both smart/virtual cube and timer
+		// the prefer init val--->whether faster than last?
+
+		// from smart/virtual cube
 		if (typeof time[0] == "string") {
 			var val = [time[2], time[1] || curScramble, time[0], time[3] || Math.round((new Date().getTime() - time[2][1]) / 1000)];
+			
+			var faster_than_last = times.length > 1 && timeAt[times.length-1][1] >= time[2][1];
+			console.log('faster_than_last=', faster_than_last);
+			// actually both smart cube and virtual cube have time[4]
 			if (time[4]) {
+				time[4].push(faster_than_last);
 				val.push(time[4]);
 			}
+
 			times.push(val);
+			console.log('times=', times);
 			time = time[2];
+		// from timer 
 		} else {
-			times.push([time, curScramble, "", Math.round((new Date().getTime() - time[1]) / 1000)]);
+			var faster_than_last = times.length > 1 && timeAt[times.length-1][1] >= time[2][1];
+			times.push([time, curScramble, "", Math.round((new Date().getTime() - time[1]) / 1000)], [faster_than_last]);
 		}
 		timesExtra.push(null);
 		times_stats_table.pushed();
@@ -1738,6 +1751,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 	var roundMilli = 1;
 
 	function procSignal(signal, value) {
+		// 这里新增time
 		if (signal == 'time') {
 			push(value);
 		} else if (signal == 'scramble' || signal == 'scrambleX') {

@@ -24,6 +24,7 @@ var exportFunc = execMain(function() {
 	var inServ = $('<a class="click"/>').html(EXPORT_FROMSERV + ' (csTimer)').click(downloadData);
 	var outServ = $('<a class="click"/>').html(EXPORT_TOSERV + ' (csTimer)').click(uploadDataClk);
 
+	// 导出的文件string
 	var expString;
 
 	exportTable.append(
@@ -42,6 +43,7 @@ var exportFunc = execMain(function() {
 		)
 	);
 
+	// storage.exportAll +properties
 	function updateExpString() {
 		return storage.exportAll().then(function(exportObj) {
 			exportObj['properties'] = mathlib.str2obj(localStorage['properties']);
@@ -441,6 +443,7 @@ var exportFunc = execMain(function() {
 		});
 	}
 
+	//导出
 	function showExportDiv() {
 		updateExpString().then(function() {
 			if (window.Blob) {
