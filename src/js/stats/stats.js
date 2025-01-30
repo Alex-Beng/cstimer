@@ -563,6 +563,9 @@ var stats = execMain(function(kpretty, round, kpround) {
 			}
 			sessionManager.save(idx);
 			table_ctrl.updateFrom(idx);
+			if (idx == cfmIdx) {
+				genDiv();
+			}
 		}
 
 		var toolDiv;
