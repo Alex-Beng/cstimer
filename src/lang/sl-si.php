@@ -37,8 +37,8 @@
 <tr><th>Ctrl + 1/2/3</th><td>Zadnji poiskus je bil OK/+2/DNF</td></tr>
 <tr><th>Ctrl + Alt + t/i/s/v/g/q/b/l</th><td>Entering in times with timer/typing/stackmat/virtual/bluetooth cube/qcube/bluetooth timer/last layer</td></tr>
 
-<tr><th>Ctrl + j</th> <td>Perfer current scarmble</td> </tr>
-<tr><th>Ctrl + k</th> <td>Perfer last scarmble</td> </tr>
+<tr><th>Ctrl + j</th> <td>Perfer current scramble</td> </tr>
+<tr><th>Ctrl + k</th> <td>Perfer last scramble</td> </tr>
 </table>
 
 <table class="table" style="display: inline-block;">

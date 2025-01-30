@@ -37,8 +37,8 @@
 <tr><th>Ctrl + 1/2/3</th><td>将最新成绩的完成状态改为 OK/+2/DNF</td></tr>
 <tr><th>Ctrl + Alt + t/i/s/v/g/q/b/l</th><td>产生成绩通过 计时器/手动输入/stackmat/虚拟魔方/蓝牙魔方/qCube/蓝牙计时器/顶层训练</td></tr>
 
-<tr><th>Ctrl + j</th> <td>Perfer current scarmble</td> </tr>
-<tr><th>Ctrl + k</th> <td>Perfer last scarmble</td> </tr>
+<tr><th>Ctrl + j</th> <td>Perfer current scramble</td> </tr>
+<tr><th>Ctrl + k</th> <td>Perfer last scramble</td> </tr>
 </table>
 
 <table class="table" style="display: inline-block;">
