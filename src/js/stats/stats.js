@@ -124,7 +124,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 
 	function pretty(time, showDNF) {
 		// TODO: make it optional, only show better
-		var showPrefer = (showPrefer&&time[4].at(-1));
+		var showPrefer = (true&&time[4].at(-1));
 		switch (time[0]) {
 		case 0: return kpretty(time[1]) + (showPrefer ? `(better)` : "");
 		case -1: return "DNF" + (showDNF ? `(${kpretty(time[1])})` : "") + (showPrefer ? `(better)` : "");
