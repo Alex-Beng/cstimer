@@ -552,6 +552,19 @@ var stats = execMain(function(kpretty, round, kpround) {
 			setPenalty(value, times.length - 1);
 		}
 
+		function setPrefer(value) {
+			if (times.length == 0) {
+				return;
+			}
+			
+			var idx = times.length - 1;
+			if (timesAt(idx)[4].at(-1) == value) {
+				return;
+			}
+			sessionManager.save(idx);
+			table_ctrl.updateFrom(idx);
+		}
+
 		var toolDiv;
 
 		function execFunc(fdiv, signal) {
@@ -570,7 +583,8 @@ var stats = execMain(function(kpretty, round, kpround) {
 		return {
 			proc: proc,
 			delLast: delLast,
-			setCfm: setCfm
+			setCfm: setCfm,
+			setPrefer: setPrefer
 		}
 	})();
 
@@ -1825,8 +1839,10 @@ var stats = execMain(function(kpretty, round, kpround) {
 				floatCfm.proc(times.length - 1, 'comment');
 			// 这里加偏好逻辑
 			} else if (value[1] == 'prefer') {
+				floatCfm.setPrefer(true);
 				logohint.push(LGHINT_PERFER.replace('%s', "Curr"))
 			} else if (value[1] == 'preferlast') {
+				floatCfm.setPrefer(false);
 				logohint.push(LGHINT_PERFER.replace('%s', "Last"))
 			}
 		} else if (signal == 'ashow' && !value) {
