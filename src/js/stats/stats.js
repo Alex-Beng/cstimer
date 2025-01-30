@@ -559,7 +559,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 			
 			var idx = times.length - 1;
 			var curVal = timesAt(idx)[4].at(-1);
-			if (not (typeof(curVal) === 'boolean')) {
+			if ((typeof curVal !== 'boolean')) {
 				return;
 			}
 			if (curVal == value) {
