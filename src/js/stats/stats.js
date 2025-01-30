@@ -123,12 +123,10 @@ var stats = execMain(function(kpretty, round, kpround) {
 	}
 
 	function pretty(time, showDNF) {
-		// TODO: make it optional, only show better
-		var showPrefer = (true&&time[4].at(-1));
 		switch (time[0]) {
-		case 0: return kpretty(time[1]) + (showPrefer ? `(better)` : "");
-		case -1: return "DNF" + (showDNF ? `(${kpretty(time[1])})` : "") + (showPrefer ? `(better)` : "");
-		default: return kpretty(time[0] + time[1]) + "+" + (showPrefer ? `(better)` : "");
+		case 0: return kpretty(time[1]) ;
+		case -1: return "DNF" + (showDNF ? `(${kpretty(time[1])})` : "");
+		default: return kpretty(time[0] + time[1]) + "+";
 		}
 	}
 
@@ -640,9 +638,6 @@ var stats = execMain(function(kpretty, round, kpround) {
 	function getTimeRow(i, dim, tr) {
 		var time = timesAt(i);
 		var curTime = time[0];
-		console.log("times=", times)
-		console.log("time=", time)
-		console.log("timerow curTime=", curTime);
 		times_stats_list.genStats();
 		var st0pb = times_stats_list.isBestAvg(2, i);
 		var st1pb = times_stats_list.isBestAvg(0, i - len1 + 1);
@@ -651,7 +646,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 		var tdpb = '<td class="times pb">';
 
 		var ret = [];
-		ret.push(`<td class="times">${time[2] && "*"}${i + 1}</td>`);
+		ret.push(`<td class="times">${time[2] && "*"}${i + 1}${time[4].at(-1) && "↑"}</td>`);
 		ret.push((st0pb ? tdpb : tdtm) + pretty(curTime, false) + '</td>');
 
 		var statSrc = kernel.getProp('statsrc', 't');
