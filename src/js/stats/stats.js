@@ -643,8 +643,9 @@ var stats = execMain(function(kpretty, round, kpround) {
 	function getTimeRow(i, dim, tr) {
 		var time = timesAt(i);
 		var curTime = time[0];
-		console.log("timerow curTime=", curTime);
+		console.log("times=", times)
 		console.log("time=", time)
+		console.log("timerow curTime=", curTime);
 		times_stats_list.genStats();
 		var st0pb = times_stats_list.isBestAvg(2, i);
 		var st1pb = times_stats_list.isBestAvg(0, i - len1 + 1);
