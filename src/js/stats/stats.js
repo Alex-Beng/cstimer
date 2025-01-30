@@ -445,6 +445,14 @@ var stats = execMain(function(kpretty, round, kpround) {
 					var puzzle = typeof time[4][1] == 'string' && time[4][1] || tools.getCurPuzzle() || '333';
 					replay.popupReplay(time[1], time[4][0], puzzle);
 				}
+			} else if (which == 'pp') {
+				var time = timesAt(cfmIdx);
+				var curPrefer = time[4].at(-1);
+				if (typeof curPrefer !== "boolean") {
+					return;
+				}
+				var newPrefer = !curPrefer;
+				setPrefer(newPrefer, cfmIdx);
 			}
 		}
 
@@ -479,7 +487,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 				reviewElem = $('<tr>').append($('<td>').append(reviewElem), $('<td>').append(cfmExt));
 			}
 			cfmDiv.empty().append(cfmTime, '<br>', prettyMPA(time[0]), '<br>')
-				.append('<span class="click" data="c"> &#128203; </span>|<span class="click" data="p"> OK </span>|<span class="click" data="p"> +2 </span>|<span class="click" data="p"> DNF </span>| ', cfmDelR)
+				.append('<span class="click" data="c"> &#128203; </span>|<span class="click" data="p"> OK </span>|<span class="click" data="p"> +2 </span>|<span class="click" data="p"> DNF </span>|<span class="click" data="pp"> prefer </span> ', cfmDelR)
 				.append('<br>', $('<table style="display:inline-block;">').append(
 					$('<tr>').append(`<td>${STATS_COMMENT}</td>`, $('<td>').append(cfmTxtR)),
 					$('<tr>').append(`<td><span class="click" data="s">${SCRAMBLE_SCRAMBLE}</span></td>`, $('<td>').append(cfmScrR)),
@@ -552,12 +560,11 @@ var stats = execMain(function(kpretty, round, kpround) {
 			setPenalty(value, times.length - 1);
 		}
 
-		function setPrefer(value) {
+		function setPrefer(value, idx) {
 			if (times.length == 0) {
 				return;
 			}
-			
-			var idx = times.length - 1;
+		
 			var curVal = timesAt(idx)[4].at(-1);
 			if ((typeof curVal !== 'boolean')) {
 				return;
@@ -1848,10 +1855,10 @@ var stats = execMain(function(kpretty, round, kpround) {
 				floatCfm.proc(times.length - 1, 'comment');
 			// 这里加偏好逻辑
 			} else if (value[1] == 'prefer') {
-				floatCfm.setPrefer(true);
+				floatCfm.setPrefer(true, times.length - 1);
 				logohint.push(LGHINT_PERFER.replace('%s', "Curr"))
 			} else if (value[1] == 'preferlast') {
-				floatCfm.setPrefer(false);
+				floatCfm.setPrefer(false, times.length - 1);
 				logohint.push(LGHINT_PERFER.replace('%s', "Last"))
 			}
 		} else if (signal == 'ashow' && !value) {
