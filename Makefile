@@ -64,6 +64,7 @@ stats/distribution.js \
 stats/hugestat.js \
 stats/dlystat.js \
 stats/recons.js \
+stats/preferinfer.js \
 stats/trainstat.js \
 tools/tools.js \
 tools/image.js \
