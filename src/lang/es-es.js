@@ -100,6 +100,7 @@ var TOOLS_BATTLE_STATUS = 'Ready|Inspect|Solving|Solved|Lost';
 var TOOLS_BATTLE_INFO = 'Join a battle room with your friend, then you will battle together.';
 var TOOLS_BATTLE_JOINALERT = 'Introduzca el ID de la sala por favor';
 var TOOLS_BATTLE_LEAVEALERT = 'Leave current room';
+var TOOLS_PREDICT_PREFER = 'Predict preference';
 var OLCOMP_UPDATELIST = 'Actualizar Lista de Competición';
 var OLCOMP_VIEWRESULT = 'Ver resultado';
 var OLCOMP_VIEWMYRESULT = 'Mi historia';

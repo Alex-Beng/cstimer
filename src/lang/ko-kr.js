@@ -100,6 +100,7 @@ var TOOLS_BATTLE_STATUS = 'Ready|Inspect|Solving|Solved|Lost';
 var TOOLS_BATTLE_INFO = 'Join a battle room with your friend, then you will battle together.';
 var TOOLS_BATTLE_JOINALERT = 'Please input the room ID';
 var TOOLS_BATTLE_LEAVEALERT = 'Leave current room';
+var TOOLS_PREDICT_PREFER = 'Predict preference';
 var OLCOMP_UPDATELIST = '대회 목록 업데이트';
 var OLCOMP_VIEWRESULT = '결과 보기';
 var OLCOMP_VIEWMYRESULT = '내 기록';

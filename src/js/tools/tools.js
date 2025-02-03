@@ -272,6 +272,7 @@ var tools = (function() {
 		 */
 		var toolBox = {};
 
+		// 注册工具
 		function regTool(name, str, execFunc) {
 			DEBUG && console.log('[regtool]', name, str);
 			toolBox[name] = execFunc;

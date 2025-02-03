@@ -100,6 +100,7 @@ var TOOLS_BATTLE_STATUS = '就绪|观察|还原|完成|掉线';
 var TOOLS_BATTLE_INFO = '和朋友们加入同一个房间，你们就可以进行对战。';
 var TOOLS_BATTLE_JOINALERT = '请输入房间ID';
 var TOOLS_BATTLE_LEAVEALERT = '离开当前房间';
+var TOOLS_PREDICT_PREFER = '预测偏好';
 var OLCOMP_UPDATELIST = '更新比赛列表';
 var OLCOMP_VIEWRESULT = '查看结果';
 var OLCOMP_VIEWMYRESULT = '我的历史';
