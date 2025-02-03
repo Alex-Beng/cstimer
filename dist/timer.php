@@ -23,7 +23,7 @@
 <?php include('lang/langDet.php');?>
   <link rel='stylesheet' type='text/css' href='css/style.css'>
   <script type="text/javascript" src="js/jquery.min.js"></script>
-  <script type="text/javascript" src="js/ort.min.js"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
   <script type="text/javascript" src="js/cstimer.js"></script>
 <?php include('baidutongji.php') ?>
 </head>
