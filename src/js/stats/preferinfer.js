@@ -107,6 +107,10 @@ var preferinfer = execMain(function() {
                 return;
             });
         }
+        else {
+            // TODO: localized
+            fdiv.html("Not suported puzzle type...")
+        }
     }
 
     $(function() {
