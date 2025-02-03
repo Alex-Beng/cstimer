@@ -100,10 +100,10 @@ var preferinfer = execMain(function() {
                     const value = results.output.data
                     fdiv.html("Prefer Value: {v}".replace("{v}", value));
                 } catch (e) {
-                    console.log("infer fail: {e}".replace("{e}", e))
+                    fdiv.html("infer fail: {e}".replace("{e}", e));
                 }
             }).catch(error => {
-                console.log("Error in load models, exiting...");
+                fdiv.html("Error in load models, refresh please...")
                 return;
             });
         }
