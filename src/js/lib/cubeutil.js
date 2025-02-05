@@ -533,6 +533,7 @@ var cubeutil = (function() {
 				continue;
 			}
 			f = "FRUBLDfrubldzxySME".indexOf(m[2]);
+			// 如果是中层转动
 			if (f > 14) {
 				p = "2'".indexOf(m[5] || 'X') + 2;
 				f = [0, 4, 5][f % 3];
