@@ -950,7 +950,7 @@ var image = (function() {
 			}
 			// prefer value
 			if (!getPrefer(tools.getCurScramble())) {
-				pval.html(PREFER_UNAVAILABLE);
+				pval.html(IMAGE_UNAVAILABLE);
 			}
 
 		}
