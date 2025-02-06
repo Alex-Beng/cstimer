@@ -3,6 +3,8 @@
 var image = (function() {
 
 	var img;
+	var pval;
+	var pfsupuzzle = ["clk", "222", "333"];
 	var hsq3 = Math.sqrt(3) / 2;
 	var PI = Math.PI;
 
@@ -37,13 +39,10 @@ var image = (function() {
 		var movere = /([UD][RL]|ALL|[UDRLy]|all)(?:(\d[+-]?)|\((\d[+-]?),(\d[+-]?)\))?/
 		var movestr = ['UR', 'DR', 'DL', 'UL', 'U', 'R', 'D', 'L', 'ALL']
 		var colors = ['#f00', '#37b', '#5cf', '#ff0', '#850'];
-
-		return function(svg, moveseq) {
-			// TODO: 
-			colors = kernel.getProp('colclk').match(colre);
+		
+		function genPosit(moveseq) {
 			var moves = moveseq.split(/\s+/);
 			var moveArr = clock.moveArr;
-			var flip = 9;
 			var buttons = [0, 0, 0, 0];
 			var clks = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 			for (var i = 0; i < moves.length; i++) {
@@ -81,6 +80,13 @@ var image = (function() {
 					}
 				}
 			}
+			return [buttons, clks];
+		}
+
+		return function(svg, moveseq) {
+			colors = kernel.getProp('colclk').match(colre);
+			var [buttons, clks] = genPosit(moveseq);
+
 			clks = [clks[0], clks[3], clks[6], clks[1], clks[4], clks[7], clks[2], clks[5], clks[8],
 				12 - clks[2], clks[10], 12 - clks[8], clks[9], clks[11], clks[13], 12 - clks[0], clks[12], 12 - clks[6]
 			];
@@ -868,19 +874,96 @@ var image = (function() {
 		return true;
 	}
 
+	var puzzle2model = {};
+	
+	function loadModel(puzzle) {
+		return new Promise(function(resolve, reject) {   
+			if (!(puzzle in puzzle2model)) {
+				const model_path = 'model/{puzzle}.onnx'.replace("{puzzle}", puzzle);
+				ort.InferenceSession.create(model_path)
+					.then(session => {
+						console.log("Loaded {puzzle} model".replace("{puzzle}", puzzle));
+						puzzle2model[puzzle] = session;
+						resolve(session);
+					})
+					.catch(error => {
+						console.log("Error loading model:", error);
+						reject(error);
+					});
+				
+			} else {
+				resolve(puzzle2model[puzzle]);
+			}
+		});
+	}
+
+	function getPrefer(scramble) {
+		var type = scramble[0];
+		if (type == 'input') {
+			type = tools.scrambleType(scramble[1]);
+		}
+		type = tools.puzzleType(type);
+		var size = types_nnn.indexOf(type);
+		
+		var status;
+		if (size >= 0) {
+			status = nnnImage.genPosit(size + 2, scramble[1]);
+			type = "nnn".replace("n", size + 2);
+		} else if (type == "cubennn") {
+			status = nnnImage.genPosit(scramble[2], scramble[2]);
+			type = "nnn".replace("n", scramble[2]);
+		} else if (type == "clk") {
+			status = clkImage.genPosit(scramble[1]);
+		}
+
+		if (typeof status !== "undefined") {
+			loadModel(type).then(async session => {
+				try {
+                    const data = Float32Array.from(status);
+                    const tensor = new ort.Tensor('float32', data, [1, status.length]);
+                    const feeds = { input: tensor};
+                    const results = await session.run(feeds);
+                    const value = results.output.data
+                    pval.html("{p}: {v}".replace("{p}", PREFER_VALUE).replace("{v}", value));
+                } catch (e) {
+                    pval.html("{p}: {e}".replace("{p}", INFER_FAIL).replace("{e}", e));
+                }
+            }).catch(error => {
+                pval.html(MODEL_LOAD_REFRESH, error);
+                return;
+			});
+		}
+	}
+
 	ISCSTIMER && execMain(function() {
 		function execFunc(fdiv) {
 			if (!fdiv) {
 				return;
 			}
 			img = img || $('<img style="display:block;">');
-			fdiv.empty().append(img);
+			pval = pval || $('<p style="display:block;">');
+			fdiv.empty().append(img).append(pval);
+			// image
 			if (!genImage(tools.getCurScramble(), true)) {
-				fdiv.html(IMAGE_UNAVAILABLE);
+				// fdiv.html(IMAGE_UNAVAILABLE);
+				pval.html(IMAGE_UNAVAILABLE);
 			}
+			// prefer value
+			if (!getPrefer(tools.getCurScramble())) {
+				pval.html(PREFER_UNAVAILABLE);
+			}
+
 		}
 
 		$(function() {
+			for (var puzzle of pfsupuzzle) {
+				loadModel(puzzle).then(session => {
+					console.log("Loaded {puzzle} model sucess".replace("{puzzle}", puzzle));
+				}).catch(error => {
+					console.log("Fail to load {puzzle} model: ".replace("{puzzle}", puzzle), error);
+				});
+			}
+
 			tools.regTool('image', TOOLS_IMAGE, execFunc);
 		});
 	});
