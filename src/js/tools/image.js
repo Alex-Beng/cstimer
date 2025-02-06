@@ -908,10 +908,10 @@ var image = (function() {
 		var status;
 		if (size >= 0) {
 			status = nnnImage.genPosit(size + 2, scramble[1]);
-			type = "nnn".replace("n", size + 2);
+			type = `${size+2}${size+2}${size+2}`
 		} else if (type == "cubennn") {
 			status = nnnImage.genPosit(scramble[2], scramble[2]);
-			type = "nnn".replace("n", scramble[2]);
+			type = `${scramble[2]}${scramble[2]}${scramble[2]}`
 		} else if (type == "clk") {
 			status = clkImage.genPosit(scramble[1]);
 		}
