@@ -930,9 +930,13 @@ var image = (function() {
                 }
             }).catch(error => {
                 pval.html(MODEL_LOAD_REFRESH, error);
-                return;
+                return false;
 			});
 		}
+		else {
+			return false;
+		}
+		return true;
 	}
 
 	ISCSTIMER && execMain(function() {
