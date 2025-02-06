@@ -84,7 +84,7 @@ var image = (function() {
 			return [buttons, clks];
 		}
 
-		return function(svg, moveseq) {
+		function draw(svg, moveseq) {
 			colors = kernel.getProp('colclk').match(colre);
 			var flip = 9;
 			var [buttons, clks] = genPosit(moveseq);
@@ -109,6 +109,11 @@ var image = (function() {
 			for (var i = 0; i < 8; i++) {
 				drawButton(svg, [colors[4], colors[3]][buttons[i]], [width, x[~~(i / 2)], y[i % 2]]);
 			}
+		}
+
+		return {
+			draw: draw,
+			genPosit: genPosit
 		};
 	})();
 
@@ -807,7 +812,7 @@ var image = (function() {
 		} else if (type == "sq1" || type == "sq2") {
 			recons = sq1Image.scrImage(svg, scramble[1], type == "sq2");
 		} else if (type == "clk") {
-			clkImage(svg, scramble[1]);
+			clkImage.draw(svg, scramble[1]);
 		} else if (type == "15b" || type == "15p") {
 			sldImage(svg, type[2], 4, scramble[1]);
 		} else if (type == "8b" || type == "8p") {
@@ -912,8 +917,8 @@ var image = (function() {
 			status = nnnImage.genPosit(size + 2, scramble[1]);
 			type = `${size+2}${size+2}${size+2}`
 		} else if (type == "cubennn") {
-			status = nnnImage.genPosit(scramble[2], scramble[2]);
-			type = `${scramble[2]}${scramble[2]}${scramble[2]}`
+			status = nnnImage.genPosit(scramble[2], scramble[1]);
+			type = `${scramble[2]}${scramble[2]}${scramble[1]}`
 		} else if (type == "clk") {
 			status = clkImage.genPosit(scramble[1]);
 		}
