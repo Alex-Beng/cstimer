@@ -4,7 +4,12 @@ var image = (function() {
 
 	var img;
 	var pval;
+	var ppval;
 	var pfsupuzzle = ["clk", "222", "333"];
+	// 用于概率预测
+	var lastReward;
+	var lastType;
+
 	var hsq3 = Math.sqrt(3) / 2;
 	var PI = Math.PI;
 
@@ -932,6 +937,15 @@ var image = (function() {
                     const results = await session.run(feeds);
                     const value = results.output.data
                     pval.html("{p}: {v}".replace("{p}", PREFER_VALUE).replace("{v}", value));
+					
+					if (lastType == type) {
+						var prob = 1 / (1 + Math.exp(lastReward-value));
+						prob = (prob * 100).toFixed(2) + '%'
+						ppval.html("probability: {p}%".replace("{p}", prob));
+					}
+					lastReward = value;
+					lastType = type;
+
                 } catch (e) {
                     pval.html("{p}: {e}".replace("{p}", INFER_FAIL).replace("{e}", e));
                 }
@@ -953,6 +967,7 @@ var image = (function() {
 			}
 			img = img || $('<img style="display:block;">');
 			pval = pval || $('<p style="display:block;">');
+			ppval = ppval || $('<p style="display:block;">');
 			fdiv.empty().append(img).append(pval);
 			// image
 			if (!genImage(tools.getCurScramble(), true)) {
