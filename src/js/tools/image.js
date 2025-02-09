@@ -938,9 +938,11 @@ var image = (function() {
                     const value = results.output.data
                     pval.html("{p}: {v}".replace("{p}", PREFER_VALUE).replace("{v}", value));
 					
+					console.log(lastType, type)
 					if (lastType == type) {
 						var prob = 1 / (1 + Math.exp(lastReward-value));
 						prob = (prob * 100).toFixed(2) + '%'
+						console.log(prob)
 						ppval.html("probability: {p}%".replace("{p}", prob));
 					}
 					lastReward = value;
