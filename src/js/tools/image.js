@@ -970,7 +970,7 @@ var image = (function() {
 			img = img || $('<img style="display:block;">');
 			pval = pval || $('<p style="display:block;">');
 			ppval = ppval || $('<p style="display:block;">');
-			fdiv.empty().append(img).append(pval);
+			fdiv.empty().append(img).append(pval).append(ppval);
 			// image
 			if (!genImage(tools.getCurScramble(), true)) {
 				// fdiv.html(IMAGE_UNAVAILABLE);
