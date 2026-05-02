@@ -46,7 +46,7 @@ jobs:
             echo "Building branch: $BRANCH"
             git checkout "$BRANCH"
             rm -rf dist/local dist/js dist/css dist/lang
-            mkdir -p dist/local/js dist/local/css
+            mkdir -p dist/js dist/css dist/lang dist/local/js dist/local/css
             make local
             if [ "$BRANCH" = "master" ]; then
               cp -r dist/local/. dist/pages/
