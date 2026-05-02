@@ -4,6 +4,7 @@ CACHE MANIFEST
 CACHE:
 js/cn.js
 js/jquery.min.js
+js/ort.min.js
 js/mathlib.js
 js/mersennetwister.js
 js/json.min.js

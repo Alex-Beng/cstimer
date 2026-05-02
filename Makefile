@@ -171,12 +171,14 @@ clean:
 	rm -f $(cstimer) $(twisty) $(css) $(langJS) $(langPHP)
 
 local: all
-	mkdir -p $(dest)/local/js $(dest)/local/css
+	mkdir -p $(dest)/local/js $(dest)/local/css $(dest)/local/model 
 	php -d include_path=$(dest) $(dest)/timer.php | sed "s/.*manifest.*//g" > $(dest)/local/index.html
 	cp $(dest)/js/jquery.min.js $(dest)/local/js/jquery.min.js
+	cp $(dest)/js/ort.min.js $(dest)/local/js/ort.min.js
 	cp $(dest)/js/cstimer.js $(dest)/local/js/cstimer.js
 	cp $(dest)/js/twisty.js $(dest)/local/js/twisty.js
 	cp $(dest)/css/style.css $(dest)/local/css/style.css
+	cp -r $(dest)/model/*.onnx  $(dest)/local/model/
 
 check: $(twistySrc) $(timerSrc)
 	@$(compile) --externs experiment/checkwrap.js $(src)/lang/en-us.js $(timerSrc) $(twistySrc) -O ADVANCED --checks-only --jscomp_off checkTypes

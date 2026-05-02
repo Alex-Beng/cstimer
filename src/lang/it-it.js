@@ -100,6 +100,7 @@ var TOOLS_BATTLE_STATUS = 'Pronto|Ispezione|Soluzione|Risolto|Perso';
 var TOOLS_BATTLE_INFO = 'Entra nella stanza della gara con un tuo amico per gareggiare insieme';
 var TOOLS_BATTLE_JOINALERT = 'Per favore inserisci l\'ID della stanza';
 var TOOLS_BATTLE_LEAVEALERT = 'Lascia la stanza corrente';
+var TOOLS_PREDICT_PREFER = 'Predict preference';
 var OLCOMP_UPDATELIST = 'Aggiorna Lista Competizioni';
 var OLCOMP_VIEWRESULT = 'Vedi il risultato';
 var OLCOMP_VIEWMYRESULT = 'I miei progressi';
