@@ -627,5 +627,6 @@ var LGHINT_BTNOTSUP = '不支援你的智慧魔術方塊';
 var LGHINT_BTINVMAC = '無效的 MAC 位址, 無法連接到你的智慧魔術方塊';
 var LGHINT_AEXPABT = '自動匯出中止';
 var LGHINT_AEXPSUC = 'Auto export success';
-var LGHINT_AEXPFAL = '自動匯出失敗';
+var LGHINT_AEXPFAL = 'Auto export failed';
+var LGHINT_PERFER = 'Perfer %s Scramble';
 var EASY_SCRAMBLE_HINT = 'Change length to limit upper bound of solution length, input 2 digits to limit both lower (<= 8) and upper bound';

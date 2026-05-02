@@ -35,7 +35,10 @@
 <tr><th>Alt + nach oben/unten</th><td>Zur nächsten/vorherigen Sitzung</td></tr>
 <tr><th>Alt + links/rechts</th><td>Vorheriges/Nächstes Scramble anzeigen</td></tr>
 <tr><th>Ctrl + 1/2/3</th><td>Der letzte Solve ist OK/+2/DNF</td></tr>
-<tr><th>Ctrl + Alt + t/i/s/v/g/q/b/l</th><td>Zeiten mit Timer/Tastatur/Stackmat/virtuellem Cube/Bluetooth Cube/qcube/Bluetooth Timer/last layer eingeben</td></tr>
+<tr><th>Ctrl + Alt + t/i/s/v/g/q/b/l</th><td>Entering in times with timer/typing/stackmat/virtual/bluetooth cube/qcube/bluetooth timer/last layer</td></tr>
+
+<tr><th>Ctrl + j</th> <td>Perfer current scarmble</td> </tr>
+<tr><th>Ctrl + k</th> <td>Perfer last scarmble</td> </tr>
 </table>
 
 <table class="table" style="display: inline-block;">

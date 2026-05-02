@@ -35,7 +35,10 @@
 <tr><th>Alt + ↑ / ↓</th><td>統計列表切換到下/上一分組</td></tr>
 <tr><th>Alt + ←/→</th><td>顯示上/下一條打亂公式</td></tr>
 <tr><th>Ctrl + 1/2/3</th><td>將最新成績的完成狀態改為 OK/+2/未完成</td></tr>
-<tr><th>Ctrl + Alt + t/i/s/v/g/q/b/l</th><td>將輸入模式切到計時器/手動輸入/比賽用計時器/虛擬方塊/藍芽方塊/qcube/藍芽計時器/頂層</td></tr>
+<tr><th>Ctrl + Alt + t/i/s/v/g/q/b/l</th><td>Entering in times with timer/typing/stackmat/virtual/bluetooth cube/qcube/bluetooth timer/last layer</td></tr>
+
+<tr><th>Ctrl + j</th> <td>Perfer current scarmble</td> </tr>
+<tr><th>Ctrl + k</th> <td>Perfer last scarmble</td> </tr>
 </table>
 
 <table class="table" style="display: inline-block;">

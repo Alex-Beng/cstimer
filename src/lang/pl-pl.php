@@ -35,7 +35,10 @@
 <tr><th>Alt + strzałka w góre/dół</th><td>Następna/poprzednia sesja</td></tr>
 <tr><th>Alt + strzałka w lewo/prawo</th><td>Pokaż poprzedni/następny scramble</td></tr>
 <tr><th>Ctrl + 1/2/3</th><td>Ustaw najnowszy czas na OK/+2/DNF</td></tr>
-<tr><th>Ctrl + Alt + t/i/s/v/g/q/b/l</th><td>Wprowadź czasy przez timer/pisanie/stackmat/kostka wirtualna/kostka bluetooth/qcube/timer bluetooth/ostatnia warstwa</td></tr>
+<tr><th>Ctrl + Alt + t/i/s/v/g/q/b/l</th><td>Entering in times with timer/typing/stackmat/virtual/bluetooth cube/qcube/bluetooth timer/last layer</td></tr>
+
+<tr><th>Ctrl + j</th> <td>Perfer current scarmble</td> </tr>
+<tr><th>Ctrl + k</th> <td>Perfer last scarmble</td> </tr>
 </table>
 
 <table class="table" style="display: inline-block;">

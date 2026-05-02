@@ -628,4 +628,5 @@ var LGHINT_BTINVMAC = 'Non è un MAC address valido, non posso connettere il tuo
 var LGHINT_AEXPABT = 'Auto export interrotto';
 var LGHINT_AEXPSUC = 'Auto export completato';
 var LGHINT_AEXPFAL = 'Auto export fallito';
+var LGHINT_PERFER = 'Perfer %s Scramble';
 var EASY_SCRAMBLE_HINT = 'Cambia la lunghezza per limitare superiormente la lunghezza della soluzione; inserisci 2 cifre per limitare sia inferiormente (≤ 8) che superiormente.';

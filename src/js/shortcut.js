@@ -34,6 +34,7 @@ var shortcuts = execMain(function(){
 		51: [['stats', 'DNF'], 'ctrl'],//3	
 		90: [['stats', 'undo'], 'ctrl'],//z
 		74: [['stats', 'prefer'], 'ctrl'],//j
+		75: [['stats', 'preferlast'], 'ctrl'],//k
 	}
 
 	var ctrlAltMap = {
