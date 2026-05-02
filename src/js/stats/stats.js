@@ -43,8 +43,8 @@ var stats = execMain(function(kpretty, round, kpround) {
 			console.log('faster_than_last=', faster_than_last);
 			// actually both smart cube and virtual cube have time[4]
 			if (time[4]) {
-				time[4].push(faster_than_last);
 				val.push(time[4]);
+				val.push(faster_than_last);
 			}
 
 			times.push(val);
@@ -54,7 +54,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 		} else {
 			console.log(times)
 			var faster_than_last = times.length > 1 && timeAt[times.length-1][1] >= time[1];
-			times.push([time, curScramble, "", Math.round((new Date().getTime() - time[1]) / 1000)], [faster_than_last]);
+			times.push([time, curScramble, "", Math.round((new Date().getTime() - time[1]) / 1000)], [], faster_than_last);
 		}
 		timesExtra.push(null);
 		times_stats_table.pushed();
