@@ -38,7 +38,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 			var val = [time[2], time[1] || curScramble, time[0], time[3] || Math.round((new Date().getTime() - time[2][1]) / 1000)];
 			
 			console.log(times)
-			var faster_than_last = (times.length > 1) ? (times.at(-1)[0][1] >= time[1]) : false;
+			var faster_than_last = (times.length > 1) ? (times.at(-1)[0][1] >= time[2][1]) : false;
 			// actually both smart cube and virtual cube have time[4]
 			if (time[4]) {
 				time[4].push(faster_than_last);
@@ -646,7 +646,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 		var tdpb = '<td class="times pb">';
 
 		var ret = [];
-		ret.push(`<td class="times">${time[2] && "*"}${i + 1}${time[4].at(-1) ? "↑" : ""}</td>`);
+		ret.push(`<td class="times">${time[2] && "*"}${i + 1}${time[4].at(-1) === true ? "↑" : ""}</td>`);
 		ret.push((st0pb ? tdpb : tdtm) + pretty(curTime, false) + '</td>');
 
 		var statSrc = kernel.getProp('statsrc', 't');
