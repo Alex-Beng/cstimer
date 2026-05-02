@@ -609,7 +609,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 		}
 		var prev = target.prevAll();
 		var row = prev.length;
-		var idx = ~~(row == 0 ? target : prev.eq(-1)).html().replace("*", "") - 1;
+		var idx = ~~(row == 0 ? target : prev.eq(-1)).html().replace("*", "").replace("↑", "") - 1;
 		if (row > 4 || row < 0) {
 			return;
 		}
