@@ -558,8 +558,14 @@ var stats = execMain(function(kpretty, round, kpround) {
 			}
 			
 			var idx = times.length - 1;
-			if (timesAt(idx)[4].at(-1) == value) {
+			var curVal = timesAt(idx)[4].at(-1);
+			if (not (typeof(curVal) === 'boolean')) {
 				return;
+			}
+			if (curVal == value) {
+				return;
+			} else {
+				timesAt(idx)[4][timesAt(idx)[4].length - 1] = value;
 			}
 			sessionManager.save(idx);
 			table_ctrl.updateFrom(idx);
