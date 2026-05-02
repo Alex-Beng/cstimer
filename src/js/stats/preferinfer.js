@@ -27,6 +27,7 @@ var preferinfer = execMain(function() {
 
     // copied from image.js
     function clkScr2Status(moveseq) {
+        console.log("moveseq: ", moveseq);
         var movere = /([UD][RL]|ALL|[UDRLy]|all)(?:(\d[+-]?)|\((\d[+-]?),(\d[+-]?)\))?/
         var movestr = ['UR', 'DR', 'DL', 'UL', 'U', 'R', 'D', 'L', 'ALL']
         var moves = moveseq.split(/\s+/);
