@@ -43,6 +43,8 @@ var stats = execMain(function(kpretty, round, kpround) {
 			if (time[4]) {
 				time[4].push(faster_than_last);
 				val.push(time[4]);
+			} else {
+				val.push(["", curScrType, -1, faster_than_last]);
 			}
 
 			times.push(val);
@@ -676,6 +678,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 		var tdpb = '<td class="times pb">';
 
 		var ret = [];
+		
 		ret.push(`<td class="times">${time[4].at(-1) === true ? "↑" : ""}${time[2] && "*"}${i + 1}</td>`);
 		ret.push((st0pb ? tdpb : tdtm) + pretty(curTime, false) + '</td>');
 
