@@ -79,13 +79,19 @@ var preferinfer = execMain(function() {
         }
         var model;
         var status;
-        var curPuzzle = tools.getCurPuzzle();
-        if (curPuzzle == "clk") {
-            status = clkScr2Status(tools.getCurScramble());
+        var curScramble = tools.getCurScramble();
+        var puzzleType = curScramble[0];
+        if (puzzleType == 'input') {
+            puzzleType = tools.scrambleType(curScramble[1]);
+        }
+        puzzleType = tools.puzzleType(puzzleType);
+    
+        if (puzzleType == "clk") {
+            status = clkScr2Status(curScramble[1]);
         }
         
         if (typeof status !== "undefined") {
-            loadModel(curPuzzle).then(async session => {
+            loadModel(puzzleType).then(async session => {
                 try {
                     const data = Float32Array.from(status);
                     const tensor = new ort.Tensor('float32', data, [1, status.length]);
