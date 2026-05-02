@@ -646,7 +646,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 		var tdpb = '<td class="times pb">';
 
 		var ret = [];
-		ret.push(`<td class="times">${time[2] && "*"}${i + 1}${time[4].at(-1) && "↑"}</td>`);
+		ret.push(`<td class="times">${time[2] && "*"}${i + 1}${time[4].at(-1) ? "↑" : ""}</td>`);
 		ret.push((st0pb ? tdpb : tdtm) + pretty(curTime, false) + '</td>');
 
 		var statSrc = kernel.getProp('statsrc', 't');
