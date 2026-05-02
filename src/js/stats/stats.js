@@ -52,7 +52,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 		// from timer 
 		} else {
 			console.log('new time = ', time)
-			var faster_than_last = (times.length > 1) ? (timeAt[times.length-1][1] >= time[1]) : false;
+			var faster_than_last = (times.length > 1) ? (times.at(-1)[0][1] >= time[1]) : false;
 			times.push([time, curScramble, "", Math.round((new Date().getTime() - time[1]) / 1000), ["", curScrType, -1, faster_than_last]]);
 		}
 		timesExtra.push(null);
