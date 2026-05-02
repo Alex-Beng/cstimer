@@ -47,6 +47,7 @@ jobs:
             git checkout "$BRANCH"
             rm -rf dist/local dist/js dist/css dist/lang
             mkdir -p dist/js dist/css dist/lang dist/local/js dist/local/css
+            cp src/js/lib/jquery-1.8.0.js dist/js/jquery.min.js
             make local
             if [ "$BRANCH" = "master" ]; then
               cp -r dist/local/. dist/pages/
