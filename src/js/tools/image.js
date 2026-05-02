@@ -39,6 +39,7 @@ var image = (function() {
 		var colors = ['#f00', '#37b', '#5cf', '#ff0', '#850'];
 
 		return function(svg, moveseq) {
+			// TODO: 
 			colors = kernel.getProp('colclk').match(colre);
 			var moves = moveseq.split(/\s+/);
 			var moveArr = clock.moveArr;
@@ -400,7 +401,8 @@ var image = (function() {
 				}
 			}
 		}
-
+		
+		// 这里获得nnn状态
 		function genPosit(size, moveseq) {
 			var cnt = 0;
 			posit = [];
