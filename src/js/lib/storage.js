@@ -80,6 +80,7 @@ var storage = execMain(function() {
 			var times = [];
 			if (indexedDB) {
 				getTrans("readonly", function(objectStore) {
+					// 左闭右开
 					var boundKeyRange = IDBKeyRange.bound(getID(sessionIdx), getID(sessionIdx + 1), false, true);
 					objectStore.openCursor(boundKeyRange).onsuccess = function(event) {
 						var cursor = event.target.result;
