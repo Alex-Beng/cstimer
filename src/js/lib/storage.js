@@ -135,6 +135,8 @@ var storage = execMain(function() {
 		}
 	}
 
+	// 导出时使用
+	// 要看indexdb中怎么存储，这里似乎没有进行重组织
 	function exportAll() {
 		return new Promise(function(resolve, reject) {
 			var exportObj = {};
