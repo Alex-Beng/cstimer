@@ -2,7 +2,7 @@ name: Deploy to Github Pages
 
 on:
   push:
-    branches: ["master", "CSC-merged", "CSC"]
+    branches: ["**"]
 
   workflow_dispatch:
 
@@ -45,7 +45,7 @@ jobs:
           for BRANCH in $BRANCHES; do
             echo "Building branch: $BRANCH"
             git checkout "$BRANCH"
-            rm -rf dist/local
+            rm -rf dist/local dist/js dist/css dist/lang
             mkdir -p dist/local/js dist/local/css
             make local
             if [ "$BRANCH" = "master" ]; then
