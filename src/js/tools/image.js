@@ -43,6 +43,7 @@ var image = (function() {
 		function genPosit(moveseq) {
 			var moves = moveseq.split(/\s+/);
 			var moveArr = clock.moveArr;
+			var flip = 9;
 			var buttons = [0, 0, 0, 0];
 			var clks = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 			for (var i = 0; i < moves.length; i++) {
@@ -85,6 +86,7 @@ var image = (function() {
 
 		return function(svg, moveseq) {
 			colors = kernel.getProp('colclk').match(colre);
+			var flip = 9;
 			var [buttons, clks] = genPosit(moveseq);
 
 			clks = [clks[0], clks[3], clks[6], clks[1], clks[4], clks[7], clks[2], clks[5], clks[8],
