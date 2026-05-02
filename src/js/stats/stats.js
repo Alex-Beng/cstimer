@@ -123,11 +123,12 @@ var stats = execMain(function(kpretty, round, kpround) {
 	}
 
 	function pretty(time, showDNF) {
-		ret = ""
+		// TODO: make it optional, only show better
+		showPrefer = (showPrefer&&time[4].at(-1));
 		switch (time[0]) {
-		case 0: return kpretty(time[1]);
-		case -1: return "DNF" + (showDNF ? `(${kpretty(time[1])})` : "");
-		default: return kpretty(time[0] + time[1]) + "+";
+		case 0: return kpretty(time[1]) + (showPrefer ? `(better)` : "");
+		case -1: return "DNF" + (showDNF ? `(${kpretty(time[1])})` : "") + (showPrefer ? `(better)` : "");
+		default: return kpretty(time[0] + time[1]) + "+" + (showPrefer ? `(better)` : "");
 		}
 	}
 
