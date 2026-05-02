@@ -38,7 +38,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 			var val = [time[2], time[1] || curScramble, time[0], time[3] || Math.round((new Date().getTime() - time[2][1]) / 1000)];
 			
 			console.log(times)
-			var faster_than_last = (times.length > 1) ? (timeAt[times.length-1][1] >= time[1]) : false;
+			var faster_than_last = (times.length > 1) ? (times.at(-1)[0][1] >= time[1]) : false;
 			// actually both smart cube and virtual cube have time[4]
 			if (time[4]) {
 				time[4].push(faster_than_last);
@@ -123,6 +123,7 @@ var stats = execMain(function(kpretty, round, kpround) {
 	}
 
 	function pretty(time, showDNF) {
+		ret = ""
 		switch (time[0]) {
 		case 0: return kpretty(time[1]);
 		case -1: return "DNF" + (showDNF ? `(${kpretty(time[1])})` : "");
