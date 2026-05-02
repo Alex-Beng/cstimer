@@ -1109,7 +1109,7 @@ var image = (function() {
 			status = nnnImage.genPosit(scramble[2], scramble[1]);
 			type = `${scramble[2]}${scramble[2]}${scramble[1]}`
 		} else if (type == "clk") {
-			status = clkImage.genPosit(scramble[1]);
+			status = clkImage.genPosit(scramble[1])[1];
 		}
 
 		if (typeof status !== "undefined") {
