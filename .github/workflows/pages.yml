@@ -41,9 +41,10 @@ jobs:
       - name: Package artifact
         run: tar -czf dist/local.tar.gz dist/local
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: local
+          name: local-cstimer
+          path: dist/local.tar.gz
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
