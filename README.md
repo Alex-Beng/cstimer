@@ -4,7 +4,7 @@ Professional Speedcubing/Training Timer
 
 # [CubeStatusCritic](https://github.com/Alex-Beng/CubeStatusCritic) Custom cstimer
 
-Beyound the basic timer, Here is the ai-assisted cstimer. For more information, please check [CubeStatusCritic](https://github.com/Alex-Beng/CubeStatusCritic).
+Beyond the basic timer, Here is the ai-assisted cstimer. For more information, please check [CubeStatusCritic](https://github.com/Alex-Beng/CubeStatusCritic).
 
 # Versions and Update Policy
 
