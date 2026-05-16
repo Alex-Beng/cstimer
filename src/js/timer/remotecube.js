@@ -188,7 +188,7 @@ execMain(function(timer) {
 		resetOri();
 		moveQueue = [];
 		if (sendTimer) { clearTimeout(sendTimer); sendTimer = 0; }
-		RemoteCube.connect(remoteCubeUrl, function(err, facelets) {
+		RemoteCube.connect(localStorage['remoteCubeUrl'] || '', function(err, facelets) {
 			if (err) {
 				isConnected = false;
 				div.hide();
@@ -236,7 +236,6 @@ execMain(function(timer) {
 			var url = $('#remoteCubeUrl').val();
 			if (!url) return;
 			localStorage['remoteCubeUrl'] = url;
-			remoteCubeUrl = url;
 			initPuzzle();
 		}, 0, 0], 'share', '远程魔方连接');
 	}
@@ -277,7 +276,7 @@ execMain(function(timer) {
 		if (next == enable) return;
 		enable = next;
 		if (enable) {
-			if (remoteCubeUrl) {
+			if (localStorage['remoteCubeUrl']) {
 				initPuzzle();
 			} else {
 				showConnectDialog();
@@ -296,8 +295,6 @@ execMain(function(timer) {
 		div.css('height', value * $('#logo').width() / 9 + 'px');
 		puzzleObj && puzzleObj.resize();
 	}
-
-	var remoteCubeUrl = localStorage['remoteCubeUrl'] || '';
 
 	$(function() {
 		div.appendTo('#container');
