@@ -100,6 +100,7 @@ execMain(function(timer) {
 			if (puzzleObj.isRotation(move)) {
 				if (mstep == 0) {
 					rawMoves[0].push([puzzleObj.move2str(move), 0]);
+					processMoveForAPI(move);
 				}
 				return;
 			} else {
