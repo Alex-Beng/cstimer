@@ -44,7 +44,8 @@ var shortcuts = execMain(function(){
 		71: [['input', 'g']], //smart cube
 		81: [['input', 'q']], //qcube
 		66: [['input', 'b']], //bluetooth timer
-		76: [['input', 'l']]  //last layer
+		76: [['input', 'l']], //last layer
+		82: [['input', 'r']]  //remote cube
 	}
 
 	function onkeydown(signal, e) {

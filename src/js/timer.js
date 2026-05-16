@@ -32,8 +32,9 @@ var timer = execMain(function(regListener, regProp, getProp, pretty, ui, pushSig
 
 		timer.virtual.setEnable(type == 'v' || type == 'q');
 		timer.virtual.reset();
+		timer.remotecube.setEnable(type == 'r');
 		lcd.setEnable(type != 'i');
-		lcd.reset(/^[ilvq]$/.exec(type) || type == 'g' && getProp('giiVRC') != 'n', type == 'i');
+		lcd.reset(/^[ilvqr]$/.exec(type) || type == 'g' && getProp('giiVRC') != 'n', type == 'i');
 		keyboardTimer.reset(type);
 		timer.input.setEnable(type == 'i');
 		lcd.renderUtil();
@@ -670,6 +671,9 @@ var timer = execMain(function(regListener, regProp, getProp, pretty, ui, pushSig
 			case 'g':
 				timer.giiker.onkeydown(keyCode, e);
 				break;
+			case 'r':
+				timer.remotecube.onkeydown(keyCode);
+				break;
 		}
 	}
 
@@ -706,6 +710,9 @@ var timer = execMain(function(regListener, regProp, getProp, pretty, ui, pushSig
 			case 'g':
 				timer.giiker.onkeyup(keyCode, e);
 				break;
+			case 'r':
+				timer.remotecube.onkeyup(keyCode);
+				break;
 		}
 	}
 
@@ -726,6 +733,7 @@ var timer = execMain(function(regListener, regProp, getProp, pretty, ui, pushSig
 				container.css('font-size', value[1] + 'em');
 				timer.virtual.setSize(value[1]);
 				timer.giiker.setSize(value[1]);
+				timer.remotecube.setSize(value[1]);
 			}
 			if (value[0] == 'timerSize' || value[0] == 'phases') {
 				$('#multiphase').css('font-size', getProp('timerSize') / Math.max(getProp('phases'), 4) + 'em')
@@ -734,6 +742,7 @@ var timer = execMain(function(regListener, regProp, getProp, pretty, ui, pushSig
 				timer.stackmat.setEnable(value[1]);
 				timer.giiker.setEnable(value[1]);
 				timer.bttimer.setEnable(value[1]);
+				timer.remotecube.setEnable(value[1]);
 				giikerutil.setEventCallback(giikerEvtCallback);
 			}
 			if (value[0] == 'showAvg') {

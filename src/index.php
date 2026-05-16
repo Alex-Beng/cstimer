@@ -33,6 +33,7 @@
   <script type="text/javascript" src="js/timer/bttimer.js"></script>
   <script type="text/javascript" src="js/timer/virtual.js"></script>
   <script type="text/javascript" src="js/timer/giiker.js"></script>
+  <script type="text/javascript" src="js/timer/remotecube.js"></script>
   <script type="text/javascript" src="js/solver/ftocta.js"></script>
   <script type="text/javascript" src="js/solver/megaminx.js"></script>
   <script type="text/javascript" src="js/scramble/scramble.js"></script>
@@ -92,6 +93,7 @@
   <script type="text/javascript" src="js/hardware/qiyicube.js"></script>
   <script type="text/javascript" src="js/hardware/gantimer.js"></script>
   <script type="text/javascript" src="js/hardware/qiyitimer.js"></script>
+  <script type="text/javascript" src="js/hardware/remotecube.js"></script>
   <script type="text/javascript" src="js/worker.js"></script>
   <script type="text/javascript" src="js/lib/threemin.js"></script>
   <script type="text/javascript" src="js/lib/pnltri.js"></script>
