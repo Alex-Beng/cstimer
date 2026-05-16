@@ -152,7 +152,7 @@ execMain(function(timer) {
 		puzzleObj = undefined;
 		var options = {
 			puzzle: 'cube3',
-			style: 'q'
+			style: 'v'
 		};
 		puzzleFactory.init(options, moveListener, div, function(ret, isInit) {
 			puzzleObj = ret;
