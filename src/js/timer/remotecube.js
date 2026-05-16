@@ -197,34 +197,21 @@ execMain(function(timer) {
 				return;
 			}
 			var now = $.now();
-			if (!puzzleObj) {
-				initPuzzle(function(ok) {
-					if (!ok) return;
-					doScramble(facelets);
-					if (timer.checkUseIns()) {
-						timer.startTime(now);
-						timer.status(-3);
-					} else {
-						timer.lcd.val(0);
-						timer.status(-2);
-					}
-					$('#lcd').css({'visibility': 'hidden'});
-					timer.lcd.fixDisplay(false, true);
-				});
-				return;
-			}
-			isConnected = true;
-			div.show();
-			doScramble(facelets);
-			if (timer.checkUseIns()) {
-				timer.startTime(now);
-				timer.status(-3);
-			} else {
-				timer.lcd.val(0);
-				timer.status(-2);
-			}
-			$('#lcd').css({'visibility': 'hidden'});
-			timer.lcd.fixDisplay(false, true);
+			initPuzzle(function(ok) {
+				if (!ok) return;
+				isConnected = true;
+				div.show();
+				doScramble(facelets);
+				if (timer.checkUseIns()) {
+					timer.startTime(now);
+					timer.status(-3);
+				} else {
+					timer.lcd.val(0);
+					timer.status(-2);
+				}
+				$('#lcd').css({'visibility': 'hidden'});
+				timer.lcd.fixDisplay(false, true);
+			});
 		});
 	}
 
