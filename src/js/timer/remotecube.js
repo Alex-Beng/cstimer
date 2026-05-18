@@ -197,6 +197,10 @@ execMain(function(timer) {
 				timer.lcd.fixDisplay(false, true);
 				return;
 			}
+			if (facelets == mathlib.SOLVED_FACELET) {
+				RemoteCube.sendMoves([{face: 0, dir: 0}, {face: 0, dir: 1}]);
+				return;
+			}
 			var now = $.now();
 			initPuzzle(function(ok) {
 				if (!ok) return;
