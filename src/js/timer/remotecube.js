@@ -198,7 +198,9 @@ execMain(function(timer) {
 				return;
 			}
 			if (facelets == mathlib.SOLVED_FACELET) {
-				RemoteCube.sendMoves([{face: 0, dir: 0}, {face: 0, dir: 1}]);
+				if (localStorage['remoteCubeSolvedEnter'] == '1') {
+					RemoteCube.sendMoves([{face: 1, dir: 0}, {face: 1, dir: 1}]);
+				}
 				return;
 			}
 			var now = $.now();

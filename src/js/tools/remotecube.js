@@ -7,10 +7,12 @@ var remotecubeUtil = execMain(function() {
 	var saveBtn = $('<input type="button" class="buttonOK" value="保存">');
 	var serialBtn = $('<input type="button" class="buttonOK" value="连接串口">');
 	var modeSpan = $('<span>');
+	var solvedEnterCb = $('<input type="checkbox">');
 
 	function execFunc(fdiv) {
 		if (!fdiv) return;
 		urlInput.val(localStorage['remoteCubeUrl'] || '');
+		solvedEnterCb.prop('checked', localStorage['remoteCubeSolvedEnter'] == '1');
 		refreshMode();
 		fdiv.empty().append(
 			$('<p>').text('远程魔方地址:'),
@@ -21,6 +23,8 @@ var remotecubeUtil = execMain(function() {
 			$('<p>').text('下发方式:'),
 			modeSpan,
 			serialBtn,
+			'<br><br>',
+			$('<label>').append(solvedEnterCb, '<span class="click"> 复原态不进入</span>'),
 			'<br><br>',
 			statusDiv
 		);
@@ -40,6 +44,10 @@ var remotecubeUtil = execMain(function() {
 					statusDiv.text('串口连接失败: ' + err).css('color', '#f00');
 				});
 			}
+		});
+		solvedEnterCb.unbind('click').click(function() {
+			$.waitUser.call();
+			localStorage['remoteCubeSolvedEnter'] = solvedEnterCb.prop('checked') ? '1' : '0';
 		});
 	}
 
