@@ -198,10 +198,10 @@ execMain(function(timer) {
 				return;
 			}
 			if (facelets == mathlib.SOLVED_FACELET) {
-				if (localStorage['remoteCubeSolvedEnter'] == '1') {
+				if (localStorage['remoteCubeSolvedEnter'] != '1') {
 					RemoteCube.sendMoves([{face: 1, dir: 0}, {face: 1, dir: 1}]);
+					return;
 				}
-				return;
 			}
 			var now = $.now();
 			initPuzzle(function(ok) {

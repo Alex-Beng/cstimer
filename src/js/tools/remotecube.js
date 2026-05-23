@@ -24,7 +24,7 @@ var remotecubeUtil = execMain(function() {
 			modeSpan,
 			serialBtn,
 			'<br><br>',
-			$('<label>').append(solvedEnterCb, '<span class="click"> 复原态不进入</span>'),
+			$('<label>').append(solvedEnterCb, '<span class="click"> 复原态可进入</span>'),
 			'<br><br>',
 			statusDiv
 		);
