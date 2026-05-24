@@ -27,6 +27,7 @@ execMain(function(timer) {
 	}
 
 	function enqueueMove(face, dir) {
+		if (localStorage['remoteCubeSendEnable'] == '0') return;
 		moveQueue.push({face: face, dir: dir});
 		clearTimeout(sendTimer);
 		sendTimer = setTimeout(flushMoves, 100);
@@ -199,7 +200,9 @@ execMain(function(timer) {
 			}
 			if (facelets == mathlib.SOLVED_FACELET) {
 				if (localStorage['remoteCubeSolvedEnter'] != '1') {
-					RemoteCube.sendMoves([{face: 1, dir: 0}, {face: 1, dir: 1}]);
+					if (localStorage['remoteCubeSendEnable'] != '0') {
+						RemoteCube.sendMoves([{face: 1, dir: 0}, {face: 1, dir: 1}]);
+					}
 					return;
 				}
 			}

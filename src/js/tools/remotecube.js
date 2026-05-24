@@ -8,11 +8,13 @@ var remotecubeUtil = execMain(function() {
 	var serialBtn = $('<input type="button" class="buttonOK" value="连接串口">');
 	var modeSpan = $('<span>');
 	var solvedEnterCb = $('<input type="checkbox">');
+	var sendEnableCb = $('<input type="checkbox">');
 
 	function execFunc(fdiv) {
 		if (!fdiv) return;
 		urlInput.val(localStorage['remoteCubeUrl'] || '');
 		solvedEnterCb.prop('checked', localStorage['remoteCubeSolvedEnter'] == '1');
+		sendEnableCb.prop('checked', localStorage['remoteCubeSendEnable'] != '0');
 		refreshMode();
 		fdiv.empty().append(
 			$('<p>').text('远程魔方地址:'),
@@ -24,7 +26,9 @@ var remotecubeUtil = execMain(function() {
 			modeSpan,
 			serialBtn,
 			'<br><br>',
-			$('<label>').append(solvedEnterCb, '<span class="click"> 复原态可进入</span>'),
+			$('<label>').append(solvedEnterCb, '<span class="click"> 复原态可否进入</span>'),
+			'<br><br>',
+			$('<label>').append(sendEnableCb, '<span class="click"> 开启下发</span>'),
 			'<br><br>',
 			statusDiv
 		);
@@ -48,6 +52,10 @@ var remotecubeUtil = execMain(function() {
 		solvedEnterCb.unbind('click').click(function() {
 			$.waitUser.call();
 			localStorage['remoteCubeSolvedEnter'] = solvedEnterCb.prop('checked') ? '1' : '0';
+		});
+		sendEnableCb.unbind('click').click(function() {
+			$.waitUser.call();
+			localStorage['remoteCubeSendEnable'] = sendEnableCb.prop('checked') ? '1' : '0';
 		});
 	}
 
