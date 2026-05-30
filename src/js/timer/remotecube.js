@@ -180,6 +180,7 @@ execMain(function(timer) {
 			if (gen) {
 				var moves = puzzleObj.parseScramble(gen, true);
 				puzzleObj.applyMoves(moves);
+				kernel.pushSignal('scramble', ['333', cubeutil.getConjMoves(gen, true), 0]);
 			}
 		}
 		puzzleObj.moveCnt(true);
