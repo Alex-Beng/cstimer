@@ -9,12 +9,14 @@ var remotecubeUtil = execMain(function() {
 	var modeSpan = $('<span>');
 	var solvedEnterCb = $('<input type="checkbox">');
 	var sendEnableCb = $('<input type="checkbox">');
+	var puzzleSelect = $('<select><option value="3">三阶</option><option value="2">二阶</option></select>');
 
 	function execFunc(fdiv) {
 		if (!fdiv) return;
 		urlInput.val(localStorage['remoteCubeUrl'] || '');
 		solvedEnterCb.prop('checked', localStorage['remoteCubeSolvedEnter'] == '1');
 		sendEnableCb.prop('checked', localStorage['remoteCubeSendEnable'] != '0');
+		puzzleSelect.val(localStorage['remoteCubePuzzle'] || '3');
 		refreshMode();
 		fdiv.empty().append(
 			$('<p>').text('远程魔方地址:'),
@@ -25,6 +27,9 @@ var remotecubeUtil = execMain(function() {
 			$('<p>').text('下发方式:'),
 			modeSpan,
 			serialBtn,
+			'<br><br>',
+			$('<p>').text('魔方类型:'),
+			puzzleSelect,
 			'<br><br>',
 			$('<label>').append(solvedEnterCb, '<span class="click"> 复原态可否进入</span>'),
 			'<br><br>',
@@ -56,6 +61,10 @@ var remotecubeUtil = execMain(function() {
 		sendEnableCb.unbind('click').click(function() {
 			$.waitUser.call();
 			localStorage['remoteCubeSendEnable'] = sendEnableCb.prop('checked') ? '1' : '0';
+		});
+		puzzleSelect.unbind('change').change(function() {
+			$.waitUser.call();
+			localStorage['remoteCubePuzzle'] = puzzleSelect.val();
 		});
 	}
 

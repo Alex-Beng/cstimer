@@ -36,11 +36,31 @@ execMain(function(timer) {
 	function decodeMoveIdx(idx) {
 		var axis = Math.floor(idx / 3);
 		var pow = idx % 3;
-		if (pow == 1) {
-			enqueueMove(axis, 0);
-			enqueueMove(axis, 0);
+		if (getPuzzle() == '2' && axis >= 3) {
+			var oppAxis = axis - 3;
+			var rot = [3, 15, 17][oppAxis];
+			var rotInv = mathlib.CubieCube.rotMulI[0][rot];
+			if (pow == 1) {
+				enqueueMove(oppAxis, 0);
+				enqueueMove(oppAxis, 0);
+			} else {
+				enqueueMove(oppAxis, pow == 2 ? 1 : 0);
+			}
+			if (pow == 1) {
+				ori = mathlib.CubieCube.rotMult[rot][ori];
+				ori = mathlib.CubieCube.rotMult[rot][ori];
+			} else if (pow == 2) {
+				ori = mathlib.CubieCube.rotMult[rotInv][ori];
+			} else {
+				ori = mathlib.CubieCube.rotMult[rot][ori];
+			}
 		} else {
-			enqueueMove(axis, pow == 2 ? 1 : 0);
+			if (pow == 1) {
+				enqueueMove(axis, 0);
+				enqueueMove(axis, 0);
+			} else {
+				enqueueMove(axis, pow == 2 ? 1 : 0);
+			}
 		}
 	}
 
