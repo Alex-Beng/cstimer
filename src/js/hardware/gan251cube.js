@@ -238,6 +238,14 @@ execMain(function() {
 		};
 	}
 
+	function buildFacelet() {
+		var cc = new mathlib.CubieCube();
+		for (var i = 0; i < 8; i++) {
+			cc.ca[i] = cornerPermutation[i] * 3 + cornerOrientation[i];
+		}
+		return cc.toFaceCube();
+	}
+
 	function processDecryptedPacket(decrypted) {
 		if (decrypted.length < 1) {
 			return;
@@ -256,7 +264,7 @@ execMain(function() {
 			if (moveData) {
 				giikerutil.log('[gan251cube] Move:', moveData.notation);
 				applyMove(moveData.face, moveData.direction);
-				GiikerCube.callback(moveData.notation, [0, 0, 0, 0, 0, 0], deviceName);
+				GiikerCube.callback(buildFacelet(), moveData.notation ? [moveData.notation] : [], [0, 0], deviceName);
 			}
 		} else if (packetId === 0xed) {
 			var stateData = decodeStatePacket(decrypted);
@@ -264,6 +272,7 @@ execMain(function() {
 				giikerutil.log('[gan251cube] State update');
 				cornerPermutation = stateData.cornerPermutation;
 				cornerOrientation = stateData.cornerOrientation;
+				GiikerCube.callback(buildFacelet(), [], [0, 0], deviceName);
 			}
 		} else if (packetId === 0xef) {
 			if (decrypted.length >= 3) {
