@@ -15,6 +15,10 @@ execMain(function(timer) {
 	var rawMoves = [];
 	var CubeMoveRE = /^\s*([URFDLB]w?|[EMSyxz]|2-2[URFDLB]w)(['2]?)\s*$/;
 
+	function getPuzzle() {
+		return localStorage['remoteCubePuzzle'] == '2' ? '2' : '3';
+	}
+
 	function resetOri() {
 		ori = 0;
 	}
@@ -173,7 +177,7 @@ execMain(function(timer) {
 		isConnecting = true;
 		puzzleObj = undefined;
 		var options = {
-			puzzle: 'cube3',
+			puzzle: 'cube' + getPuzzle(),
 			style: 'v'
 		};
 		puzzleFactory.init(options, moveListener, div, function(ret, isInit) {
