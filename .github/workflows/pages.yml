@@ -48,6 +48,9 @@ jobs:
             rm -rf dist/local dist/js dist/css dist/lang
             mkdir -p dist/js dist/css dist/lang dist/local/js dist/local/css
             cp src/js/lib/jquery-1.8.0.js dist/js/jquery.min.js
+            if [ "$BRANCH" != "master" ]; then
+              find src/lang -type f \( -name "*.js" -o -name "*.php" \) ! -name "en-us.*" ! -name "lang.php" ! -name "langDet.php" ! -name "color.php" -delete
+            fi
             make local
             if [ "$BRANCH" = "master" ]; then
               cp -r dist/local/. dist/pages/
