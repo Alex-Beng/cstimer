@@ -384,7 +384,7 @@ execMain(function() {
 	}
 
 	GiikerCube.regCubeModel({
-		prefix: ['GAN251', 'gan251ui_', 'ganic251_'],
+		prefix: ['GAN251', 'gan251ui_', 'ganic251_', 'gan251ui'],
 		init: init,
 		opservs: [SERVICE_UUID_DATA],
 		cics: GAN251_CIC_LIST,

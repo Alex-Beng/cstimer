@@ -93,9 +93,10 @@ function BtDeviceGroupFactory() {
 			_device = device;
 			device.addEventListener('gattserverdisconnected', onDisconnect);
 			cube = null;
-			for (var prefix in cubeModels) {
-				if (device.name && device.name.startsWith(prefix)) {
-					cube = cubeModels[prefix];
+			var prefixes = Object.keys(cubeModels).sort(function(a, b) { return b.length - a.length; });
+			for (var i = 0; i < prefixes.length; i++) {
+				if (device.name && device.name.startsWith(prefixes[i])) {
+					cube = cubeModels[prefixes[i]];
 					break;
 				}
 			}
