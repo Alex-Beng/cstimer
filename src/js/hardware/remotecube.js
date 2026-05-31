@@ -4,7 +4,7 @@ var RemoteCube = (function() {
 	var baseUrl = '';
 	var port = null;
 	var writer = null;
-	var useSerial = localStorage['remoteCubeMode'] == 'serial';
+	var useSerial = typeof localStorage != 'undefined' && localStorage['remoteCubeMode'] == 'serial';
 	var sendQueue = [];
 	var sending = false;
 
