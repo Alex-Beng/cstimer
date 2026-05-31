@@ -390,5 +390,6 @@ execMain(function() {
 		cics: GAN251_CIC_LIST,
 		getBatteryLevel: getBatteryLevel,
 		clear: clear
+		
 	});
 });
