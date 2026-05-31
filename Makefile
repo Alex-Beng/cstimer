@@ -90,6 +90,7 @@ hardware/bluetooth.js \
 hardware/giikercube.js \
 hardware/gocube.js \
 hardware/gancube.js \
+hardware/gan251cube.js \
 hardware/moyucube.js \
 hardware/moyu32cube.js \
 hardware/qiyicube.js \
