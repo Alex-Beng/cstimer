@@ -244,7 +244,11 @@ execMain(function() {
 		for (var i = 0; i < 8; i++) {
 			cc.ca[i] = cornerPermutation[i] * 3 + cornerOrientation[i];
 		}
-		return cc.toFaceCube();
+		var f54 = cc.toFaceCube();
+		var idx222 = [0,2,6,8, 9,11,15,17, 18,20,24,26, 27,29,33,35, 36,38,42,44, 45,47,51,53];
+		var f24 = '';
+		for (var i = 0; i < 24; i++) f24 += f54[idx222[i]];
+		return f24;
 	}
 
 	function processDecryptedPacket(decrypted) {
@@ -265,7 +269,7 @@ execMain(function() {
 			if (moveData) {
 				giikerutil.log('[gan251cube] Move:', moveData.notation);
 				applyMove(moveData.face, moveData.direction);
-				GiikerCube.callback(buildFacelet(), moveData.notation ? [moveData.notation] : [], [0, 0], deviceName);
+				GiikerCube.callback(buildFacelet(), moveData.notation ? [moveData.notation] : [], [0, $.now()], deviceName);
 			}
 		} else if (packetId === 0xed) {
 			var stateData = decodeStatePacket(decrypted);
@@ -273,7 +277,7 @@ execMain(function() {
 				giikerutil.log('[gan251cube] State update');
 				cornerPermutation = stateData.cornerPermutation;
 				cornerOrientation = stateData.cornerOrientation;
-				GiikerCube.callback(buildFacelet(), [], [0, 0], deviceName);
+				GiikerCube.callback(buildFacelet(), [], [0, $.now()], deviceName);
 			}
 		} else if (packetId === 0xef) {
 			if (decrypted.length >= 3) {
@@ -296,9 +300,7 @@ execMain(function() {
 			return;
 		}
 
-		giikerutil.log('[gan251cube] raw:', data.map(function(b) { return ('0' + b.toString(16)).slice(-2); }).join(' '));
 		var decrypted = decryptPacket(data, decoder.key, decoder.iv);
-		giikerutil.log('[gan251cube] dec:', decrypted.map(function(b) { return ('0' + b.toString(16)).slice(-2); }).join(' '));
 		decrypted = trimTrailingZeros(decrypted);
 		processDecryptedPacket(decrypted);
 	}
@@ -330,8 +332,6 @@ execMain(function() {
 		giikerutil.log('[gan251cube] MAC:', deviceMac);
 		var keyIv = deriveKeyIv(deviceMac);
 		if (!keyIv) return false;
-		giikerutil.log('[gan251cube] KEY:', keyIv.key.join(','));
-		giikerutil.log('[gan251cube] IV :', keyIv.iv.join(','));
 		decoder = $.aes128(keyIv.key);
 		decoder.iv = keyIv.iv;
 		return true;
@@ -394,6 +394,7 @@ execMain(function() {
 			_chrct_read.addEventListener('characteristicvaluechanged', onStateChanged);
 			cornerPermutation = [0, 1, 2, 3, 4, 5, 6, 7];
 			cornerOrientation = [0, 0, 0, 0, 0, 0, 0, 0];
+			kernel.setProp('scrType', '222so');
 			return Promise.resolve();
 		});
 	}
