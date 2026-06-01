@@ -4,7 +4,7 @@ execMain(function() {
 	var _chrct_read;
 	var _chrct_write;
 
-	var SERVICE_UUID_DATA = '0000fff0-0000-1000-8000-00805f9b34fb';
+	var SERVICE_UUID_DATA = '00000010-0000-fff7-fff6-fff5fff4fff0';
 	var CHRCT_UUID_READ = '0000fff6-0000-1000-8000-00805f9b34fb';
 	var CHRCT_UUID_WRITE = '0000fff5-0000-1000-8000-00805f9b34fb';
 
@@ -300,6 +300,56 @@ execMain(function() {
 		processDecryptedPacket(decrypted);
 	}
 
+	function getMacFromAdv(mfData) {
+		if (mfData instanceof DataView) {
+			return new DataView(mfData.buffer.slice(2, 11));
+		}
+		for (var i = 0; i < GAN251_CIC_LIST.length; i++) {
+			var id = GAN251_CIC_LIST[i];
+			if (mfData.has(id)) {
+				return new DataView(mfData.get(id).buffer.slice(0, 9));
+			}
+		}
+		return null;
+	}
+
+	function parseMacBytes(macBytes) {
+		var macParts = [];
+		for (var i = 0; i < 6; i++) {
+			macParts.push(('0' + macBytes.getUint8(i).toString(16)).slice(-2));
+		}
+		return macParts.join(':').toUpperCase();
+	}
+
+	function setupDecoder(mac) {
+		deviceMac = mac.toUpperCase();
+		giikerutil.log('[gan251cube] MAC:', deviceMac);
+		var keyIv = deriveKeyIv(deviceMac);
+		if (!keyIv) return false;
+		decoder = $.aes128(keyIv.key);
+		decoder.iv = keyIv.iv;
+		decoder.key = keyIv.key;
+		return true;
+	}
+
+	function connectService() {
+		return _gatt.getPrimaryService(SERVICE_UUID_DATA);
+	}
+
+	function showMacDialog() {
+		return new Promise(function(resolve) {
+			kernel.showDialog([$('<div>').append(
+				$('<p>').text('无法获取 MAC。请在 chrome://bluetooth-internals/#devices 中找到设备 MAC 并输入:'),
+				$('<input type="text" id="gan251MacInput" style="width:100%">').val('AB:12:34:5F:A4:CA')
+			), function() {
+				var mac = $('#gan251MacInput').val().trim().replace(/[^A-Fa-f0-9:]/g, '');
+				resolve(mac || null);
+			}, function() {
+				resolve(null);
+			}, 0], 'share', 'GAN251 MAC 输入');
+		});
+	}
+
 	function init(device) {
 		giikerutil.log('[gan251cube] init start');
 		deviceName = device.name;
@@ -307,56 +357,21 @@ execMain(function() {
 		return device.gatt.connect().then(function(gatt) {
 			giikerutil.log('[gan251cube] gatt connected');
 			_gatt = gatt;
-			return GiikerCube.waitForAdvs();
-		}).then(function(mfData) {
-			giikerutil.log('[gan251cube] got manufacturer data');
-			var macBytes = null;
-
-			if (mfData instanceof DataView) {
-				macBytes = new DataView(mfData.buffer.slice(2, 11));
-			} else {
-				for (var i = 0; i < GAN251_CIC_LIST.length; i++) {
-					var id = GAN251_CIC_LIST[i];
-					if (mfData.has(id)) {
-						var data = mfData.get(id);
-						macBytes = new DataView(data.buffer.slice(0, 9));
-						break;
-					}
+			return GiikerCube.waitForAdvs().then(function(mfData) {
+				var macBytes = getMacFromAdv(mfData);
+				if (macBytes) {
+					setupDecoder(parseMacBytes(macBytes));
+					return Promise.resolve();
 				}
-			}
-
-			if (!macBytes) {
-				throw new Error('No MAC');
-			}
-
-			var macParts = [];
-			for (var i = 0; i < 6; i++) {
-				macParts.push(('0' + macBytes.getUint8(i).toString(16)).slice(-2));
-			}
-			deviceMac = macParts.join(':').toUpperCase();
-			giikerutil.log('[gan251cube] MAC:', deviceMac);
-
-			var keyIv = deriveKeyIv(deviceMac);
-			if (!keyIv) {
-				throw new Error('No key');
-			}
-
-			decoder = $.aes128(keyIv.key);
-			decoder.iv = keyIv.iv;
-			decoder.key = keyIv.key;
-
-			return _gatt.getPrimaryService(SERVICE_UUID_DATA);
-		}).catch(function(err) {
-			giikerutil.log('[gan251cube] waitForAdvs failed, skip MAC:', err);
-			deviceMac = (device.id || device.name || 'GAN251').replace(/[^a-fA-F0-9]/g, '').slice(0, 12).toUpperCase();
-			deviceMac = deviceMac.match(/.{2}/g).join(':');
-			var keyIv = deriveKeyIv(deviceMac);
-			if (keyIv) {
-				decoder = $.aes128(keyIv.key);
-				decoder.iv = keyIv.iv;
-				decoder.key = keyIv.key;
-			}
-			return _gatt.getPrimaryService(SERVICE_UUID_DATA);
+				return Promise.reject('no mac');
+			}).catch(function() {
+				return showMacDialog().then(function(mac) {
+					if (!mac) return Promise.reject(-1);
+					setupDecoder(mac);
+				});
+			});
+		}).then(function() {
+			return connectService();
 		}).then(function(service) {
 			giikerutil.log('[gan251cube] got service');
 			_service_data = service;
@@ -365,11 +380,9 @@ execMain(function() {
 			giikerutil.log('[gan251cube] got characteristics');
 			_chrct_read = GiikerCube.findUUID(chrcts, CHRCT_UUID_READ);
 			_chrct_write = GiikerCube.findUUID(chrcts, CHRCT_UUID_WRITE);
-			
 			if (!_chrct_read) {
 				return Promise.reject('Cannot find read characteristic');
 			}
-
 			return _chrct_read.startNotifications();
 		}).then(function() {
 			giikerutil.log('[gan251cube] notifications started');
