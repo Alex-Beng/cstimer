@@ -303,7 +303,7 @@ execMain(function() {
 	function init(device) {
 		giikerutil.log('[gan251cube] init start');
 		deviceName = device.name;
-		
+
 		return device.gatt.connect().then(function(gatt) {
 			giikerutil.log('[gan251cube] gatt connected');
 			_gatt = gatt;
@@ -311,7 +311,7 @@ execMain(function() {
 		}).then(function(mfData) {
 			giikerutil.log('[gan251cube] got manufacturer data');
 			var macBytes = null;
-			
+
 			if (mfData instanceof DataView) {
 				macBytes = new DataView(mfData.buffer.slice(2, 11));
 			} else {
@@ -326,7 +326,7 @@ execMain(function() {
 			}
 
 			if (!macBytes) {
-				return Promise.reject('Cannot get MAC address');
+				throw new Error('No MAC');
 			}
 
 			var macParts = [];
@@ -338,13 +338,24 @@ execMain(function() {
 
 			var keyIv = deriveKeyIv(deviceMac);
 			if (!keyIv) {
-				return Promise.reject('Cannot derive key/IV');
+				throw new Error('No key');
 			}
 
 			decoder = $.aes128(keyIv.key);
 			decoder.iv = keyIv.iv;
 			decoder.key = keyIv.key;
 
+			return _gatt.getPrimaryService(SERVICE_UUID_DATA);
+		}).catch(function(err) {
+			giikerutil.log('[gan251cube] waitForAdvs failed, skip MAC:', err);
+			deviceMac = (device.id || device.name || 'GAN251').replace(/[^a-fA-F0-9]/g, '').slice(0, 12).toUpperCase();
+			deviceMac = deviceMac.match(/.{2}/g).join(':');
+			var keyIv = deriveKeyIv(deviceMac);
+			if (keyIv) {
+				decoder = $.aes128(keyIv.key);
+				decoder.iv = keyIv.iv;
+				decoder.key = keyIv.key;
+			}
 			return _gatt.getPrimaryService(SERVICE_UUID_DATA);
 		}).then(function(service) {
 			giikerutil.log('[gan251cube] got service');
