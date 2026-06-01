@@ -180,10 +180,10 @@ execMain(function() {
 	}
 
 	function decodeMovePacket(decrypted) {
-		if (decrypted.length < 8) {
+		if (decrypted.length < 11) {
 			return null;
 		}
-		var rawMoveByte = decrypted[5];
+		var rawMoveByte = decrypted[8];
 		var faceMask = rawMoveByte & 0x3f;
 		var turnBits = (rawMoveByte >> 6) & 0x03;
 		var face = FACE_MASK_TO_FACE[faceMask];
