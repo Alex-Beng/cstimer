@@ -297,6 +297,7 @@ execMain(function() {
 		}
 
 		var decrypted = decryptPacket(data, decoder.key, decoder.iv);
+		giikerutil.log('[gan251cube] dec:', decrypted.map(function(b) { return ('0' + b.toString(16)).slice(-2); }).join(' '));
 		decrypted = trimTrailingZeros(decrypted);
 		processDecryptedPacket(decrypted);
 	}
