@@ -300,7 +300,9 @@ execMain(function() {
 			return;
 		}
 
+		giikerutil.log('[gan251cube] raw:', data.map(function(b) { return ('0' + b.toString(16)).slice(-2); }).join(' '));
 		var decrypted = decryptPacket(data, decoder.key, decoder.iv);
+		giikerutil.log('[gan251cube] dec:', decrypted.map(function(b) { return ('0' + b.toString(16)).slice(-2); }).join(' '));
 		decrypted = trimTrailingZeros(decrypted);
 		processDecryptedPacket(decrypted);
 	}
@@ -332,6 +334,8 @@ execMain(function() {
 		giikerutil.log('[gan251cube] MAC:', deviceMac);
 		var keyIv = deriveKeyIv(deviceMac);
 		if (!keyIv) return false;
+		giikerutil.log('[gan251cube] KEY:', keyIv.key.join(','));
+		giikerutil.log('[gan251cube] IV :', keyIv.iv.join(','));
 		decoder = $.aes128(keyIv.key);
 		decoder.iv = keyIv.iv;
 		return true;
