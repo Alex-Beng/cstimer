@@ -69,9 +69,13 @@ execMain(function(timer) {
 			}
 			var cubeModel = GiikerCube.getCube();
 			var curSize = (cubeModel && cubeModel.puzzleSize) || 3;
-			if (curSize != cubeSize) {
-				giikerVRC.resetVRC(true, true);
+			if (curSize != cubeSize && curSize == 2) {
+				cubeSize = curSize;
+				isReseted = false;
+				resetVRC(true, true);
+				return;
 			}
+			cubeSize = curSize;
 			if (cubeSize == 2) {
 				var idx222 = [0,2,6,8,9,11,15,17,18,20,24,26,27,29,33,35,36,38,42,44,45,47,51,53];
 				state = idx222.map(function(i) { return state[i]; }).join('');
