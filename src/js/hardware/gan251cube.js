@@ -120,23 +120,12 @@ execMain(function() {
 
 	function validateCrc16(decrypted) {
 		if (decrypted.length < 3) {
-			giikerutil.log('[gan251cube] CRC skip: too short, len=' + decrypted.length);
 			return false;
 		}
-		var body = decrypted.slice(1, -2);
-		var crcHi = decrypted[decrypted.length - 2];
-		var crcLo = decrypted[decrypted.length - 1];
-		var expected_le = crcLo | (crcHi << 8);
-		var expected_be = crcHi | (crcLo << 8);
+		var body = decrypted.slice(0, -2);
+		var expected = decrypted[decrypted.length - 2] | (decrypted[decrypted.length - 1] << 8);
 		var computed = crc16CcittFalse(body);
-		giikerutil.log('[gan251cube] CRC debug: body(no-id) ' + body.join(',') + ' crcHi=' + crcHi.toString(16) + ' crcLo=' + crcLo.toString(16) + ' exp_le=' + expected_le.toString(16) + ' exp_be=' + expected_be.toString(16) + ' computed=' + computed.toString(16));
-		if (computed === expected_le) { giikerutil.log('[gan251cube] CRC OK: body(no-id) LE'); return true; }
-		if (computed === expected_be) { giikerutil.log('[gan251cube] CRC OK: body(no-id) BE'); return true; }
-		var bodyWithId = decrypted.slice(0, -2);
-		computed = crc16CcittFalse(bodyWithId);
-		giikerutil.log('[gan251cube] CRC debug: body(+id)  ' + bodyWithId.join(',') + ' computed(+id)=' + computed.toString(16));
-		if (computed === expected_le) { giikerutil.log('[gan251cube] CRC OK: body(+id) LE'); return true; }
-		if (computed === expected_be) { giikerutil.log('[gan251cube] CRC OK: body(+id) BE'); return true; }
+		if (computed === expected) { giikerutil.log('[gan251cube] CRC OK'); return true; }
 		return false;
 	}
 
@@ -308,9 +297,7 @@ execMain(function() {
 		}
 
 		var decrypted = decryptPacket(data, decoder.key, decoder.iv);
-		giikerutil.log('[gan251cube] raw=' + data.join(','));
 		decrypted = trimTrailingZeros(decrypted);
-		giikerutil.log('[gan251cube] dec=' + decrypted.join(','));
 		processDecryptedPacket(decrypted);
 	}
 
@@ -329,8 +316,9 @@ execMain(function() {
 
 	function parseMacBytes(macBytes) {
 		var macParts = [];
+		var len = macBytes.byteLength;
 		for (var i = 0; i < 6; i++) {
-			macParts.push(('0' + macBytes.getUint8(i).toString(16)).slice(-2));
+			macParts.push(('0' + macBytes.getUint8(len - i - 1).toString(16)).slice(-2));
 		}
 		return macParts.join(':').toUpperCase();
 	}
