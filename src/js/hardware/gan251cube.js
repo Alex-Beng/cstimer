@@ -81,20 +81,15 @@ execMain(function() {
 		for (var i = 0; i < data.length; i++) {
 			decrypted[i] = data[i];
 		}
-		
+
 		if (decrypted.length > 16) {
 			var offset = decrypted.length - 16;
 			var block = decoder.decrypt(decrypted.slice(offset));
 			for (var i = 0; i < 16; i++) {
-				decrypted[i + offset] = block[i] ^ (iv[i] || 0);
+				decrypted[i + offset] = block[i] ^ (~~iv[i]);
 			}
 		}
-		
-		var firstBlock = decoder.decrypt(decrypted.slice(0, 16));
-		for (var i = 0; i < 16; i++) {
-			decrypted[i] = firstBlock[i] ^ (iv[i] || 0);
-		}
-		
+
 		return decrypted;
 	}
 
