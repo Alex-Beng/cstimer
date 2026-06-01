@@ -66,8 +66,8 @@ execMain(function() {
 		var iv = [];
 		for (var i = 0; i < 16; i++) {
 			if (i < 6) {
-				key[i] = (GAN251_BASE_KEY[i] + salt[i]) & 0xff;
-				iv[i] = (GAN251_BASE_IV[i] + salt[i]) & 0xff;
+				key[i] = (GAN251_BASE_KEY[i] + salt[i]) % 0xff;
+				iv[i] = (GAN251_BASE_IV[i] + salt[i]) % 0xff;
 			} else {
 				key[i] = GAN251_BASE_KEY[i];
 				iv[i] = GAN251_BASE_IV[i];
@@ -88,6 +88,11 @@ execMain(function() {
 			for (var i = 0; i < 16; i++) {
 				decrypted[i + offset] = block[i] ^ (~~iv[i]);
 			}
+		}
+
+		decoder.decrypt(decrypted);
+		for (var i = 0; i < 16; i++) {
+			decrypted[i] ^= (~~iv[i]);
 		}
 
 		return decrypted;
