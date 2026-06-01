@@ -117,10 +117,19 @@ execMain(function() {
 		if (decrypted.length < 3) {
 			return false;
 		}
-		var body = decrypted.slice(0, -2);
-		var expected = decrypted[decrypted.length - 2] | (decrypted[decrypted.length - 1] << 8);
+		var body = decrypted.slice(1, -2);
+		var crcHi = decrypted[decrypted.length - 2];
+		var crcLo = decrypted[decrypted.length - 1];
+		var expected_le = crcLo | (crcHi << 8);
+		var expected_be = crcHi | (crcLo << 8);
 		var computed = crc16CcittFalse(body);
-		return computed === expected;
+		if (computed === expected_le) { giikerutil.log('[gan251cube] CRC OK: body(no-id) LE'); return true; }
+		if (computed === expected_be) { giikerutil.log('[gan251cube] CRC OK: body(no-id) BE'); return true; }
+		var bodyWithId = decrypted.slice(0, -2);
+		computed = crc16CcittFalse(bodyWithId);
+		if (computed === expected_le) { giikerutil.log('[gan251cube] CRC OK: body(+id) LE'); return true; }
+		if (computed === expected_be) { giikerutil.log('[gan251cube] CRC OK: body(+id) BE'); return true; }
+		return false;
 	}
 
 	function readBits(bytes, offset, length) {
@@ -251,6 +260,7 @@ execMain(function() {
 
 		if (!crcValid) {
 			giikerutil.log('[gan251cube] CRC validation failed');
+			return;
 		}
 
 		if (packetId === 0x01) {
