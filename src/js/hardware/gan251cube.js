@@ -244,11 +244,7 @@ execMain(function() {
 		for (var i = 0; i < 8; i++) {
 			cc.ca[i] = cornerPermutation[i] * 3 + cornerOrientation[i];
 		}
-		var f54 = cc.toFaceCube();
-		var idx222 = [0,2,6,8, 9,11,15,17, 18,20,24,26, 27,29,33,35, 36,38,42,44, 45,47,51,53];
-		var f24 = '';
-		for (var i = 0; i < 24; i++) f24 += f54[idx222[i]];
-		return f24;
+		return cc.toFaceCube();
 	}
 
 	function processDecryptedPacket(decrypted) {
@@ -398,7 +394,6 @@ execMain(function() {
 			_chrct_read.addEventListener('characteristicvaluechanged', onStateChanged);
 			cornerPermutation = [0, 1, 2, 3, 4, 5, 6, 7];
 			cornerOrientation = [0, 0, 0, 0, 0, 0, 0, 0];
-			kernel.setProp('scrType', '222so');
 			return Promise.resolve();
 		});
 	}
@@ -432,7 +427,7 @@ execMain(function() {
 		opservs: [SERVICE_UUID_DATA],
 		cics: GAN251_CIC_LIST,
 		getBatteryLevel: getBatteryLevel,
-		clear: clear
-		
+		clear: clear,
+		puzzleSize: 2
 	});
 });

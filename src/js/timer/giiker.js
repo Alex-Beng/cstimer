@@ -15,13 +15,16 @@ execMain(function(timer) {
 		var tmpCubie1 = new mathlib.CubieCube();
 		var puzzleObj;
 		var curOri = -1;
+		var cubeSize = 3;
 
 		function resetVRC(temp, force) {
 			if ((isReseted && !force) || !enableVRC) {
 				return;
 			}
+			var cubeModel = GiikerCube.getCube();
+			cubeSize = (cubeModel && cubeModel.puzzleSize) || 3;
 			var options = {
-				puzzle: "cube3",
+				puzzle: "cube" + cubeSize,
 				style: kernel.getProp('giiVRC')
 			};
 			puzzleFactory.init(options, $.noop, div, function(ret, isInit) {
@@ -59,6 +62,10 @@ execMain(function(timer) {
 		function setState(state, prevMoves, isFast) {
 			if (puzzleObj == undefined || !enableVRC) {
 				return;
+			}
+			if (cubeSize == 2) {
+				var idx222 = [0,2,6,8,9,11,15,17,18,20,24,26,27,29,33,35,36,38,42,44,45,47,51,53];
+				state = idx222.map(function(i) { return state[i]; }).join('');
 			}
 			tmpCubie1.fromFacelet(state);
 			var todoMoves = [];
