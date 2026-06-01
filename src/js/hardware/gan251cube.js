@@ -212,26 +212,30 @@ execMain(function() {
 	}
 
 	function decodeStatePacket(decrypted) {
-		if (decrypted.length < 18) {
+		if (decrypted.length < 14) {
 			return null;
 		}
 
 		var dataLength = decrypted[1];
-		var dataEnd = Math.min(2 + dataLength, decrypted.length - 2);
+		var dataEnd = Math.min(2 + dataLength, decrypted.length);
 		var cubiePayload = decrypted.slice(4, dataEnd);
 
 		var firstSevenCorners = [];
 		for (var i = 0; i < 7; i++) {
 			firstSevenCorners.push(readBits(cubiePayload, i * 3, 3));
 		}
-		
+
 		var cp = firstSevenCorners.slice();
 		cp.push(inferMissingCorner(firstSevenCorners));
 
 		var co = [];
-		for (var i = 0; i < 8; i++) {
-			co.push(readBits(cubiePayload, 21 + i * 2, 2) % 3);
+		for (var i = 0; i < 7; i++) {
+			co.push(readBits(cubiePayload, 21 + i * 2, 2));
 		}
+
+		var oriSum = 0;
+		for (var i = 0; i < 7; i++) oriSum += co[i];
+		co.push((3 - (oriSum % 3)) % 3);
 
 		return {
 			cornerPermutation: cp,
@@ -255,12 +259,11 @@ execMain(function() {
 		var packetId = decrypted[0];
 		var crcValid = validateCrc16(decrypted);
 
-		if (!crcValid) {
-			giikerutil.log('[gan251cube] CRC validation failed');
-			return;
-		}
-
 		if (packetId === 0x01) {
+			if (!crcValid) {
+				giikerutil.log('[gan251cube] CRC validation failed');
+				return;
+			}
 			var moveData = decodeMovePacket(decrypted);
 			if (moveData) {
 				giikerutil.log('[gan251cube] Move:', moveData.notation);
@@ -268,6 +271,9 @@ execMain(function() {
 				GiikerCube.callback(buildFacelet(), moveData.notation ? [moveData.notation] : [], [0, $.now()], deviceName);
 			}
 		} else if (packetId === 0xed) {
+			if (!crcValid) {
+				giikerutil.log('[gan251cube] CRC validation failed (state, processing anyway)');
+			}
 			var stateData = decodeStatePacket(decrypted);
 			if (stateData) {
 				giikerutil.log('[gan251cube] State update');
@@ -276,11 +282,17 @@ execMain(function() {
 				GiikerCube.callback(buildFacelet(), [], [0, $.now()], deviceName);
 			}
 		} else if (packetId === 0xef) {
+			if (!crcValid) {
+				giikerutil.log('[gan251cube] CRC validation failed');
+				return;
+			}
 			if (decrypted.length >= 3) {
 				batteryLevel = decrypted[1];
 				giikerutil.log('[gan251cube] Battery:', batteryLevel + '%');
 				giikerutil.updateBattery([batteryLevel, deviceName + '*']);
 			}
+		} else if (!crcValid) {
+			giikerutil.log('[gan251cube] CRC validation failed');
 		}
 	}
 

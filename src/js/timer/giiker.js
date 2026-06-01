@@ -18,11 +18,11 @@ execMain(function(timer) {
 		var cubeSize = 3;
 
 		function resetVRC(temp, force) {
+			var cubeModel = GiikerCube.getCube();
+			cubeSize = (cubeModel && cubeModel.puzzleSize) || 3;
 			if ((isReseted && !force) || !enableVRC) {
 				return;
 			}
-			var cubeModel = GiikerCube.getCube();
-			cubeSize = (cubeModel && cubeModel.puzzleSize) || 3;
 			var options = {
 				puzzle: "cube" + cubeSize,
 				style: kernel.getProp('giiVRC')
