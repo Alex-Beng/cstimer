@@ -2,7 +2,7 @@ name: Deploy to Github Pages
 
 on:
   push:
-    branches: ["**"]
+    branches: ["master", "moyu"]
 
   workflow_dispatch:
 
@@ -41,7 +41,7 @@ jobs:
       - name: Build all branches
         run: |
           mkdir -p dist/pages
-          BRANCHES=$(git branch -r | grep -v '\->' | sed 's|origin/||' | tr -d ' ')
+          BRANCHES="master moyu"
           for BRANCH in $BRANCHES; do
             echo "Building branch: $BRANCH"
             git checkout "$BRANCH"
