@@ -251,7 +251,6 @@ execMain(function() {
 
 		if (!crcValid) {
 			giikerutil.log('[gan251cube] CRC validation failed');
-			return;
 		}
 
 		if (packetId === 0x01) {
