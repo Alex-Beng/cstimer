@@ -67,6 +67,11 @@ execMain(function(timer) {
 			if (puzzleObj == undefined || !enableVRC) {
 				return;
 			}
+			var cubeModel = GiikerCube.getCube();
+			var curSize = (cubeModel && cubeModel.puzzleSize) || 3;
+			if (curSize != cubeSize) {
+				giikerVRC.resetVRC(true, true);
+			}
 			if (cubeSize == 2) {
 				var idx222 = [0,2,6,8,9,11,15,17,18,20,24,26,27,29,33,35,36,38,42,44,45,47,51,53];
 				state = idx222.map(function(i) { return state[i]; }).join('');

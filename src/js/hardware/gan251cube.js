@@ -217,7 +217,7 @@ execMain(function() {
 		}
 
 		var dataLength = decrypted[1];
-		var dataEnd = Math.min(4 + 12, decrypted.length);
+		var dataEnd = Math.min(2 + dataLength, decrypted.length);
 		var cubiePayload = decrypted.slice(4, dataEnd);
 
 		var firstSevenCorners = [];
