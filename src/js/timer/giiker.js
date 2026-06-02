@@ -75,8 +75,8 @@ execMain(function(timer) {
 				cubeSize = curSize;
 				isReseted = false;
 				resetVRC(true, true);
-				// puzzle re-initializing async. Skip this call, next one will work.
-				return;
+				// async re-init in progress. Continue processing to update curVRCCubie
+				// state tracking; visual update via puzzleObj is skipped below if stale.
 			}
 			tmpCubie1.fromFacelet(state);
 			var todoMoves = [];
