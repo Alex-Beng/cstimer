@@ -76,8 +76,6 @@ execMain(function(timer) {
 				return;
 			}
 			cubeSize = curSize;
-			// For 2x2, state is a 54-char facelet with edges in solved position.
-			// Keep it as-is for fromFacelet/genFacelet which expect 54-char facelets.
 			tmpCubie1.fromFacelet(state);
 			var todoMoves = [];
 			var shouldReset = true;

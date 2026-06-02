@@ -223,27 +223,53 @@ execMain(function() {
 		var dataEnd = Math.min(2 + dataLength, decrypted.length);
 		var cubiePayload = decrypted.slice(4, dataEnd);
 
+		// Corner permutation: 7 values × 3 bits, 8th inferred
 		var firstSevenCorners = [];
 		for (var i = 0; i < 7; i++) {
 			firstSevenCorners.push(readBits(cubiePayload, i * 3, 3));
 		}
-
 		var cp = firstSevenCorners.slice();
 		cp.push(inferMissingCorner(firstSevenCorners));
 
+		// Corner orientation: 8 values × 2 bits (firmware gives all 8 directly)
 		var co = [];
-		for (var i = 0; i < 7; i++) {
+		for (var i = 0; i < 8; i++) {
 			co.push(readBits(cubiePayload, 21 + i * 2, 2));
 		}
 
-		var oriSum = 0;
-		for (var i = 0; i < 7; i++) oriSum += co[i];
-		co.push((3 - (oriSum % 3)) % 3);
+		// Edge permutation: 11 values × 4 bits, 12th inferred
+		var firstElevenEdges = [];
+		for (var i = 0; i < 11; i++) {
+			firstElevenEdges.push(readBits(cubiePayload, 37 + i * 4, 4));
+		}
+		var ep = firstElevenEdges.slice();
+		ep.push(inferMissingEdge(firstElevenEdges));
+
+		// Edge orientation: 12 values × 1 bit
+		var eo = [];
+		for (var i = 0; i < 12; i++) {
+			eo.push(readBits(cubiePayload, 81 + i, 1));
+		}
 
 		return {
 			cornerPermutation: cp,
-			cornerOrientation: co
+			cornerOrientation: co,
+			edgePermutation: ep,
+			edgeOrientation: eo
 		};
+	}
+
+	function inferMissingEdge(firstEleven) {
+		var used = {};
+		for (var i = 0; i < firstEleven.length; i++) {
+			used[firstEleven[i]] = true;
+		}
+		for (var value = 0; value < 12; value++) {
+			if (!used[value]) {
+				return value;
+			}
+		}
+		return 11;
 	}
 
 	function buildFacelet() {
@@ -285,6 +311,8 @@ execMain(function() {
 				giikerutil.log('[gan251cube] State update');
 				cornerPermutation = stateData.cornerPermutation;
 				cornerOrientation = stateData.cornerOrientation;
+				edgePermutation = stateData.edgePermutation;
+				edgeOrientation = stateData.edgeOrientation;
 				GiikerCube.callback(buildFacelet(), [], [0, $.now()], deviceName);
 			}
 		} else if (packetId === 0xef) {
