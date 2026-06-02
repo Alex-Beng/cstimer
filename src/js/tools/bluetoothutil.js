@@ -374,9 +374,15 @@ var giikerutil = execMain(function(CubieCube) {
 		}
 		giikerutil.log('[btutil-cb] raw faceletLen:', facelet.length, 'prevMoves:', prevMoves.join(' '));
 		curRawState = facelet;
-		curRawCubie.fromFacelet(curRawState);
-		CubieCube.CubeMult(solvedStateInv, curRawCubie, curCubie);
-		curState = curCubie.toFaceCube();
+		var retFromFL = curRawCubie.fromFacelet(curRawState);
+		giikerutil.log('[btutil-cb] fromFacelet ret:', retFromFL, 'ca:', curRawCubie.ca.join(','), 'ea:', curRawCubie.ea.join(','));
+		if (retFromFL == -1) {
+			giikerutil.log('[btutil-cb] fromFacelet FAILED, using raw state as curState');
+			curState = facelet;
+		} else {
+			CubieCube.CubeMult(solvedStateInv, curRawCubie, curCubie);
+			curState = curCubie.toFaceCube();
+		}
 		giikerutil.log('[btutil-cb] curState:', curState);
 
 		if (prevMoves.length > 0) {
