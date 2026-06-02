@@ -153,6 +153,14 @@ var scrHinter = execMain(function(CubieCube) {
 		if (rawScrTxt == "") {
 			return false;
 		}
+		var cubeModel = GiikerCube.getCube();
+		if (cubeModel && cubeModel.puzzleSize == 2) {
+			// For 2x2, only compare corners (edge format differs)
+			for (var i = 0; i < 8; i++) {
+				if (scrState.ca[i] != curCubie.ca[i]) return false;
+			}
+			return true;
+		}
 		return scrState.isEqual(curCubie);
 	}
 
@@ -411,13 +419,7 @@ var giikerutil = execMain(function(CubieCube) {
 		} else {
 			var cubeModel = GiikerCube.getCube();
 			if (cubeModel && cubeModel.puzzleSize == 2) {
-				// 2x2: edges use different internal format between fromFacelet and CubeMult.
-				// Use CubeMult with identity inverse to unify format, matching scrState.
-				var tmpInv = new CubieCube();
-				var tmpSolv = new CubieCube();
-				tmpSolv.fromFacelet(mathlib.SOLVED_FACELET);
-				tmpInv.invFrom(tmpSolv);
-				CubieCube.CubeMult(tmpInv, curRawCubie, curCubie);
+				curCubie.init(curRawCubie.ca, curRawCubie.ea);
 				curState = curCubie.toFaceCube();
 			} else {
 				CubieCube.CubeMult(solvedStateInv, curRawCubie, curCubie);
