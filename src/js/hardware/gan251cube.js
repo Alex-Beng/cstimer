@@ -151,24 +151,24 @@ execMain(function() {
 		if (direction === 'unknown') {
 			return;
 		}
+		// Build CubieCube in CornMult format: ca = cp | (co << 3), ea = ep | (eo << 4)
 		var cc = new mathlib.CubieCube();
 		for (var i = 0; i < 8; i++) {
-			cc.ca[i] = cornerPermutation[i] * 3 + cornerOrientation[i];
+			cc.ca[i] = cornerPermutation[i] | (cornerOrientation[i] << 3);
 		}
 		for (var i = 0; i < 12; i++) {
-			cc.ea[i] = edgePermutation[i] << 1 | edgeOrientation[i];
+			cc.ea[i] = edgePermutation[i] | (edgeOrientation[i] << 4);
 		}
-		// selfMoveStr handles the internal encoding correctly.
-		// Suffix already encodes direction: 'U ' (cw), "U'" (ccw), 'U2' (double).
 		var moveStr = face + (direction === 'counterclockwise' ? "'" : direction === 'double' ? '2' : ' ');
 		cc.selfMoveStr(moveStr);
+		// Extract back from CornMult format
 		for (var i = 0; i < 8; i++) {
-			cornerPermutation[i] = (cc.ca[i] / 3) | 0;
-			cornerOrientation[i] = cc.ca[i] % 3;
+			cornerPermutation[i] = cc.ca[i] & 7;
+			cornerOrientation[i] = cc.ca[i] >> 3;
 		}
 		for (var i = 0; i < 12; i++) {
-			edgePermutation[i] = cc.ea[i] >> 1;
-			edgeOrientation[i] = cc.ea[i] & 1;
+			edgePermutation[i] = cc.ea[i] & 15;
+			edgeOrientation[i] = cc.ea[i] >> 4;
 		}
 	}
 
