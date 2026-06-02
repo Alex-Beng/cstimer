@@ -169,7 +169,7 @@ execMain(function() {
 		var turns = direction === 'clockwise' ? 1 : direction === 'double' ? 2 : 3;
 		for (var t = 0; t < turns; t++) {
 			// moveCube index: axis*3 for clockwise (double=axis*3+1, ccw=axis*3+2)
-			CubieCube.CubeMult(cc, mathlib.CubieCube.moveCube[axis * 3], cc);
+			mathlib.CubieCube.CubeMult(cc, mathlib.CubieCube.moveCube[axis * 3], cc);
 		}
 		// Extract back
 		for (var i = 0; i < 8; i++) {

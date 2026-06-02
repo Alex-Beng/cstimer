@@ -372,10 +372,12 @@ var giikerutil = execMain(function(CubieCube) {
 			deviceName = hardware;
 			renderStatus();
 		}
+		giikerutil.log('[btutil-cb] raw faceletLen:', facelet.length, 'prevMoves:', prevMoves.join(' '));
 		curRawState = facelet;
 		curRawCubie.fromFacelet(curRawState);
 		CubieCube.CubeMult(solvedStateInv, curRawCubie, curCubie);
 		curState = curCubie.toFaceCube();
+		giikerutil.log('[btutil-cb] curState:', curState);
 
 		if (prevMoves.length > 0) {
 			var move = "URFDLB".indexOf(prevMoves[0][0]) * 3 + " 2'".indexOf(prevMoves[0][1]);
@@ -400,6 +402,7 @@ var giikerutil = execMain(function(CubieCube) {
 			CubieCube.CubeMult(hackedSolvedCubieInv, curCubie, hackedCubie);
 			retState = hackedCubie.toFaceCube();
 		}
+		giikerutil.log('[btutil-cb] -> callback retState:', retState);
 		callback(retState, prevMoves, lastTs);
 		scrHinter.checkState(curCubie);
 	}
