@@ -73,7 +73,7 @@ var scrHinter = execMain(function(CubieCube) {
 
 	function checkState(state) {
 		if (!rawScrTxt || !GiikerCube.isConnected()
-				|| tools.getCurPuzzle() != '333' || timer.getCurTime() != 0 || timer.status() > 0) {
+				|| timer.getCurTime() != 0 || timer.status() > 0) {
 			return;
 		}
 		var toMoveFix = null;
@@ -607,9 +607,6 @@ var giikerutil = execMain(function(CubieCube) {
 		} else if (signal == 'scramble' || signal == 'scrambleX') {
 			var scrType = value[0];
 			curScramble = value[1];
-			if (tools.puzzleType(scrType) != '333') {
-				curScramble = "";
-			}
 			scrHinter.setScramble(curScramble);
 			scrHinter.checkState(curCubie);
 		} else if (signal == 'property') {
