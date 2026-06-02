@@ -66,18 +66,24 @@ execMain(function(timer) {
 		function setState(state, prevMoves, isFast) {
 			giikerutil.log('[vrc-setState] stateLen:', state.length, 'moves:', prevMoves.join(' '), 'puzzleObj:', !!puzzleObj, 'vrc:', enableVRC);
 			if (puzzleObj == undefined || !enableVRC) {
-				giikerutil.log('[vrc-setState] SKIP: puzzleObj:', !!puzzleObj, 'enableVRC:', enableVRC);
+				var hadPuzzle = !!puzzleObj;
+				giikerutil.log('[vrc-setState] SKIP: puzzleObj:', hadPuzzle, 'enableVRC:', enableVRC);
+				if (!hadPuzzle && enableVRC) {
+					// puzzle not yet initialized (async resetVRC still pending).
+					// Defer to next call - move tracking will catch up via prevMoves.
+					return;
+				}
 				return;
 			}
 			var cubeModel = GiikerCube.getCube();
 			var curSize = (cubeModel && cubeModel.puzzleSize) || 3;
-			if (curSize != cubeSize && curSize == 2) {
+			if (curSize != cubeSize) {
 				cubeSize = curSize;
 				isReseted = false;
 				resetVRC(true, true);
+				// puzzle re-initializing async. Skip this call, next one will work.
 				return;
 			}
-			cubeSize = curSize;
 			tmpCubie1.fromFacelet(state);
 			var todoMoves = [];
 			var shouldReset = true;
