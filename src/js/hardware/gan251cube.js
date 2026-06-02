@@ -147,12 +147,12 @@ execMain(function() {
 		return 7;
 	}
 
-	var AXIS_MAP = {'U': 0, 'R': 1, 'F': 2, 'D': 3, 'L': 4, 'B': 5};
-
 	function applyMove(face, direction) {
 		if (direction === 'unknown') {
 			return;
 		}
+		var turns = direction === 'clockwise' ? 1 : direction === 'double' ? 2 : direction === 'counterclockwise' ? 3 : 0;
+		// Use CubieCube selfMoveStr which correctly handles the internal encoding format
 		var cc = new mathlib.CubieCube();
 		for (var i = 0; i < 8; i++) {
 			cc.ca[i] = cornerPermutation[i] * 3 + cornerOrientation[i];
@@ -160,15 +160,13 @@ execMain(function() {
 		for (var i = 0; i < 12; i++) {
 			cc.ea[i] = edgePermutation[i] << 1 | edgeOrientation[i];
 		}
-		var axis = AXIS_MAP[face];
-		if (axis === undefined) {
-			return;
+		var moveStr = face + (direction === 'counterclockwise' ? "'" : direction === 'double' ? '2' : '');
+		// selfMoveStr expects move strings with explicit suffix; clockwise = face + space
+		if (direction === 'clockwise') {
+			moveStr = face + ' ';
 		}
-		var turns = direction === 'clockwise' ? 1 : direction === 'double' ? 2 : 3;
-		var tmp = new mathlib.CubieCube();
 		for (var t = 0; t < turns; t++) {
-			mathlib.CubieCube.CubeMult(cc, mathlib.CubieCube.moveCube[axis * 3], tmp);
-			cc.init(tmp.ca, tmp.ea);
+			cc.selfMoveStr(moveStr);
 		}
 		for (var i = 0; i < 8; i++) {
 			cornerPermutation[i] = (cc.ca[i] / 3) | 0;
