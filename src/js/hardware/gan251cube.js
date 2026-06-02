@@ -223,53 +223,24 @@ execMain(function() {
 		var dataEnd = Math.min(2 + dataLength, decrypted.length);
 		var cubiePayload = decrypted.slice(4, dataEnd);
 
-		// Corner permutation: 7 values × 3 bits, 8th inferred
 		var firstSevenCorners = [];
 		for (var i = 0; i < 7; i++) {
 			firstSevenCorners.push(readBits(cubiePayload, i * 3, 3));
 		}
+
 		var cp = firstSevenCorners.slice();
 		cp.push(inferMissingCorner(firstSevenCorners));
 
-		// Corner orientation: 8 values × 2 bits (firmware gives all 8 directly)
+		// Hardware writes 8 co values (16 bits) like the emulator
 		var co = [];
 		for (var i = 0; i < 8; i++) {
 			co.push(readBits(cubiePayload, 21 + i * 2, 2));
 		}
 
-		// Edge permutation: 11 values × 4 bits, 12th inferred
-		var firstElevenEdges = [];
-		for (var i = 0; i < 11; i++) {
-			firstElevenEdges.push(readBits(cubiePayload, 37 + i * 4, 4));
-		}
-		var ep = firstElevenEdges.slice();
-		ep.push(inferMissingEdge(firstElevenEdges));
-
-		// Edge orientation: 12 values × 1 bit
-		var eo = [];
-		for (var i = 0; i < 12; i++) {
-			eo.push(readBits(cubiePayload, 81 + i, 1));
-		}
-
 		return {
 			cornerPermutation: cp,
-			cornerOrientation: co,
-			edgePermutation: ep,
-			edgeOrientation: eo
+			cornerOrientation: co
 		};
-	}
-
-	function inferMissingEdge(firstEleven) {
-		var used = {};
-		for (var i = 0; i < firstEleven.length; i++) {
-			used[firstEleven[i]] = true;
-		}
-		for (var value = 0; value < 12; value++) {
-			if (!used[value]) {
-				return value;
-			}
-		}
-		return 11;
 	}
 
 	function buildFacelet() {
@@ -279,6 +250,18 @@ execMain(function() {
 		}
 		for (var i = 0; i < 12; i++) {
 			cc.ea[i] = edgePermutation[i] << 1 | edgeOrientation[i];
+		}
+		// Fix parity: edges may be out of sync with corners (e.g. after
+		// state packet resets corners but edges continue from move tracking).
+		// Swap two edges if parity differs to make facelet valid for 3x3 solver.
+		var cpArr = [];
+		var epArr = [];
+		for (var i = 0; i < 8; i++) cpArr[i] = cc.ca[i] & 0x7;
+		for (var i = 0; i < 12; i++) epArr[i] = cc.ea[i] >> 1;
+		if (mathlib.getNParity(cpArr, 8) != mathlib.getNParity(epArr, 12)) {
+			var tmp = cc.ea[0];
+			cc.ea[0] = cc.ea[1];
+			cc.ea[1] = tmp;
 		}
 		return cc.toFaceCube();
 	}
@@ -311,9 +294,7 @@ execMain(function() {
 				giikerutil.log('[gan251cube] State update');
 				cornerPermutation = stateData.cornerPermutation;
 				cornerOrientation = stateData.cornerOrientation;
-				edgePermutation = stateData.edgePermutation;
-				edgeOrientation = stateData.edgeOrientation;
-				giikerutil.log('[gan251cube] cp:', cornerPermutation.join(','), 'co:', cornerOrientation.join(','), 'ep:', edgePermutation.join(','), 'eo:', edgeOrientation.join(','));
+				giikerutil.log('[gan251cube] cp:', cornerPermutation.join(','), 'co:', cornerOrientation.join(','));
 				var fl = buildFacelet();
 				giikerutil.log('[gan251cube] facelet:', fl);
 				GiikerCube.callback(fl, [], [0, $.now()], deviceName);
