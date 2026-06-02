@@ -313,7 +313,10 @@ execMain(function() {
 				cornerOrientation = stateData.cornerOrientation;
 				edgePermutation = stateData.edgePermutation;
 				edgeOrientation = stateData.edgeOrientation;
-				GiikerCube.callback(buildFacelet(), [], [0, $.now()], deviceName);
+				giikerutil.log('[gan251cube] cp:', cornerPermutation.join(','), 'co:', cornerOrientation.join(','), 'ep:', edgePermutation.join(','), 'eo:', edgeOrientation.join(','));
+				var fl = buildFacelet();
+				giikerutil.log('[gan251cube] facelet:', fl);
+				GiikerCube.callback(fl, [], [0, $.now()], deviceName);
 			}
 		} else if (packetId === 0xef) {
 			if (!crcValid) {

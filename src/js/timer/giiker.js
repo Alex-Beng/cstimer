@@ -64,7 +64,9 @@ execMain(function(timer) {
 		}
 
 		function setState(state, prevMoves, isFast) {
+			giikerutil.log('[vrc-setState] stateLen:', state.length, 'moves:', prevMoves.join(' '), 'puzzleObj:', !!puzzleObj, 'vrc:', enableVRC);
 			if (puzzleObj == undefined || !enableVRC) {
+				giikerutil.log('[vrc-setState] SKIP: puzzleObj:', !!puzzleObj, 'enableVRC:', enableVRC);
 				return;
 			}
 			var cubeModel = GiikerCube.getCube();
@@ -88,9 +90,11 @@ execMain(function(timer) {
 				}
 			}
 			if (shouldReset) { //cannot get current state according to prevMoves
+				giikerutil.log('[vrc-setState] shouldReset->genFacelet, stateLen:', state.length);
 				resetVRC(false);
 				curVRCCubie.fromFacelet(mathlib.SOLVED_FACELET);
 				todoMoves = scramble_333.genFacelet(state);
+				giikerutil.log('[vrc-setState] genFacelet:', todoMoves ? todoMoves.substring(0, 50) : 'null');
 			} else {
 				todoMoves = todoMoves.reverse().join(' ');
 			}
@@ -101,8 +105,10 @@ execMain(function(timer) {
 				scramble = puzzleObj.parseScramble(cubeutil.getConjMoves(todoMoves, true, curVRCCubie.ori));
 			}
 			if (scramble.length < 5) {
+				giikerutil.log('[vrc-setState] addMoves:', scramble.length);
 				puzzleObj.addMoves(scramble);
 			} else {
+				giikerutil.log('[vrc-setState] applyMoves:', scramble.length);
 				puzzleObj.applyMoves(scramble);
 			}
 			isReseted = false;
@@ -142,14 +148,19 @@ execMain(function(timer) {
 	}
 
 	function giikerCallback(facelet, prevMoves, lastTs) {
+		giikerutil.log('[giiker-cb] enable:', enable, 'vrc:', enableVRC, 'faceletLen:', facelet.length, 'moves:', prevMoves.join(' '));
 		var locTime = lastTs[1] || $.now();
 		var prevFacelet = currentFacelet;
 		currentFacelet = facelet;
 		if (!enable) {
+			giikerutil.log('[giiker-cb] enable is false, skip');
 			return;
 		}
 		if (enableVRC) {
+			giikerutil.log('[giiker-cb] calling setState, puzzleObj:', !!puzzleObj);
 			giikerVRC.setState(facelet, prevMoves, false);
+		} else {
+			giikerutil.log('[giiker-cb] enableVRC is false, skip VRC');
 		}
 		clearReadyTid();
 		var solvingMethod = kernel.getProp('vrcMP', 'n');
