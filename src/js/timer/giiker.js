@@ -64,15 +64,9 @@ execMain(function(timer) {
 		}
 
 		function setState(state, prevMoves, isFast) {
-			giikerutil.log('[vrc-setState] stateLen:', state.length, 'moves:', prevMoves.join(' '), 'puzzleObj:', !!puzzleObj, 'vrc:', enableVRC);
+			giikerutil.log('[vrc-setState] in, pzOk:', puzzleObj != undefined, 'vrc:', enableVRC);
 			if (puzzleObj == undefined || !enableVRC) {
-				var hadPuzzle = !!puzzleObj;
-				giikerutil.log('[vrc-setState] SKIP: puzzleObj:', hadPuzzle, 'enableVRC:', enableVRC);
-				if (!hadPuzzle && enableVRC) {
-					// puzzle not yet initialized (async resetVRC still pending).
-					// Defer to next call - move tracking will catch up via prevMoves.
-					return;
-				}
+				giikerutil.log('[vrc-setState] SKIP');
 				return;
 			}
 			var cubeModel = GiikerCube.getCube();
@@ -163,7 +157,7 @@ execMain(function(timer) {
 			return;
 		}
 		if (enableVRC) {
-			giikerutil.log('[giiker-cb] calling setState, puzzleObj:', !!puzzleObj);
+			giikerutil.log('[giiker-cb] calling setState, facelets:', facelet);
 			giikerVRC.setState(facelet, prevMoves, false);
 		} else {
 			giikerutil.log('[giiker-cb] enableVRC is false, skip VRC');
