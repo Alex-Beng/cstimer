@@ -244,48 +244,37 @@ execMain(function() {
 	}
 
 	function buildFacelet() {
-		// Corner facelet indices in 54-char URFDLB layout
-		var C_FACELET = [
-			[8, 9, 20], [6, 18, 38], [0, 36, 47], [2, 45, 11],
-			[29, 26, 15], [27, 44, 24], [33, 53, 42], [35, 17, 51]
-		];
-		// Edge facelet indices
-		var E_FACELET = [
-			[5, 10], [7, 19], [3, 37], [1, 46],
-			[32, 16], [28, 25], [30, 43], [34, 52],
-			[23, 12], [21, 41], [50, 39], [48, 14]
-		];
-		// Standard colors U=0,R=1,F=2,D=3,L=4,B=5
-		var CORNER_COLORS = [
-			[0, 1, 2], [0, 2, 4], [0, 4, 5], [0, 5, 1],
-			[3, 2, 1], [3, 4, 2], [3, 5, 4], [3, 1, 5]
-		];
-		var EDGE_COLORS = [
-			[0, 1], [0, 2], [0, 4], [0, 5],
-			[3, 1], [3, 2], [3, 4], [3, 5],
-			[2, 1], [2, 4], [5, 4], [5, 1]
-		];
-		var f = mathlib.SOLVED_FACELET.split('');
+		var C_FACELET = [[8,9,20],[6,18,38],[0,36,47],[2,45,11],[29,26,15],[27,44,24],[33,53,42],[35,17,51]];
+		var E_FACELET = [[5,10],[7,19],[3,37],[1,46],[32,16],[28,25],[30,43],[34,52],[23,12],[21,41],[50,39],[48,14]];
+		var C_COLOR = [[0,1,2],[0,2,4],[0,4,5],[0,5,1],[3,2,1],[3,4,2],[3,5,4],[3,1,5]];
+		var E_COLOR = [[0,1],[0,2],[0,4],[0,5],[3,1],[3,2],[3,4],[3,5],[2,1],[2,4],[5,4],[5,1]];
 		var cols = 'URFDLB';
+		// Start with solved facelet (centers + edges correct), overwrite corners only
+		var f = mathlib.SOLVED_FACELET.split('');
+		// Match emulator: f[C_FACELET[i][(k+ori)%3]] = cols[C_COLOR[j][k]]
 		for (var i = 0; i < 8; i++) {
 			var j = cornerPermutation[i];
 			var o = cornerOrientation[i];
-			var fp = C_FACELET[i];
-			var cl = CORNER_COLORS[j];
 			for (var k = 0; k < 3; k++) {
-				f[fp[k]] = cols.charAt(cl[(k - o + 3) % 3]);
+				f[C_FACELET[i][(k + o) % 3]] = cols.charAt(C_COLOR[j][k]);
 			}
 		}
+		// Edges from tracked state
 		for (var i = 0; i < 12; i++) {
 			var j = edgePermutation[i];
 			var o = edgeOrientation[i];
-			var fp = E_FACELET[i];
-			var cl = EDGE_COLORS[j];
 			for (var k = 0; k < 2; k++) {
-				f[fp[k]] = cols.charAt(cl[k ^ o]);
+				f[E_FACELET[i][(k + o) % 2]] = cols.charAt(E_COLOR[j][k]);
 			}
 		}
-		return f.join('');
+		var result = f.join('');
+		// Verify
+		var cnts = {};
+		for (var c = 0; c < 54; c++) { var ch = result.charAt(c); cnts[ch] = (cnts[ch] || 0) + 1; }
+		if (cnts.U != 9 || cnts.R != 9 || cnts.F != 9 || cnts.D != 9 || cnts.L != 9 || cnts.B != 9) {
+			giikerutil.log('[gan251cube] BAD facelet:', JSON.stringify(cnts));
+		}
+		return result;
 	}
 
 	function processDecryptedPacket(decrypted) {
