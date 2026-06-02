@@ -380,8 +380,15 @@ var giikerutil = execMain(function(CubieCube) {
 			giikerutil.log('[btutil-cb] fromFacelet FAILED, using raw state as curState');
 			curState = facelet;
 		} else {
-			CubieCube.CubeMult(solvedStateInv, curRawCubie, curCubie);
-			curState = curCubie.toFaceCube();
+			var cubeModel = GiikerCube.getCube();
+			if (cubeModel && cubeModel.puzzleSize == 2) {
+				// 2x2 cube: solved state orientation from 3x3 cubes is irrelevant
+				curCubie.init(curRawCubie.ca, curRawCubie.ea);
+				curState = curCubie.toFaceCube();
+			} else {
+				CubieCube.CubeMult(solvedStateInv, curRawCubie, curCubie);
+				curState = curCubie.toFaceCube();
+			}
 		}
 		giikerutil.log('[btutil-cb] curState:', curState);
 
@@ -558,7 +565,7 @@ var giikerutil = execMain(function(CubieCube) {
 
 	function init() {
 		cleanup();
-		curRawState = kernel.getProp('giiSolved', mathlib.SOLVED_FACELET);
+		curRawState = kernel.getProp('giiSolved', mathlib.SOLVED_FACELET) || mathlib.SOLVED_FACELET;
 		curRawCubie.fromFacelet(curRawState);
 		solvedStateInv.invFrom(curRawCubie);
 		GiikerCube.setCallback(giikerCallback);
