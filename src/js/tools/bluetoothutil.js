@@ -10,18 +10,15 @@ var scrHinter = execMain(function(CubieCube) {
 
 	function setScramble(scramble) {
 		rawScrTxt = scramble;
-		giikerutil.log('[setScramble] raw:', scramble ? scramble.substring(0, 50) : 'null');
 		scramble = cubeutil.getConjMoves(scramble);
 		var scr = cubeutil.parseScramble(scramble, "URFDLB");
 		rawScr = scr.slice();
 		genState = null;
 		genScr = null;
 		scrState = new CubieCube();
-		scrState.fromFacelet(mathlib.SOLVED_FACELET);
 		for (var i = 0; i < scr.length; i++) {
 			scrState.selfMoveStr(scr[i]);
 		}
-		giikerutil.log('[setScramble] scrState.ca:', scrState.ca.join(','));
 	}
 
 	function checkInSeq(state, gen, seq) {
@@ -149,30 +146,9 @@ var scrHinter = execMain(function(CubieCube) {
 
 	function checkScramble(curCubie) {
 		if (rawScrTxt == "") {
-			giikerutil.log('[scrCheck] rawScrTxt empty');
 			return false;
 		}
-		var cubeModel = GiikerCube.getCube();
-		if (cubeModel && cubeModel.puzzleSize == 2) {
-			var ccA = new CubieCube();
-			var ccB = new CubieCube();
-			var flA = scrState.toFaceCube();
-			var flB = curCubie.toFaceCube();
-			giikerutil.log('[scrCheck] scrFL:', flA.substring(0,30), 'curFL:', flB.substring(0,30));
-			ccA.fromFacelet(flA);
-			ccB.fromFacelet(flB);
-			giikerutil.log('[scrCheck] scrCA:', ccA.ca.join(','), 'curCA:', ccB.ca.join(','));
-			giikerutil.log('[scrCheck] scrEA:', ccA.ea.join(','), 'curEA:', ccB.ea.join(','));
-			for (var i = 0; i < 8; i++) {
-				if (ccA.ca[i] != ccB.ca[i]) {
-					giikerutil.log('[scrCheck] mismatch at', i, 'scr:', ccA.ca[i], 'cur:', ccB.ca[i]);
-					return false;
-				}
-			}
-			giikerutil.log('[scrCheck] MATCH');
-			return true;
-		}
-		return scrState.isEqual(curCubie);
+		return scrState.toFaceCube() == curCubie.toFaceCube();
 	}
 
 	function getScrCubie() {
@@ -643,7 +619,9 @@ var giikerutil = execMain(function(CubieCube) {
 	}
 
 	function checkScramble() {
-		return scrHinter.checkScramble(curCubie);
+		var ok = scrHinter.checkScramble(curCubie);
+		giikerutil.log('[chkScr] ok:', ok, 'curFL:', curCubie.toFaceCube().substring(0, 20));
+		return ok;
 	}
 
 	var curScramble;

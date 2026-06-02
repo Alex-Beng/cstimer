@@ -170,7 +170,7 @@ execMain(function(timer) {
 				if (delayStart == 's') {
 					//according to scramble
 					var csOk = giikerutil.checkScramble();
-					giikerutil.log('[giiker-cb] checkScramble:', csOk, 'facelet:', currentFacelet.substring(0,30));
+					giikerutil.log('[giiker-cb] checkScramble:', csOk);
 					if (csOk) {
 						markScrambled(locTime);
 					}
