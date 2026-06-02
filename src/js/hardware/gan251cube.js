@@ -153,7 +153,6 @@ execMain(function() {
 		if (direction === 'unknown') {
 			return;
 		}
-		// Build a CubieCube from current corner+edge state
 		var cc = new mathlib.CubieCube();
 		for (var i = 0; i < 8; i++) {
 			cc.ca[i] = cornerPermutation[i] * 3 + cornerOrientation[i];
@@ -161,17 +160,16 @@ execMain(function() {
 		for (var i = 0; i < 12; i++) {
 			cc.ea[i] = edgePermutation[i] << 1 | edgeOrientation[i];
 		}
-		// Apply move(s) using the standard CubieCube move table
 		var axis = AXIS_MAP[face];
 		if (axis === undefined) {
 			return;
 		}
 		var turns = direction === 'clockwise' ? 1 : direction === 'double' ? 2 : 3;
+		var tmp = new mathlib.CubieCube();
 		for (var t = 0; t < turns; t++) {
-			// moveCube index: axis*3 for clockwise (double=axis*3+1, ccw=axis*3+2)
-			mathlib.CubieCube.CubeMult(cc, mathlib.CubieCube.moveCube[axis * 3], cc);
+			mathlib.CubieCube.CubeMult(cc, mathlib.CubieCube.moveCube[axis * 3], tmp);
+			cc.init(tmp.ca, tmp.ea);
 		}
-		// Extract back
 		for (var i = 0; i < 8; i++) {
 			cornerPermutation[i] = (cc.ca[i] / 3) | 0;
 			cornerOrientation[i] = cc.ca[i] % 3;
