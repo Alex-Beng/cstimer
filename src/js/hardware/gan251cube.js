@@ -243,27 +243,46 @@ execMain(function() {
 		};
 	}
 
+	// Corner colors: U=0,R=1,F=2,D=3,L=4,B=5
+	var CORNER_COLORS = [
+		[0, 1, 2], // 0: URF
+		[0, 2, 4], // 1: UFL
+		[0, 4, 5], // 2: ULB
+		[0, 5, 1], // 3: UBR
+		[3, 2, 1], // 4: DFR
+		[3, 4, 2], // 5: DLF
+		[3, 5, 4], // 6: DBL
+		[3, 1, 5]  // 7: DRB
+	];
+
+	// Corner facelet indices in the 54-char string (URFDLB order)
+	var C_FACELET = [
+		[8, 9, 20],   // 0: URF
+		[6, 18, 38],  // 1: UFL
+		[0, 36, 47],  // 2: ULB
+		[2, 45, 11],  // 3: UBR
+		[29, 26, 15], // 4: DFR
+		[27, 44, 24], // 5: DLF
+		[33, 53, 42], // 6: DBL
+		[35, 17, 51]  // 7: DRB
+	];
+
 	function buildFacelet() {
-		var cc = new mathlib.CubieCube();
+		// Start with solved facelet (edges and centers correct)
+		var f = mathlib.SOLVED_FACELET.split('');
+		var cols = 'URFDLB';
+		// Overwrite only the 24 corner stickers with actual corner state
 		for (var i = 0; i < 8; i++) {
-			cc.ca[i] = cornerPermutation[i] * 3 + cornerOrientation[i];
+			var j = cornerPermutation[i];        // which corner cubie is at position i
+			var o = cornerOrientation[i];        // its twist
+			var faceletPos = C_FACELET[i];       // facelet indices for position i
+			var colors = CORNER_COLORS[j];       // standard colors of cubie j
+			for (var k = 0; k < 3; k++) {
+				// Color at facelet[k] = colors[(k - o + 3) % 3]
+				f[faceletPos[k]] = cols.charAt(colors[(k - o + 3) % 3]);
+			}
 		}
-		for (var i = 0; i < 12; i++) {
-			cc.ea[i] = edgePermutation[i] << 1 | edgeOrientation[i];
-		}
-		// Fix parity: edges may be out of sync with corners (e.g. after
-		// state packet resets corners but edges continue from move tracking).
-		// Swap two edges if parity differs to make facelet valid for 3x3 solver.
-		var cpArr = [];
-		var epArr = [];
-		for (var i = 0; i < 8; i++) cpArr[i] = cc.ca[i] & 0x7;
-		for (var i = 0; i < 12; i++) epArr[i] = cc.ea[i] >> 1;
-		if (mathlib.getNParity(cpArr, 8) != mathlib.getNParity(epArr, 12)) {
-			var tmp = cc.ea[0];
-			cc.ea[0] = cc.ea[1];
-			cc.ea[1] = tmp;
-		}
-		return cc.toFaceCube();
+		return f.join('');
 	}
 
 	function processDecryptedPacket(decrypted) {
