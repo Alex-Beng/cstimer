@@ -147,6 +147,8 @@ execMain(function() {
 		return 7;
 	}
 
+	var AXIS_MAP = {'U': 0, 'R': 1, 'F': 2, 'D': 3, 'L': 4, 'B': 5};
+
 	function applyMove(face, direction) {
 		if (direction === 'unknown') {
 			return;
@@ -160,10 +162,14 @@ execMain(function() {
 			cc.ea[i] = edgePermutation[i] << 1 | edgeOrientation[i];
 		}
 		// Apply move(s) using the standard CubieCube move table
+		var axis = AXIS_MAP[face];
+		if (axis === undefined) {
+			return;
+		}
 		var turns = direction === 'clockwise' ? 1 : direction === 'double' ? 2 : 3;
-		var moveStr = face + (direction === 'counterclockwise' ? "'" : direction === 'double' ? '2' : '');
 		for (var t = 0; t < turns; t++) {
-			cc.selfMoveStr(moveStr);
+			// moveCube index: axis*3 for clockwise (double=axis*3+1, ccw=axis*3+2)
+			CubieCube.CubeMult(cc, mathlib.CubieCube.moveCube[axis * 3], cc);
 		}
 		// Extract back
 		for (var i = 0; i < 8; i++) {
