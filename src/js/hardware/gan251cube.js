@@ -243,42 +243,46 @@ execMain(function() {
 		};
 	}
 
-	// Edge colors: UR, UF, UL, UB, DR, DF, DL, DB, FR, FL, BL, BR
-	var EDGE_COLORS = [
-		[0, 1], [0, 2], [0, 4], [0, 5],
-		[3, 1], [3, 2], [3, 4], [3, 5],
-		[2, 1], [2, 4], [5, 4], [5, 1]
-	];
-
-	// Edge facelet indices in the 54-char string
-	var E_FACELET = [
-		[5, 10], [7, 19], [3, 37], [1, 46],
-		[32, 16], [28, 25], [30, 43], [34, 52],
-		[23, 12], [21, 41], [50, 39], [48, 14]
-	];
-
 	function buildFacelet() {
-		// Start with solved facelet (centers and unused stickers correct)
+		// Corner facelet indices in 54-char URFDLB layout
+		var C_FACELET = [
+			[8, 9, 20], [6, 18, 38], [0, 36, 47], [2, 45, 11],
+			[29, 26, 15], [27, 44, 24], [33, 53, 42], [35, 17, 51]
+		];
+		// Edge facelet indices
+		var E_FACELET = [
+			[5, 10], [7, 19], [3, 37], [1, 46],
+			[32, 16], [28, 25], [30, 43], [34, 52],
+			[23, 12], [21, 41], [50, 39], [48, 14]
+		];
+		// Standard colors U=0,R=1,F=2,D=3,L=4,B=5
+		var CORNER_COLORS = [
+			[0, 1, 2], [0, 2, 4], [0, 4, 5], [0, 5, 1],
+			[3, 2, 1], [3, 4, 2], [3, 5, 4], [3, 1, 5]
+		];
+		var EDGE_COLORS = [
+			[0, 1], [0, 2], [0, 4], [0, 5],
+			[3, 1], [3, 2], [3, 4], [3, 5],
+			[2, 1], [2, 4], [5, 4], [5, 1]
+		];
 		var f = mathlib.SOLVED_FACELET.split('');
 		var cols = 'URFDLB';
-		// Overwrite 24 corner stickers
 		for (var i = 0; i < 8; i++) {
 			var j = cornerPermutation[i];
 			var o = cornerOrientation[i];
-			var faceletPos = C_FACELET[i];
-			var colors = CORNER_COLORS[j];
+			var fp = C_FACELET[i];
+			var cl = CORNER_COLORS[j];
 			for (var k = 0; k < 3; k++) {
-				f[faceletPos[k]] = cols.charAt(colors[(k - o + 3) % 3]);
+				f[fp[k]] = cols.charAt(cl[(k - o + 3) % 3]);
 			}
 		}
-		// Overwrite 24 edge stickers
 		for (var i = 0; i < 12; i++) {
 			var j = edgePermutation[i];
 			var o = edgeOrientation[i];
-			var faceletPos = E_FACELET[i];
-			var colors = EDGE_COLORS[j];
+			var fp = E_FACELET[i];
+			var cl = EDGE_COLORS[j];
 			for (var k = 0; k < 2; k++) {
-				f[faceletPos[k]] = cols.charAt(colors[k ^ o]);
+				f[fp[k]] = cols.charAt(cl[k ^ o]);
 			}
 		}
 		return f.join('');
