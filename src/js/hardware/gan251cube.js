@@ -243,43 +243,42 @@ execMain(function() {
 		};
 	}
 
-	// Corner colors: U=0,R=1,F=2,D=3,L=4,B=5
-	var CORNER_COLORS = [
-		[0, 1, 2], // 0: URF
-		[0, 2, 4], // 1: UFL
-		[0, 4, 5], // 2: ULB
-		[0, 5, 1], // 3: UBR
-		[3, 2, 1], // 4: DFR
-		[3, 4, 2], // 5: DLF
-		[3, 5, 4], // 6: DBL
-		[3, 1, 5]  // 7: DRB
+	// Edge colors: UR, UF, UL, UB, DR, DF, DL, DB, FR, FL, BL, BR
+	var EDGE_COLORS = [
+		[0, 1], [0, 2], [0, 4], [0, 5],
+		[3, 1], [3, 2], [3, 4], [3, 5],
+		[2, 1], [2, 4], [5, 4], [5, 1]
 	];
 
-	// Corner facelet indices in the 54-char string (URFDLB order)
-	var C_FACELET = [
-		[8, 9, 20],   // 0: URF
-		[6, 18, 38],  // 1: UFL
-		[0, 36, 47],  // 2: ULB
-		[2, 45, 11],  // 3: UBR
-		[29, 26, 15], // 4: DFR
-		[27, 44, 24], // 5: DLF
-		[33, 53, 42], // 6: DBL
-		[35, 17, 51]  // 7: DRB
+	// Edge facelet indices in the 54-char string
+	var E_FACELET = [
+		[5, 10], [7, 19], [3, 37], [1, 46],
+		[32, 16], [28, 25], [30, 43], [34, 52],
+		[23, 12], [21, 41], [50, 39], [48, 14]
 	];
 
 	function buildFacelet() {
-		// Start with solved facelet (edges and centers correct)
+		// Start with solved facelet (centers and unused stickers correct)
 		var f = mathlib.SOLVED_FACELET.split('');
 		var cols = 'URFDLB';
-		// Overwrite only the 24 corner stickers with actual corner state
+		// Overwrite 24 corner stickers
 		for (var i = 0; i < 8; i++) {
-			var j = cornerPermutation[i];        // which corner cubie is at position i
-			var o = cornerOrientation[i];        // its twist
-			var faceletPos = C_FACELET[i];       // facelet indices for position i
-			var colors = CORNER_COLORS[j];       // standard colors of cubie j
+			var j = cornerPermutation[i];
+			var o = cornerOrientation[i];
+			var faceletPos = C_FACELET[i];
+			var colors = CORNER_COLORS[j];
 			for (var k = 0; k < 3; k++) {
-				// Color at facelet[k] = colors[(k - o + 3) % 3]
 				f[faceletPos[k]] = cols.charAt(colors[(k - o + 3) % 3]);
+			}
+		}
+		// Overwrite 24 edge stickers
+		for (var i = 0; i < 12; i++) {
+			var j = edgePermutation[i];
+			var o = edgeOrientation[i];
+			var faceletPos = E_FACELET[i];
+			var colors = EDGE_COLORS[j];
+			for (var k = 0; k < 2; k++) {
+				f[faceletPos[k]] = cols.charAt(colors[k ^ o]);
 			}
 		}
 		return f.join('');
