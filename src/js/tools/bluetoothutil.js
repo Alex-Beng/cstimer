@@ -87,14 +87,43 @@ var scrHinter = execMain(function(CubieCube) {
 			toMoveFix = null;
 		}
 		if (toMoveRaw == null && toMoveFix == null) {
+			var cubeModel = GiikerCube.getCube();
 			genState = new CubieCube();
 			genState.init(state.ca, state.ea);
 			var stateInv = new CubieCube();
 			stateInv.invFrom(state);
 			var toSolve = new CubieCube();
 			CubieCube.CubeMult(stateInv, scrState, toSolve);
-			genScr = scramble_333.genFacelet(toSolve.toFaceCube());
-			genScr = cubeutil.parseScramble(genScr, "URFDLB");
+			if (cubeModel && cubeModel.puzzleSize == 2) {
+				// Use 2x2 corner solver (RUF only) for remaining moves display
+				var mvPieces = [[0,2,3,1], [0,1,5,4], [0,4,6,2]];
+				var mvOris = [null, [0,1,0,1,3], [1,0,1,0,3]];
+				function doPM(arr, m) { mathlib.acycle(arr, mvPieces[m]); }
+				function doOM(arr, m) { mathlib.acycle(arr, mvPieces[m], 1, mvOris[m]); }
+				var solv2 = new mathlib.Solver(3, 3, [
+					[0, [doPM, 'p', 7], 5040],
+					[0, [doOM, 'o', 7, -3], 729]
+				]);
+				var cp7 = [];
+				var co7 = [];
+				for (var c = 0; c < 7; c++) {
+					cp7[c] = toSolve.ca[c] & 7;
+					co7[c] = toSolve.ca[c] >> 3;
+				}
+				var permIdx = mathlib.getNPerm(cp7, 7);
+				var oriCoord = new mathlib.Coord('o', 7, -3);
+				var oriIdx = oriCoord.get(co7);
+				var sol = solv2.search([permIdx, oriIdx], 9);
+				if (sol) {
+					genScr = solv2.toStr(sol.reverse(), "URF", "'2 ");
+					genScr = cubeutil.parseScramble(genScr, "URFDLB");
+				} else {
+					genScr = [];
+				}
+			} else {
+				genScr = scramble_333.genFacelet(toSolve.toFaceCube());
+				genScr = cubeutil.parseScramble(genScr, "URFDLB");
+			}
 			toMoveFix = checkInSeq(state, genState, genScr);
 		}
 		var toMove = toMoveFix ? scrambleToHtml(toMoveFix) : scrambleToHtml(toMoveRaw);
