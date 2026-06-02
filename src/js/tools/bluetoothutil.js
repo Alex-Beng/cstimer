@@ -155,9 +155,13 @@ var scrHinter = execMain(function(CubieCube) {
 		}
 		var cubeModel = GiikerCube.getCube();
 		if (cubeModel && cubeModel.puzzleSize == 2) {
-			// For 2x2, only compare corners (edge format differs)
+			// Normalize both CubieCubes to fromFacelet format before comparing corners
+			var ccA = new CubieCube();
+			var ccB = new CubieCube();
+			ccA.fromFacelet(scrState.toFaceCube());
+			ccB.fromFacelet(curCubie.toFaceCube());
 			for (var i = 0; i < 8; i++) {
-				if (scrState.ca[i] != curCubie.ca[i]) return false;
+				if (ccA.ca[i] != ccB.ca[i]) return false;
 			}
 			return true;
 		}
