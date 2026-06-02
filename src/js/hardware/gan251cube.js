@@ -151,8 +151,6 @@ execMain(function() {
 		if (direction === 'unknown') {
 			return;
 		}
-		var turns = direction === 'clockwise' ? 1 : direction === 'double' ? 2 : direction === 'counterclockwise' ? 3 : 0;
-		// Use CubieCube selfMoveStr which correctly handles the internal encoding format
 		var cc = new mathlib.CubieCube();
 		for (var i = 0; i < 8; i++) {
 			cc.ca[i] = cornerPermutation[i] * 3 + cornerOrientation[i];
@@ -160,14 +158,10 @@ execMain(function() {
 		for (var i = 0; i < 12; i++) {
 			cc.ea[i] = edgePermutation[i] << 1 | edgeOrientation[i];
 		}
-		var moveStr = face + (direction === 'counterclockwise' ? "'" : direction === 'double' ? '2' : '');
-		// selfMoveStr expects move strings with explicit suffix; clockwise = face + space
-		if (direction === 'clockwise') {
-			moveStr = face + ' ';
-		}
-		for (var t = 0; t < turns; t++) {
-			cc.selfMoveStr(moveStr);
-		}
+		// selfMoveStr handles the internal encoding correctly.
+		// Suffix already encodes direction: 'U ' (cw), "U'" (ccw), 'U2' (double).
+		var moveStr = face + (direction === 'counterclockwise' ? "'" : direction === 'double' ? '2' : ' ');
+		cc.selfMoveStr(moveStr);
 		for (var i = 0; i < 8; i++) {
 			cornerPermutation[i] = (cc.ca[i] / 3) | 0;
 			cornerOrientation[i] = cc.ca[i] % 3;
