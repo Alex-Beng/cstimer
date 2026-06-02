@@ -411,8 +411,13 @@ var giikerutil = execMain(function(CubieCube) {
 		} else {
 			var cubeModel = GiikerCube.getCube();
 			if (cubeModel && cubeModel.puzzleSize == 2) {
-				// 2x2 cube: solved state orientation from 3x3 cubes is irrelevant
-				curCubie.init(curRawCubie.ca, curRawCubie.ea);
+				// 2x2: edges use different internal format between fromFacelet and CubeMult.
+				// Use CubeMult with identity inverse to unify format, matching scrState.
+				var tmpInv = new CubieCube();
+				var tmpSolv = new CubieCube();
+				tmpSolv.fromFacelet(mathlib.SOLVED_FACELET);
+				tmpInv.invFrom(tmpSolv);
+				CubieCube.CubeMult(tmpInv, curRawCubie, curCubie);
 				curState = curCubie.toFaceCube();
 			} else {
 				CubieCube.CubeMult(solvedStateInv, curRawCubie, curCubie);
