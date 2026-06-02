@@ -76,10 +76,8 @@ execMain(function(timer) {
 				return;
 			}
 			cubeSize = curSize;
-			if (cubeSize == 2) {
-				var idx222 = [0,2,6,8,9,11,15,17,18,20,24,26,27,29,33,35,36,38,42,44,45,47,51,53];
-				state = idx222.map(function(i) { return state[i]; }).join('');
-			}
+			// For 2x2, state is a 54-char facelet with edges in solved position.
+			// Keep it as-is for fromFacelet/genFacelet which expect 54-char facelets.
 			tmpCubie1.fromFacelet(state);
 			var todoMoves = [];
 			var shouldReset = true;

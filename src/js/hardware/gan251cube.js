@@ -29,20 +29,13 @@ execMain(function() {
 		0x04: 'B'
 	};
 
-	var MOVE_DEFS = {
-		'U': { cycle: [0, 1, 2, 3], coDelta: [0, 0, 0, 0] },
-		'R': { cycle: [0, 3, 7, 4], coDelta: [2, 1, 2, 1] },
-		'F': { cycle: [0, 4, 5, 1], coDelta: [1, 2, 1, 2] },
-		'D': { cycle: [4, 7, 6, 5], coDelta: [0, 0, 0, 0] },
-		'L': { cycle: [1, 5, 6, 2], coDelta: [1, 2, 1, 2] },
-		'B': { cycle: [2, 6, 7, 3], coDelta: [2, 1, 2, 1] }
-	};
-
 	var deviceName = null;
 	var deviceMac = null;
 	var decoder = null;
 	var cornerPermutation = [0, 1, 2, 3, 4, 5, 6, 7];
 	var cornerOrientation = [0, 0, 0, 0, 0, 0, 0, 0];
+	var edgePermutation = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+	var edgeOrientation = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 	var batteryLevel = 0;
 
 	function macToReversedSalt(mac) {
@@ -154,28 +147,32 @@ execMain(function() {
 		return 7;
 	}
 
-	function applyClockwiseFace(face) {
-		var def = MOVE_DEFS[face];
-		var oldCp = cornerPermutation.slice();
-		var oldCo = cornerOrientation.slice();
-		var cycle = def.cycle;
-		var coDelta = def.coDelta;
-
-		cornerPermutation[cycle[0]] = oldCp[cycle[3]];
-		cornerPermutation[cycle[1]] = oldCp[cycle[0]];
-		cornerPermutation[cycle[2]] = oldCp[cycle[1]];
-		cornerPermutation[cycle[3]] = oldCp[cycle[2]];
-
-		cornerOrientation[cycle[0]] = (oldCo[cycle[3]] + coDelta[0]) % 3;
-		cornerOrientation[cycle[1]] = (oldCo[cycle[0]] + coDelta[1]) % 3;
-		cornerOrientation[cycle[2]] = (oldCo[cycle[1]] + coDelta[2]) % 3;
-		cornerOrientation[cycle[3]] = (oldCo[cycle[2]] + coDelta[3]) % 3;
-	}
-
 	function applyMove(face, direction) {
-		var turns = direction === 'clockwise' ? 1 : direction === 'double' ? 2 : direction === 'counterclockwise' ? 3 : 0;
-		for (var i = 0; i < turns; i++) {
-			applyClockwiseFace(face);
+		if (direction === 'unknown') {
+			return;
+		}
+		// Build a CubieCube from current corner+edge state
+		var cc = new mathlib.CubieCube();
+		for (var i = 0; i < 8; i++) {
+			cc.ca[i] = cornerPermutation[i] * 3 + cornerOrientation[i];
+		}
+		for (var i = 0; i < 12; i++) {
+			cc.ea[i] = edgePermutation[i] << 1 | edgeOrientation[i];
+		}
+		// Apply move(s) using the standard CubieCube move table
+		var turns = direction === 'clockwise' ? 1 : direction === 'double' ? 2 : 3;
+		var moveStr = face + (direction === 'counterclockwise' ? "'" : direction === 'double' ? '2' : '');
+		for (var t = 0; t < turns; t++) {
+			cc.selfMoveStr(moveStr);
+		}
+		// Extract back
+		for (var i = 0; i < 8; i++) {
+			cornerPermutation[i] = (cc.ca[i] / 3) | 0;
+			cornerOrientation[i] = cc.ca[i] % 3;
+		}
+		for (var i = 0; i < 12; i++) {
+			edgePermutation[i] = cc.ea[i] >> 1;
+			edgeOrientation[i] = cc.ea[i] & 1;
 		}
 	}
 
@@ -247,6 +244,9 @@ execMain(function() {
 		var cc = new mathlib.CubieCube();
 		for (var i = 0; i < 8; i++) {
 			cc.ca[i] = cornerPermutation[i] * 3 + cornerOrientation[i];
+		}
+		for (var i = 0; i < 12; i++) {
+			cc.ea[i] = edgePermutation[i] << 1 | edgeOrientation[i];
 		}
 		return cc.toFaceCube();
 	}
@@ -406,6 +406,8 @@ execMain(function() {
 			_chrct_read.addEventListener('characteristicvaluechanged', onStateChanged);
 			cornerPermutation = [0, 1, 2, 3, 4, 5, 6, 7];
 			cornerOrientation = [0, 0, 0, 0, 0, 0, 0, 0];
+			edgePermutation = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+			edgeOrientation = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 			return Promise.resolve();
 		});
 	}
@@ -429,6 +431,8 @@ execMain(function() {
 		decoder = null;
 		cornerPermutation = [0, 1, 2, 3, 4, 5, 6, 7];
 		cornerOrientation = [0, 0, 0, 0, 0, 0, 0, 0];
+		edgePermutation = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+		edgeOrientation = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 		batteryLevel = 0;
 		return result;
 	}
