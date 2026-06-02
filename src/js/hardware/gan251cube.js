@@ -227,20 +227,48 @@ execMain(function() {
 		for (var i = 0; i < 7; i++) {
 			firstSevenCorners.push(readBits(cubiePayload, i * 3, 3));
 		}
-
 		var cp = firstSevenCorners.slice();
 		cp.push(inferMissingCorner(firstSevenCorners));
 
-		// Hardware writes 8 co values (16 bits) like the emulator
+		// co: 8 values × 2 bits starting at offset 21
 		var co = [];
 		for (var i = 0; i < 8; i++) {
 			co.push(readBits(cubiePayload, 21 + i * 2, 2));
 		}
 
+		// ep: 11 values × 4 bits starting at offset 21+16=37
+		var firstElevenEdges = [];
+		for (var i = 0; i < 11; i++) {
+			firstElevenEdges.push(readBits(cubiePayload, 37 + i * 4, 4));
+		}
+		var ep = firstElevenEdges.slice();
+		ep.push(inferMissingEdge(firstElevenEdges));
+
+		// eo: 12 values × 1 bit starting at offset 37+44=81
+		var eo = [];
+		for (var i = 0; i < 12; i++) {
+			eo.push(readBits(cubiePayload, 81 + i, 1));
+		}
+
 		return {
 			cornerPermutation: cp,
-			cornerOrientation: co
+			cornerOrientation: co,
+			edgePermutation: ep,
+			edgeOrientation: eo
 		};
+	}
+
+	function inferMissingEdge(firstEleven) {
+		var used = {};
+		for (var i = 0; i < firstEleven.length; i++) {
+			used[firstEleven[i]] = true;
+		}
+		for (var value = 0; value < 12; value++) {
+			if (!used[value]) {
+				return value;
+			}
+		}
+		return 11;
 	}
 
 	function buildFacelet() {
@@ -305,7 +333,9 @@ execMain(function() {
 				giikerutil.log('[gan251cube] State update');
 				cornerPermutation = stateData.cornerPermutation;
 				cornerOrientation = stateData.cornerOrientation;
-				giikerutil.log('[gan251cube] cp:', cornerPermutation.join(','), 'co:', cornerOrientation.join(','));
+				edgePermutation = stateData.edgePermutation;
+				edgeOrientation = stateData.edgeOrientation;
+				giikerutil.log('[gan251cube] cp:', cornerPermutation.join(','), 'co:', cornerOrientation.join(','), 'ep:', edgePermutation.join(','), 'eo:', edgeOrientation.join(','));
 				var fl = buildFacelet();
 				giikerutil.log('[gan251cube] facelet:', fl);
 				GiikerCube.callback(fl, [], [0, $.now()], deviceName);
