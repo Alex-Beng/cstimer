@@ -41,7 +41,7 @@ jobs:
       - name: Build all branches
         run: |
           mkdir -p dist/pages
-          BRANCHES="master moyu"
+          BRANCHES="moyu"
           for BRANCH in $BRANCHES; do
             echo "Building branch: $BRANCH"
             git checkout "$BRANCH"
