@@ -32,10 +32,7 @@ execMain(function() {
 	var deviceName = null;
 	var deviceMac = null;
 	var decoder = null;
-	var cornerPermutation = [0, 1, 2, 3, 4, 5, 6, 7];
-	var cornerOrientation = [0, 0, 0, 0, 0, 0, 0, 0];
-	var edgePermutation = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-	var edgeOrientation = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+	var cubie = new mathlib.CubieCube();
 	var batteryLevel = 0;
 
 	function macToReversedSalt(mac) {
@@ -147,28 +144,22 @@ execMain(function() {
 		return 7;
 	}
 
+	var AXIS_MAP = {'U': 0, 'R': 1, 'F': 2, 'D': 3, 'L': 4, 'B': 5};
+
 	function applyMove(face, direction) {
 		if (direction === 'unknown') {
 			return;
 		}
-		// Build CubieCube in CornMult format: ca = cp | (co << 3), ea = ep | (eo << 4)
-		var cc = new mathlib.CubieCube();
-		for (var i = 0; i < 8; i++) {
-			cc.ca[i] = cornerPermutation[i] | (cornerOrientation[i] << 3);
+		var axis = AXIS_MAP[face];
+		if (axis === undefined) {
+			return;
 		}
-		for (var i = 0; i < 12; i++) {
-			cc.ea[i] = edgePermutation[i] | (edgeOrientation[i] << 4);
-		}
-		var moveStr = face + (direction === 'counterclockwise' ? "'" : direction === 'double' ? '2' : ' ');
-		cc.selfMoveStr(moveStr);
-		// Extract back from CornMult format
-		for (var i = 0; i < 8; i++) {
-			cornerPermutation[i] = cc.ca[i] & 7;
-			cornerOrientation[i] = cc.ca[i] >> 3;
-		}
-		for (var i = 0; i < 12; i++) {
-			edgePermutation[i] = cc.ea[i] & 15;
-			edgeOrientation[i] = cc.ea[i] >> 4;
+		var turns = direction === 'clockwise' ? 1 : direction === 'double' ? 2 : direction === 'counterclockwise' ? 3 : 0;
+		var m = axis * 3; // clockwise move index in moveCube
+		var tmp = new mathlib.CubieCube();
+		for (var t = 0; t < turns; t++) {
+			mathlib.CubieCube.CubeMult(cubie, mathlib.CubieCube.moveCube[m], tmp);
+			cubie.init(tmp.ca, tmp.ea);
 		}
 	}
 
@@ -262,37 +253,7 @@ execMain(function() {
 	}
 
 	function buildFacelet() {
-		var C_FACELET = [[8,9,20],[6,18,38],[0,36,47],[2,45,11],[29,26,15],[27,44,24],[33,53,42],[35,17,51]];
-		var E_FACELET = [[5,10],[7,19],[3,37],[1,46],[32,16],[28,25],[30,43],[34,52],[23,12],[21,41],[50,39],[48,14]];
-		var C_COLOR = [[0,1,2],[0,2,4],[0,4,5],[0,5,1],[3,2,1],[3,4,2],[3,5,4],[3,1,5]];
-		var E_COLOR = [[0,1],[0,2],[0,4],[0,5],[3,1],[3,2],[3,4],[3,5],[2,1],[2,4],[5,4],[5,1]];
-		var cols = 'URFDLB';
-		// Start with solved facelet (centers + edges correct), overwrite corners only
-		var f = mathlib.SOLVED_FACELET.split('');
-		// Match emulator: f[C_FACELET[i][(k+ori)%3]] = cols[C_COLOR[j][k]]
-		for (var i = 0; i < 8; i++) {
-			var j = cornerPermutation[i];
-			var o = cornerOrientation[i];
-			for (var k = 0; k < 3; k++) {
-				f[C_FACELET[i][(k + o) % 3]] = cols.charAt(C_COLOR[j][k]);
-			}
-		}
-		// Edges from tracked state
-		for (var i = 0; i < 12; i++) {
-			var j = edgePermutation[i];
-			var o = edgeOrientation[i];
-			for (var k = 0; k < 2; k++) {
-				f[E_FACELET[i][(k + o) % 2]] = cols.charAt(E_COLOR[j][k]);
-			}
-		}
-		var result = f.join('');
-		// Verify
-		var cnts = {};
-		for (var c = 0; c < 54; c++) { var ch = result.charAt(c); cnts[ch] = (cnts[ch] || 0) + 1; }
-		if (cnts.U != 9 || cnts.R != 9 || cnts.F != 9 || cnts.D != 9 || cnts.L != 9 || cnts.B != 9) {
-			giikerutil.log('[gan251cube] BAD facelet:', JSON.stringify(cnts));
-		}
-		return result;
+		return cubie.toFaceCube();
 	}
 
 	function processDecryptedPacket(decrypted) {
@@ -321,14 +282,32 @@ execMain(function() {
 			var stateData = decodeStatePacket(decrypted);
 			if (stateData) {
 				giikerutil.log('[gan251cube] State update');
-				cornerPermutation = stateData.cornerPermutation;
-				cornerOrientation = stateData.cornerOrientation;
-				edgePermutation = stateData.edgePermutation;
-				edgeOrientation = stateData.edgeOrientation;
-				giikerutil.log('[gan251cube] cp:', cornerPermutation.join(','), 'co:', cornerOrientation.join(','), 'ep:', edgePermutation.join(','), 'eo:', edgeOrientation.join(','));
-				var fl = buildFacelet();
+				giikerutil.log('[gan251cube] cp:', stateData.cornerPermutation.join(','), 'co:', stateData.cornerOrientation.join(','), 'ep:', stateData.edgePermutation.join(','), 'eo:', stateData.edgeOrientation.join(','));
+				// Build facelet from full cubie state (corners + edges)
+				var C_FACE = [[8,9,20],[6,18,38],[0,36,47],[2,45,11],[29,26,15],[27,44,24],[33,53,42],[35,17,51]];
+				var E_FACE = [[5,10],[7,19],[3,37],[1,46],[32,16],[28,25],[30,43],[34,52],[23,12],[21,41],[50,39],[48,14]];
+				var C_COLOR = [[0,1,2],[0,2,4],[0,4,5],[0,5,1],[3,2,1],[3,4,2],[3,5,4],[3,1,5]];
+				var E_COLOR = [[0,1],[0,2],[0,4],[0,5],[3,1],[3,2],[3,4],[3,5],[2,1],[2,4],[5,4],[5,1]];
+				var cols = 'URFDLB';
+				var f = mathlib.SOLVED_FACELET.split('');
+				for (var i = 0; i < 8; i++) {
+					var j = stateData.cornerPermutation[i];
+					var o = stateData.cornerOrientation[i];
+					for (var k = 0; k < 3; k++) {
+						f[C_FACE[i][(k + o) % 3]] = cols.charAt(C_COLOR[j][k]);
+					}
+				}
+				for (var i = 0; i < 12; i++) {
+					var j = stateData.edgePermutation[i];
+					var o = stateData.edgeOrientation[i];
+					for (var k = 0; k < 2; k++) {
+						f[E_FACE[i][(k + o) % 2]] = cols.charAt(E_COLOR[j][k]);
+					}
+				}
+				var fl = f.join('');
 				giikerutil.log('[gan251cube] facelet:', fl);
-				GiikerCube.callback(fl, [], [0, $.now()], deviceName);
+				cubie.fromFacelet(fl);
+				GiikerCube.callback(cubie.toFaceCube(), [], [0, $.now()], deviceName);
 			}
 		} else if (packetId === 0xef) {
 			if (!crcValid) {
@@ -453,10 +432,7 @@ execMain(function() {
 		}).then(function() {
 			giikerutil.log('[gan251cube] notifications started');
 			_chrct_read.addEventListener('characteristicvaluechanged', onStateChanged);
-			cornerPermutation = [0, 1, 2, 3, 4, 5, 6, 7];
-			cornerOrientation = [0, 0, 0, 0, 0, 0, 0, 0];
-			edgePermutation = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-			edgeOrientation = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+			cubie.fromFacelet(mathlib.SOLVED_FACELET);
 			return Promise.resolve();
 		});
 	}
@@ -478,10 +454,7 @@ execMain(function() {
 		deviceName = null;
 		deviceMac = null;
 		decoder = null;
-		cornerPermutation = [0, 1, 2, 3, 4, 5, 6, 7];
-		cornerOrientation = [0, 0, 0, 0, 0, 0, 0, 0];
-		edgePermutation = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-		edgeOrientation = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+		cubie.fromFacelet(mathlib.SOLVED_FACELET);
 		batteryLevel = 0;
 		return result;
 	}
