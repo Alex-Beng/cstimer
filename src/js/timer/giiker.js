@@ -169,7 +169,9 @@ execMain(function(timer) {
 				var delayStart = kernel.getProp('giiSD');
 				if (delayStart == 's') {
 					//according to scramble
-					if (giikerutil.checkScramble()) {
+					var csOk = giikerutil.checkScramble();
+					giikerutil.log('[giiker-cb] checkScramble:', csOk, 'facelet:', currentFacelet.substring(0,30));
+					if (csOk) {
 						markScrambled(locTime);
 					}
 				} else if (delayStart != 'n') {

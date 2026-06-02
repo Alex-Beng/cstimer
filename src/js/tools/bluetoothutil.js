@@ -151,18 +151,27 @@ var scrHinter = execMain(function(CubieCube) {
 
 	function checkScramble(curCubie) {
 		if (rawScrTxt == "") {
+			giikerutil.log('[scrCheck] rawScrTxt empty');
 			return false;
 		}
 		var cubeModel = GiikerCube.getCube();
 		if (cubeModel && cubeModel.puzzleSize == 2) {
-			// Normalize both CubieCubes to fromFacelet format before comparing corners
 			var ccA = new CubieCube();
 			var ccB = new CubieCube();
-			ccA.fromFacelet(scrState.toFaceCube());
-			ccB.fromFacelet(curCubie.toFaceCube());
+			var flA = scrState.toFaceCube();
+			var flB = curCubie.toFaceCube();
+			giikerutil.log('[scrCheck] scrFL:', flA.substring(0,30), 'curFL:', flB.substring(0,30));
+			ccA.fromFacelet(flA);
+			ccB.fromFacelet(flB);
+			giikerutil.log('[scrCheck] scrCA:', ccA.ca.join(','), 'curCA:', ccB.ca.join(','));
+			giikerutil.log('[scrCheck] scrEA:', ccA.ea.join(','), 'curEA:', ccB.ea.join(','));
 			for (var i = 0; i < 8; i++) {
-				if (ccA.ca[i] != ccB.ca[i]) return false;
+				if (ccA.ca[i] != ccB.ca[i]) {
+					giikerutil.log('[scrCheck] mismatch at', i, 'scr:', ccA.ca[i], 'cur:', ccB.ca[i]);
+					return false;
+				}
 			}
+			giikerutil.log('[scrCheck] MATCH');
 			return true;
 		}
 		return scrState.isEqual(curCubie);
