@@ -10,20 +10,18 @@ var scrHinter = execMain(function(CubieCube) {
 
 	function setScramble(scramble) {
 		rawScrTxt = scramble;
+		giikerutil.log('[setScramble] raw:', scramble ? scramble.substring(0, 50) : 'null');
 		scramble = cubeutil.getConjMoves(scramble);
 		var scr = cubeutil.parseScramble(scramble, "URFDLB");
 		rawScr = scr.slice();
 		genState = null;
 		genScr = null;
-
-		scrState = new mathlib.CubieCube();
+		scrState = new CubieCube();
+		scrState.fromFacelet(mathlib.SOLVED_FACELET);
 		for (var i = 0; i < scr.length; i++) {
-			var m = scr[i][0] * 3 + scr[i][2] - 1;
-			if (m < 0 || m >= 18) { //TODO wide move convert
-				continue;
-			}
-			scrState.selfMoveStr('URFDLB'.charAt(scr[i][0]) + " 2'".charAt(scr[i][2] - 1));
+			scrState.selfMoveStr(scr[i]);
 		}
+		giikerutil.log('[setScramble] scrState.ca:', scrState.ca.join(','));
 	}
 
 	function checkInSeq(state, gen, seq) {
