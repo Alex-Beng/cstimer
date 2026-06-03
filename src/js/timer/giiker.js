@@ -280,7 +280,9 @@ execMain(function(timer) {
 			// 222 has no edges, compare corners only via CubieCube
 			var cc = new mathlib.CubieCube();
 			cc.fromFacelet(facelet);
+			giikerutil.log('check solve:', facelet);
 			for (var i = 0; i < 8; i++) {
+				giikerutil.log('ca: ', cc.ca[i]);
 				if (cc.ca[i] != 0) {
 					return false;
 				}
