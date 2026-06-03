@@ -407,7 +407,11 @@ var giikerutil = execMain(function(CubieCube) {
 		} else {
 			var cubeModel = GiikerCube.getCube();
 			if (cubeModel && cubeModel.puzzleSize == 2) {
-				curCubie.init(curRawCubie.ca, curRawCubie.ea);
+				var idCubie = new CubieCube();
+				idCubie.fromFacelet(mathlib.SOLVED_FACELET);
+				var idInv = new CubieCube();
+				idInv.invFrom(idCubie);
+				CubieCube.CubeMult(idInv, curRawCubie, curCubie);
 				curState = curCubie.toFaceCube();
 			} else {
 				CubieCube.CubeMult(solvedStateInv, curRawCubie, curCubie);
@@ -621,7 +625,7 @@ var giikerutil = execMain(function(CubieCube) {
 
 	function checkScramble() {
 		var ok = scrHinter.checkScramble(curCubie);
-		giikerutil.log('[chkScr] ok:', ok, 'curFL:', curCubie.toFaceCube().substring(0, 20));
+		giikerutil.log('[chkScr] ok:', ok, 'scr:', scrHinter.getScrCubie().toFaceCube().substring(0, 18), 'cur:', curCubie.toFaceCube().substring(0, 18));
 		return ok;
 	}
 
