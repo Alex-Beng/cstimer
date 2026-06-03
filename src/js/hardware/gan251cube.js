@@ -307,7 +307,6 @@ execMain(function() {
 				var fl = f.join('');
 				giikerutil.log('[gan251cube] facelet:', fl);
 				cubie.fromFacelet(fl);
-				giikerutil.log('[gan251cube] facelet:2', cubie.toFaceCube());
 				GiikerCube.callback(cubie.toFaceCube(), [], [0, $.now()], deviceName);
 			}
 		} else if (packetId === 0xef) {

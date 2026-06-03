@@ -410,9 +410,10 @@ var giikerutil = execMain(function(CubieCube) {
 			deviceName = hardware;
 			renderStatus();
 		}
-		giikerutil.log('[btutil-cb] raw faceletLen:', facelet.length, 'prevMoves:', prevMoves.join(' '));
+		giikerutil.log('[btutil-cb] raw faceletLen:', facelet, 'prevMoves:', prevMoves.join(' '));
 		curRawState = facelet;
 		curRawCubie.fromFacelet(curRawState);
+		giikerutil.log('[btutil-cb] solvedStateInv:', solvedStateInv.toFaceCube());
 		CubieCube.CubeMult(solvedStateInv, curRawCubie, curCubie);
 		curState = curCubie.toFaceCube();
 
@@ -439,7 +440,7 @@ var giikerutil = execMain(function(CubieCube) {
 			CubieCube.CubeMult(hackedSolvedCubieInv, curCubie, hackedCubie);
 			retState = hackedCubie.toFaceCube();
 		}
-		giikerutil.log('[btutil-cb] -> callback retState:', retState);
+		giikerutil.log('[btutil-cb] -> callback retState:', retState, 'has hacked inv', hackedSolvedCubieInv);
 		callback(retState, prevMoves, lastTs);
 		scrHinter.checkState(curCubie);
 	}
