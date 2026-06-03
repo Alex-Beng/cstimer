@@ -15,7 +15,7 @@ var scrHinter = execMain(function(CubieCube) {
 		rawScr = scr.slice();
 		genState = null;
 		genScr = null;
-		
+		giikerutil.log('set scramble', scramble);
 		// 222 also use 333's cubie cube due to gan 251 only send RUF moves
 		scrState = new mathlib.CubieCube();
 		for (var i = 0; i < scr.length; i++) {
