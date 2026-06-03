@@ -131,6 +131,7 @@ var scrHinter = execMain(function(CubieCube) {
 		if (rawScrTxt == "") {
 			return false;
 		}
+		giikerutil.log('check scr puzzle', tools.getCurPuzzle());
 		if (tools.getCurPuzzle() == '222') {
 			// 222 has no edges, only compare corners (first 7, DRB is constrained)
 			for (var i = 0; i < 8; i++) {
