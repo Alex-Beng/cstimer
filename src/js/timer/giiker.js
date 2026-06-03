@@ -246,11 +246,10 @@ execMain(function(timer) {
 
 	function canStart(facelet) {
 		if (tools.getCurPuzzle() == '222') {
-			// 222 has no edges, check if corners are not solved
 			var cc = new mathlib.CubieCube();
 			cc.fromFacelet(facelet);
 			for (var i = 0; i < 8; i++) {
-				if (cc.ca[i] != 0) {
+				if (cc.ca[i] != i) {
 					return true;
 				}
 			}
@@ -277,13 +276,10 @@ execMain(function(timer) {
 			}
 		}
 		if (tools.getCurPuzzle() == '222') {
-			// 222 has no edges, compare corners only via CubieCube
 			var cc = new mathlib.CubieCube();
 			cc.fromFacelet(facelet);
-			giikerutil.log('check solve:', facelet);
 			for (var i = 0; i < 8; i++) {
-				giikerutil.log('ca: ', cc.ca[i]);
-				if (cc.ca[i] != 0) {
+				if (cc.ca[i] != i) {
 					return false;
 				}
 			}
