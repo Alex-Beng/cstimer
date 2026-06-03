@@ -16,6 +16,7 @@ var scrHinter = execMain(function(CubieCube) {
 		genState = null;
 		genScr = null;
 		scrState = new CubieCube();
+		scrState.fromFacelet(mathlib.SOLVED_FACELET);
 		for (var i = 0; i < scr.length; i++) {
 			scrState.selfMoveStr(scr[i]);
 		}
