@@ -433,14 +433,17 @@ var scramble_222 = (function(rn) {
 		return solv.toStr(solv.search([perm, ori], maxl).reverse(), "URF", "'2 ");
 	}
 
+	var pos333 = [0, 3, 1, 2, 4, 7, 5];
+	var id333to222 = [0, 2, 3, 1, 4, 6, 7, 5];
+
 	function genFacelet(facelet) {
 		var cc = new mathlib.CubieCube();
 		cc.fromFacelet(facelet);
 		var cp7 = [];
 		var co7 = [];
 		for (var c = 0; c < 7; c++) {
-			cp7[c] = cc.ca[c] & 7;
-			co7[c] = cc.ca[c] >> 3;
+			cp7[c] = id333to222[cc.ca[pos333[c]] & 7];
+			co7[c] = cc.ca[pos333[c]] >> 3;
 		}
 		var permIdx = mathlib.getNPerm(cp7, 7);
 		var oriIdx = oriCoord.get(co7);
