@@ -597,9 +597,6 @@ var giikerutil = execMain(function(CubieCube) {
 		if (!GiikerCube.isConnected()) {
 			return GiikerCube.init().then(function () {
 				logohint.push(LGHINT_BTCONSUC);
-				if (confirm(GIIKER_SOLVEDMSG)) {
-					markSolved();
-				}
 			});
 		} else {
 			return Promise.resolve();

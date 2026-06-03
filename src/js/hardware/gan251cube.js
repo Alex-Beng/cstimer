@@ -434,6 +434,16 @@ execMain(function() {
 			_chrct_read.addEventListener('characteristicvaluechanged', onStateChanged);
 			cubie.fromFacelet(mathlib.SOLVED_FACELET);
 			return Promise.resolve();
+		}).then(function() {
+			// small delay for first state packet to arrive before asking
+			return new Promise(function(resolve) {
+				setTimeout(function() {
+					if (confirm(CONFIRM_GIIRST)) {
+						giikerutil.markSolved();
+					}
+					resolve();
+				}, 200);
+			});
 		});
 	}
 
