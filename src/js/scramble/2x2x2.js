@@ -433,6 +433,24 @@ var scramble_222 = (function(rn) {
 		return solv.toStr(solv.search([perm, ori], maxl).reverse(), "URF", "'2 ");
 	}
 
+	function genFacelet(facelet) {
+		var cc = new mathlib.CubieCube();
+		cc.fromFacelet(facelet);
+		var cp7 = [];
+		var co7 = [];
+		for (var c = 0; c < 7; c++) {
+			cp7[c] = cc.ca[c] & 7;
+			co7[c] = cc.ca[c] >> 3;
+		}
+		var permIdx = mathlib.getNPerm(cp7, 7);
+		var oriIdx = oriCoord.get(co7);
+		var sol = solv.search([permIdx, oriIdx], 9);
+		if (sol) {
+			return solv.toStr(sol.reverse(), "URF", "'2 ");
+		}
+		return null;
+	}
+
 	scrMgr.reg(['222o', '222so', '222nb'], getScramble)
 		('222eg0', getLLScramble, [egllfilter, egllprobs, getLLImage.bind(null, 'all', egll_map, egllfilter)])
 		('222eg1', getLLScramble, [egllfilter, egllprobs, getLLImage.bind(null, 'all', egll_map, egllfilter)])
@@ -444,6 +462,7 @@ var scramble_222 = (function(rn) {
 		('222eg', getScramble, [egfilter, egprobs]);
 
 	return {
-		getEGLLImage: getLLImage.bind(null, false, egll_map, egllfilter)
+		getEGLLImage: getLLImage.bind(null, false, egll_map, egllfilter),
+		genFacelet: genFacelet
 	}
 })(mathlib.rn);

@@ -15,10 +15,15 @@ var scrHinter = execMain(function(CubieCube) {
 		rawScr = scr.slice();
 		genState = null;
 		genScr = null;
-		scrState = new CubieCube();
-		scrState.fromFacelet(mathlib.SOLVED_FACELET);
+		
+		// 222 also use 333's cubie cube due to gan 251 only send RUF moves
+		scrState = new mathlib.CubieCube();
 		for (var i = 0; i < scr.length; i++) {
-			scrState.selfMoveStr(scr[i]);
+			var m = scr[i][0] * 3 + scr[i][2] - 1;
+			if (m < 0 || m >= 18) { //TODO wide move convert
+				continue;
+			}
+			scrState.selfMoveStr('URFDLB'.charAt(scr[i][0]) + " 2'".charAt(scr[i][2] - 1));
 		}
 	}
 
@@ -69,7 +74,7 @@ var scrHinter = execMain(function(CubieCube) {
 
 	function checkState(state) {
 		if (!rawScrTxt || !GiikerCube.isConnected()
-				|| timer.getCurTime() != 0 || timer.status() > 0) {
+				|| (tools.getCurPuzzle() != '333' && tools.getCurPuzzle() != '222' ) || timer.getCurTime() != 0 || timer.status() > 0) {
 			return;
 		}
 		var toMoveFix = null;
@@ -91,31 +96,8 @@ var scrHinter = execMain(function(CubieCube) {
 			var toSolve = new CubieCube();
 			CubieCube.CubeMult(stateInv, scrState, toSolve);
 			if (cubeModel && cubeModel.puzzleSize == 2) {
-				// Use 2x2 corner solver (RUF only) for remaining moves display
-				var mvPieces = [[0,2,3,1], [0,1,5,4], [0,4,6,2]];
-				var mvOris = [null, [0,1,0,1,3], [1,0,1,0,3]];
-				function doPM(arr, m) { mathlib.acycle(arr, mvPieces[m]); }
-				function doOM(arr, m) { mathlib.acycle(arr, mvPieces[m], 1, mvOris[m]); }
-				var solv2 = new mathlib.Solver(3, 3, [
-					[0, [doPM, 'p', 7], 5040],
-					[0, [doOM, 'o', 7, -3], 729]
-				]);
-				var cp7 = [];
-				var co7 = [];
-				for (var c = 0; c < 7; c++) {
-					cp7[c] = toSolve.ca[c] & 7;
-					co7[c] = toSolve.ca[c] >> 3;
-				}
-				var permIdx = mathlib.getNPerm(cp7, 7);
-				var oriCoord = new mathlib.Coord('o', 7, -3);
-				var oriIdx = oriCoord.get(co7);
-				var sol = solv2.search([permIdx, oriIdx], 9);
-				if (sol) {
-					genScr = solv2.toStr(sol.reverse(), "URF", "'2 ");
-					genScr = cubeutil.parseScramble(genScr, "URFDLB");
-				} else {
-					genScr = [];
-				}
+				genScr = scramble_222.genFacelet(toSolve.toFaceCube());
+				genScr = cubeutil.parseScramble(genScr, "URFDLB");
 			} else {
 				genScr = scramble_333.genFacelet(toSolve.toFaceCube());
 				genScr = cubeutil.parseScramble(genScr, "URFDLB");
@@ -149,7 +131,7 @@ var scrHinter = execMain(function(CubieCube) {
 		if (rawScrTxt == "") {
 			return false;
 		}
-		return scrState.toFaceCube() == curCubie.toFaceCube();
+		return scrState.isEqual(curCubie);
 	}
 
 	function getScrCubie() {
@@ -399,26 +381,9 @@ var giikerutil = execMain(function(CubieCube) {
 		}
 		giikerutil.log('[btutil-cb] raw faceletLen:', facelet.length, 'prevMoves:', prevMoves.join(' '));
 		curRawState = facelet;
-		var retFromFL = curRawCubie.fromFacelet(curRawState);
-		giikerutil.log('[btutil-cb] fromFacelet ret:', retFromFL, 'ca:', curRawCubie.ca.join(','), 'ea:', curRawCubie.ea.join(','));
-		if (retFromFL == -1) {
-			giikerutil.log('[btutil-cb] fromFacelet FAILED, using raw state as curState');
-			curState = facelet;
-		} else {
-			var cubeModel = GiikerCube.getCube();
-			if (cubeModel && cubeModel.puzzleSize == 2) {
-				var idCubie = new CubieCube();
-				idCubie.fromFacelet(mathlib.SOLVED_FACELET);
-				var idInv = new CubieCube();
-				idInv.invFrom(idCubie);
-				CubieCube.CubeMult(idInv, curRawCubie, curCubie);
-				curState = curCubie.toFaceCube();
-			} else {
-				CubieCube.CubeMult(solvedStateInv, curRawCubie, curCubie);
-				curState = curCubie.toFaceCube();
-			}
-		}
-		giikerutil.log('[btutil-cb] curState:', curState);
+		curRawCubie.fromFacelet(curRawState);
+		CubieCube.CubeMult(solvedStateInv, curRawCubie, curCubie);
+		curState = curCubie.toFaceCube();
 
 		if (prevMoves.length > 0) {
 			var move = "URFDLB".indexOf(prevMoves[0][0]) * 3 + " 2'".indexOf(prevMoves[0][1]);
@@ -637,6 +602,9 @@ var giikerutil = execMain(function(CubieCube) {
 		} else if (signal == 'scramble' || signal == 'scrambleX') {
 			var scrType = value[0];
 			curScramble = value[1];
+			if (tools.puzzleType(scrType) != '333' && tools.puzzleType(scrType) != '222') {
+				curScramble = "";
+			}
 			scrHinter.setScramble(curScramble);
 			scrHinter.checkState(curCubie);
 		} else if (signal == 'property') {
