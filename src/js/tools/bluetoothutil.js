@@ -367,10 +367,32 @@ var giikerutil = execMain(function(CubieCube) {
 		return false;
 	}
 
+	function isSolvedState(cubie) {
+		if (tools.getCurPuzzle() == '222') {
+			// 222 has no edges, only check corners are solved
+			for (var i = 0; i < 8; i++) {
+				if (cubie.ca[i] != 0) {
+					return false;
+				}
+			}
+			return true;
+		}
+		return cubie.toFaceCube() == mathlib.SOLVED_FACELET;
+	}
+
 	function markSolved() {
 		//mark current state as solved
 		solvedStateInv.invFrom(curRawCubie);
-		curState = mathlib.SOLVED_FACELET;
+		if (tools.getCurPuzzle() == '222') {
+			// 222 has no edges, curState should reflect solved corners
+			// after markSolved, solvedStateInv * SOLVED = rawSolved
+			var solvedCC = new mathlib.CubieCube();
+			var solvedRawCC = new mathlib.CubieCube();
+			CubieCube.CubeMult(solvedStateInv, solvedCC, solvedRawCC);
+			curState = solvedRawCC.toFaceCube();
+		} else {
+			curState = mathlib.SOLVED_FACELET;
+		}
 		kernel.setProp('giiSolved', curRawState);
 		moveTsStart = moveTsList.length;
 		scrambleLength = 0;
@@ -404,7 +426,7 @@ var giikerutil = execMain(function(CubieCube) {
 		if (moveTsList.length > 10) {
 			updateSlopeSpan();
 		}
-		if (curState == mathlib.SOLVED_FACELET) {
+		if (isSolvedState(curCubie)) {
 			reconsSolve();
 			moveTsStart = moveTsList.length;
 			scrambleLength = 0;
@@ -575,6 +597,9 @@ var giikerutil = execMain(function(CubieCube) {
 		if (!GiikerCube.isConnected()) {
 			return GiikerCube.init().then(function () {
 				logohint.push(LGHINT_BTCONSUC);
+				if (confirm(GIIKER_SOLVEDMSG)) {
+					markSolved();
+				}
 			});
 		} else {
 			return Promise.resolve();
