@@ -131,6 +131,15 @@ var scrHinter = execMain(function(CubieCube) {
 		if (rawScrTxt == "") {
 			return false;
 		}
+		if (tools.getCurPuzzle() == '222') {
+			// 222 has no edges, only compare corners (first 7, DRB is constrained)
+			for (var i = 0; i < 8; i++) {
+				if (scrState.ca[i] != curCubie.ca[i]) {
+					return false;
+				}
+			}
+			return true;
+		}
 		return scrState.isEqual(curCubie);
 	}
 
