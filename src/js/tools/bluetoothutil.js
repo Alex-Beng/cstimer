@@ -591,6 +591,7 @@ var giikerutil = execMain(function(CubieCube) {
 	function init() {
 		cleanup();
 		curRawState = kernel.getProp('giiSolved', mathlib.SOLVED_FACELET) || mathlib.SOLVED_FACELET;
+		giikerutil.log('load curRawState:', curRawState);
 		curRawCubie.fromFacelet(curRawState);
 		solvedStateInv.invFrom(curRawCubie);
 		GiikerCube.setCallback(giikerCallback);
