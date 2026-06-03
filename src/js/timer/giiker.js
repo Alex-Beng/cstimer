@@ -245,6 +245,17 @@ execMain(function(timer) {
 	}
 
 	function canStart(facelet) {
+		if (tools.getCurPuzzle() == '222') {
+			// 222 has no edges, check if corners are not solved
+			var cc = new mathlib.CubieCube();
+			cc.fromFacelet(facelet);
+			for (var i = 0; i < 8; i++) {
+				if (cc.ca[i] != 0) {
+					return true;
+				}
+			}
+			return kernel.getProp('giiMode') != 'n';
+		}
 		return facelet != mathlib.SOLVED_FACELET || kernel.getProp('giiMode') != 'n';
 	}
 
@@ -264,6 +275,17 @@ execMain(function(timer) {
 			if (chkstep) {
 				return cubeutil.getStepProgress(chkstep, facelet) == 0;
 			}
+		}
+		if (tools.getCurPuzzle() == '222') {
+			// 222 has no edges, compare corners only via CubieCube
+			var cc = new mathlib.CubieCube();
+			cc.fromFacelet(facelet);
+			for (var i = 0; i < 8; i++) {
+				if (cc.ca[i] != 0) {
+					return false;
+				}
+			}
+			return true;
 		}
 		return facelet == mathlib.SOLVED_FACELET;
 	}
