@@ -135,6 +135,7 @@ var scrHinter = execMain(function(CubieCube) {
 		if (tools.getCurPuzzle() == '222') {
 			// 222 has no edges, only compare corners (first 7, DRB is constrained)
 			for (var i = 0; i < 8; i++) {
+				giikerutil.log('check ca', scrState.ca[i], curCubie.ca[i]);
 				if (scrState.ca[i] != curCubie.ca[i]) {
 					return false;
 				}
