@@ -479,6 +479,9 @@ var cubeutil = (function() {
 	}
 
 	function getStepNames(method) {
+		if (tools.getCurPuzzle() == '222') { // 222 only solve step now
+			return 1;
+		}
 		switch (method) {
 			case 'cfop':
 				return ['pll', 'oll', 'f2l', 'cross'];
