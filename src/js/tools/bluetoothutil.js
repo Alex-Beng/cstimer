@@ -371,12 +371,17 @@ var giikerutil = execMain(function(CubieCube) {
 
 	function isSolvedState(cubie) {
 		if (tools.getCurPuzzle() == '222') {
-			// 222 has no edges, only check corners are solved
-			for (var i = 0; i < 8; i++) {
-				if (cubie.ca[i] != i) {
-					return false;
+			// 222 has no edges, check corner facelets only
+			var facelet = cubie.toFaceCube();
+			var croner222Idx = [0, 2, 6, 8, ];
+			for (var begIdx = 0; begIdx < mathlib.SOLVED_FACELET.length; begIdx+=9) {
+				for (var i = 0; i < croner222Idx.length; i++) {
+					if (facelet[begIdx + croner222Idx[i]] != mathlib.SOLVED_FACELET[begIdx + croner222Idx[i]]) {
+						return false;
+					}
 				}
 			}
+
 			return true;
 		}
 		return cubie.toFaceCube() == mathlib.SOLVED_FACELET;

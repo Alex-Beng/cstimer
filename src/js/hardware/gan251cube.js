@@ -117,7 +117,7 @@ execMain(function() {
 		var body = decrypted.slice(0, -2);
 		var expected = decrypted[decrypted.length - 2] | (decrypted[decrypted.length - 1] << 8);
 		var computed = crc16CcittFalse(body);
-		if (computed === expected) { giikerutil.log('[gan251cube] CRC OK'); return true; }
+		if (computed === expected) { return true; }
 		return false;
 	}
 

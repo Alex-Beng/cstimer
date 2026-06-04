@@ -276,7 +276,7 @@ execMain(function(timer) {
 			}
 		}
 		if (tools.getCurPuzzle() == '222') {
-			var croner222Idx = [0, 2, 6, 8, 9,];
+			var croner222Idx = [0, 2, 6, 8, ];
 			for (var begIdx = 0; begIdx < mathlib.SOLVED_FACELET.length; begIdx+=9) {
 				for (var i = 0; i < croner222Idx.length; i++) {
 					if (facelet[begIdx + croner222Idx[i]] != mathlib.SOLVED_FACELET[begIdx + croner222Idx[i]]) {

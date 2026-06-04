@@ -479,7 +479,7 @@ var cubeutil = (function() {
 	}
 
 	function getStepNames(method) {
-		giikerutil.getOLLImage("cur puzzle:", tools.getCurPuzzle(), "method:", method);
+		giikerutil.log("cur puzzle:", tools.getCurPuzzle(), "method:", method);
 		if (tools.getCurPuzzle() == '222') { // 222 only solve step now
 			return ['solve'];
 		}
