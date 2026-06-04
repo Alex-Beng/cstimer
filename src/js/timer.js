@@ -18,6 +18,7 @@ var timer = execMain(function(regListener, regProp, getProp, pretty, ui, pushSig
 		}
 		status = _status;
 		lcd.renderUtil();
+		giikerutil.log('timer status: ' + status);
 		kernel.pushSignal('timerStatus', status);
 	}
 
