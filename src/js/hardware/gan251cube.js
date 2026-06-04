@@ -190,10 +190,20 @@ execMain(function() {
 		var suffix = direction === 'counterclockwise' ? "'" : direction === 'double' ? '2' : '';
 		var notation = face + suffix;
 
+		// V4 protocol: bytes 1-4 are moveCounter (big-endian), bytes 5-8 are timestamp (big-endian)
+		var moveCnt = (decrypted[1] << 24 | decrypted[2] << 16 | decrypted[3] << 8 | decrypted[4]) >>> 0;
+		var ts = (decrypted[5] << 24 | decrypted[6] << 16 | decrypted[7] << 8 | decrypted[8]) >>> 0;
+		// But byte 8 is also used for move data (faceMask + turnBits), so timestamp
+		// is actually bytes 5-7 only, with byte 8 shared. GAN251 firmware may not
+		// fill timestamp properly, so we read it and let the caller decide.
+		ts = (decrypted[5] << 16 | decrypted[6] << 8 | decrypted[7]) >>> 0;
+
 		return {
 			face: face,
 			direction: direction,
-			notation: notation
+			notation: notation,
+			moveCnt: moveCnt,
+			ts: ts
 		};
 	}
 
@@ -273,9 +283,12 @@ execMain(function() {
 			}
 			var moveData = decodeMovePacket(decrypted);
 			if (moveData) {
-				giikerutil.log('[gan251cube] Move:', moveData.notation);
+				giikerutil.log('[gan251cube] Move:', moveData.notation, 'ts:', moveData.ts, 'moveCnt:', moveData.moveCnt);
 				applyMove(moveData.face, moveData.direction);
-				GiikerCube.callback(buildFacelet(), moveData.notation ? [moveData.notation] : [], [0, $.now()], deviceName);
+				var locTime = $.now();
+				// Use hardware timestamp if available, otherwise fall back to locTime
+				var devTime = moveData.ts > 0 ? moveData.ts : locTime;
+				GiikerCube.callback(buildFacelet(), moveData.notation ? [moveData.notation] : [], [devTime, locTime], deviceName);
 			}
 		} else if (packetId === 0xed) {
 			if (!crcValid) { // cube state
