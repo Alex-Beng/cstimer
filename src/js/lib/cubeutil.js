@@ -480,7 +480,7 @@ var cubeutil = (function() {
 
 	function getStepNames(method) {
 		if (tools.getCurPuzzle() == '222') { // 222 only solve step now
-			return 1;
+			return ['solve'];
 		}
 		switch (method) {
 			case 'cfop':
