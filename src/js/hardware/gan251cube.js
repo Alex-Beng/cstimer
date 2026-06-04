@@ -34,6 +34,8 @@ execMain(function() {
 	var decoder = null;
 	var cubie = new mathlib.CubieCube();
 	var batteryLevel = 0;
+	var latestFacelet = mathlib.SOLVED_FACELET;
+	var firstStateReceived = false;
 
 	function macToReversedSalt(mac) {
 		var parts = mac.split(':');
@@ -264,7 +266,7 @@ execMain(function() {
 		var packetId = decrypted[0];
 		var crcValid = validateCrc16(decrypted);
 
-		if (packetId === 0x01) {
+		if (packetId === 0x01) { // move
 			if (!crcValid) {
 				giikerutil.log('[gan251cube] CRC validation failed');
 				return;
@@ -276,7 +278,7 @@ execMain(function() {
 				GiikerCube.callback(buildFacelet(), moveData.notation ? [moveData.notation] : [], [0, $.now()], deviceName);
 			}
 		} else if (packetId === 0xed) {
-			if (!crcValid) {
+			if (!crcValid) { // cube state
 				giikerutil.log('[gan251cube] CRC validation failed (state, processing anyway)');
 			}
 			var stateData = decodeStatePacket(decrypted);
@@ -307,9 +309,15 @@ execMain(function() {
 				var fl = f.join('');
 				giikerutil.log('[gan251cube] facelet:', fl);
 				cubie.fromFacelet(fl);
-				GiikerCube.callback(cubie.toFaceCube(), [], [0, $.now()], deviceName);
+				latestFacelet = cubie.toFaceCube();
+				if (!firstStateReceived) {
+					firstStateReceived = true;
+					initCubeState();
+				}
+				// After initialization, state packets only correct internal cubie state,
+				// no GiikerCube.callback to avoid triggering timer state machine
 			}
-		} else if (packetId === 0xef) {
+		} else if (packetId === 0xef) { // battery level
 			if (!crcValid) {
 				giikerutil.log('[gan251cube] CRC validation failed');
 				return;
@@ -396,8 +404,9 @@ execMain(function() {
 	}
 
 	function init(device) {
-		giikerutil.log('[gan251cube] init start');
+		clear()
 		deviceName = device.name;
+		giikerutil.log('[gan251cube] init start');
 
 		return device.gatt.connect().then(function(gatt) {
 			giikerutil.log('[gan251cube] gatt connected');
@@ -434,17 +443,28 @@ execMain(function() {
 			_chrct_read.addEventListener('characteristicvaluechanged', onStateChanged);
 			cubie.fromFacelet(mathlib.SOLVED_FACELET);
 			return Promise.resolve();
-		}).then(function() {
-			// small delay for first state packet to arrive before asking
-			return new Promise(function(resolve) {
-				setTimeout(function() {
-					if (confirm(CONFIRM_GIIRST)) {
-						giikerutil.markSolved();
-					}
-					resolve();
-				}, 200);
-			});
 		});
+	}
+
+	function initCubeState() {
+		giikerutil.log('[gan251cube] init cube state');
+		GiikerCube.callback(latestFacelet, [], [null, $.now()], deviceName);
+		// For 2x2, check if corners are not solved (ignore inferred edges)
+		var cc = new mathlib.CubieCube();
+		cc.fromFacelet(latestFacelet);
+		var isSolved = true;
+		for (var i = 0; i < 8; i++) {
+			if (cc.ca[i] != i) {
+				isSolved = false;
+				break;
+			}
+		}
+		if (!isSolved) {
+			var rst = kernel.getProp('giiRST');
+			if (rst == 'a' || rst == 'p' && confirm(CONFIRM_GIIRST)) {
+				giikerutil.markSolved();
+			}
+		}
 	}
 
 	function getBatteryLevel() {
@@ -465,6 +485,8 @@ execMain(function() {
 		deviceMac = null;
 		decoder = null;
 		cubie.fromFacelet(mathlib.SOLVED_FACELET);
+		latestFacelet = mathlib.SOLVED_FACELET;
+		firstStateReceived = false;
 		batteryLevel = 0;
 		return result;
 	}

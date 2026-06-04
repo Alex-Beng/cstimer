@@ -373,7 +373,7 @@ var giikerutil = execMain(function(CubieCube) {
 		if (tools.getCurPuzzle() == '222') {
 			// 222 has no edges, only check corners are solved
 			for (var i = 0; i < 8; i++) {
-				if (cubie.ca[i] != 0) {
+				if (cubie.ca[i] != i) {
 					return false;
 				}
 			}
