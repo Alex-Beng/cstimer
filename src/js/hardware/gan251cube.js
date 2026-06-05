@@ -294,6 +294,9 @@ execMain(function() {
 			if (!crcValid) { // cube state
 				giikerutil.log('[gan251cube] CRC validation failed (state, processing anyway)');
 			}
+			if (firstStateReceived) {
+				return; // ignore subsequent state packets after initialization
+			}
 			var stateData = decodeStatePacket(decrypted);
 			if (stateData) {
 				giikerutil.log('[gan251cube] State update');
