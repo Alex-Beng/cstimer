@@ -40,31 +40,11 @@ execMain(function(timer) {
 	function decodeMoveIdx(idx) {
 		var axis = Math.floor(idx / 3);
 		var pow = idx % 3;
-		if (getPuzzle() == '2' && axis >= 3) {
-			var oppAxis = axis - 3;
-			var rot = [3, 15, 17][oppAxis];
-			var rotInv = mathlib.CubieCube.rotMulI[0][rot];
-			if (pow == 1) {
-				enqueueMove(oppAxis, 0);
-				enqueueMove(oppAxis, 0);
-			} else {
-				enqueueMove(oppAxis, pow == 2 ? 1 : 0);
-			}
-			if (pow == 1) {
-				ori = mathlib.CubieCube.rotMult[rot][ori];
-				ori = mathlib.CubieCube.rotMult[rot][ori];
-			} else if (pow == 2) {
-				ori = mathlib.CubieCube.rotMult[rotInv][ori];
-			} else {
-				ori = mathlib.CubieCube.rotMult[rot][ori];
-			}
+		if (pow == 1) {
+			enqueueMove(axis, 0);
+			enqueueMove(axis, 0);
 		} else {
-			if (pow == 1) {
-				enqueueMove(axis, 0);
-				enqueueMove(axis, 0);
-			} else {
-				enqueueMove(axis, pow == 2 ? 1 : 0);
-			}
+			enqueueMove(axis, pow == 2 ? 1 : 0);
 		}
 	}
 
@@ -74,7 +54,11 @@ execMain(function(timer) {
 		if (!m) return;
 		var face = m[1];
 		var pow = "2'".indexOf(m[2] || '-') + 2;
-
+		
+		// if puzzle is 2x2, API only accepts R, U, F moves, so we need to convert some moves. D L B -> Dw Lw Bw
+		if (getPuzzle() == '2') {
+			face = face.replace(/D/, 'Dw').replace(/L/, 'Lw').replace(/B/, 'Bw');
+		}
 		var axis = 'URFDLB'.indexOf(face);
 		if (axis != -1) {
 			var moveIdx = axis * 3 + pow % 4 - 1;
