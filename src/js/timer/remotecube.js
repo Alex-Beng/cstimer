@@ -77,6 +77,7 @@ execMain(function(timer) {
 					ori = mathlib.CubieCube.rotMult[rot][ori];
 				}
 			}
+			return;
 		}
 
 		axis = 'UwRwFwDwLwBw'.indexOf(face);
