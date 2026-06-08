@@ -69,10 +69,12 @@ execMain(function(timer) {
 			var oriMoveIdx = mathlib.CubieCube.rotMulM[ori][moveIdx];
 			var oriAxis = oriMoveIdx / 3;
 			if (oriAxis < 3) {
+				console.log("moveIdx: ", moveIdx, "oriMoveIdx: ", oriMoveIdx);
 				decodeMoveIdx(oriMoveIdx);
 			} else {
 				var rot = [0, 0, 0, 1, 11, 23][oriAxis];
 				var fixMoveIdx = (axis - 3) * 3 + pow % 4 - 1;
+				console.log("moveIdx: ", moveIdx, "oriMoveIdx: ", oriMoveIdx, "fixMoveIdx: ", fixMoveIdx, );
 				decodeMoveIdx(fixMoveIdx);
 				for (var i = 0; i < pow; i++) {
 					ori = mathlib.CubieCube.rotMult[rot][ori];
