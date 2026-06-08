@@ -64,7 +64,6 @@ execMain(function(timer) {
 		}
 		// if puzzle is 2x2, API only accepts R, U, F moves, so we need to convert some moves. D L B -> Dw Lw Bw -> Uy' Rx' Fz'
 		if (axis != -1 && is222) {
-			axis -= 2;
 			var moveIdx = axis * 3 + pow % 4 - 1;
 			var oriMoveIdx = mathlib.CubieCube.rotMulM[ori][moveIdx];
 			var oriAxis = oriMoveIdx / 3;
@@ -73,8 +72,8 @@ execMain(function(timer) {
 				decodeMoveIdx(oriMoveIdx);
 			} else {
 				var rot = [0, 0, 0, 1, 11, 23][oriAxis];
-				var fixMoveIdx = (axis - 3) * 3 + pow % 4 - 1;
-				console.log("moveIdx: ", moveIdx, "oriMoveIdx: ", oriMoveIdx, "fixMoveIdx: ", fixMoveIdx, );
+				var fixMoveIdx = ((axis - 3) % 6) * 3 + pow % 4 - 1;
+				console.log("moveIdx: ", moveIdx, "oriMoveIdx: ", oriMoveIdx, "fixMoveIdx: ", fixMoveIdx);
 				decodeMoveIdx(fixMoveIdx);
 				for (var i = 0; i < pow; i++) {
 					ori = mathlib.CubieCube.rotMult[rot][ori];
