@@ -49,8 +49,8 @@ execMain(function(timer) {
 	}
 
 	function processMoveForAPI(move) {
-		console.log(move)
 		var str = puzzleObj.move2str(move);
+		console.log(move, str)
 		var m = CubeMoveRE.exec(str);
 		if (!m) return;
 		var face = m[1];
