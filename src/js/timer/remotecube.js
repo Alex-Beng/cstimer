@@ -49,6 +49,7 @@ execMain(function(timer) {
 	}
 
 	function processMoveForAPI(move) {
+		console.log(move)
 		var str = puzzleObj.move2str(move);
 		var m = CubeMoveRE.exec(str);
 		if (!m) return;
@@ -73,6 +74,7 @@ execMain(function(timer) {
 				var rot = [0, 0, 0, 1, 11, 23][oriAxis];
 				var fixMoveIdx = (oriAxis - 3) * 3 + pow % 4 - 1;
 				decodeMoveIdx(fixMoveIdx);
+				console.log('URFDLB'[axis], 'URFDLB'[oriAxis-3])
 				for (var i = 0; i < pow; i++) {
 					ori = mathlib.CubieCube.rotMult[rot][ori];
 				}
