@@ -63,23 +63,20 @@ execMain(function(timer) {
 			decodeMoveIdx(mathlib.CubieCube.rotMulM[ori][moveIdx]);
 			return;
 		}
-		// if puzzle is 2x2, API only accepts R, U, F moves, so we need to convert some moves. D L B -> Dw Lw Bw -> Uy' Rx' Fz'
+		// if puzzle is 2x2, API only accepts R, U, F moves.
+		// When DBL corner is in the moving layer (standard face D/L/B),
+		// convert to double-layer turn → existing wide handler will
+		// process it as opposite single-layer turn + rotation.
 		if (axis != -1 && is222) {
 			var moveIdx = axis * 3 + pow % 4 - 1;
 			var oriMoveIdx = mathlib.CubieCube.rotMulM[ori][moveIdx];
 			var oriAxis = Math.floor(oriMoveIdx / 3);
 			if (oriAxis < 3) {
 				decodeMoveIdx(oriMoveIdx);
-			} else {
-				var rot = [0, 0, 0, 1, 11, 23][oriAxis];
-				var fixMoveIdx = (oriAxis - 3) * 3 + pow % 4 - 1;
-				decodeMoveIdx(fixMoveIdx);
-				console.log('URFDLB'[axis], 'URFDLB'[oriAxis-3])
-				for (var i = 0; i < pow; i++) {
-					ori = mathlib.CubieCube.rotMult[rot][ori];
-				}
+				return;
 			}
-			return;
+			// DBL in the layer → fall through to wide handler
+			face = face + 'w';
 		}
 
 		axis = 'UwRwFwDwLwBw'.indexOf(face);
