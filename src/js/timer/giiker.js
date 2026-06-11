@@ -93,13 +93,13 @@ execMain(function(timer) {
 				giikerutil.log('[vrc-setState] shouldReset->genFacelet, stateLen:', state.length);
 				resetVRC(false);
 				curVRCCubie.fromFacelet(mathlib.SOLVED_FACELET);
-				todoMoves = scramble_333.genFacelet(state);
+				todoMoves = cubeSize == 2 ? scramble_222.genFacelet(state) : scramble_333.genFacelet(state);
 				giikerutil.log('[vrc-setState] genFacelet:', todoMoves ? todoMoves.substring(0, 50) : 'null');
 			} else {
 				todoMoves = todoMoves.reverse().join(' ');
 			}
 			var scramble;
-			if (todoMoves.match(/^\s*$/) || !puzzleObj) {
+			if (!todoMoves || todoMoves.match(/^\s*$/) || !puzzleObj) {
 				scramble = [];
 			} else {
 				scramble = puzzleObj.parseScramble(cubeutil.getConjMoves(todoMoves, true, curVRCCubie.ori));
@@ -294,8 +294,8 @@ execMain(function(timer) {
 		if (timer.status() == -1) {
 			if (kernel.getProp('giiMode') == 'n') {
 				if (!giikerutil.checkScramble()) {
-					var gen = scramble_333.genFacelet(currentFacelet);
-					kernel.pushSignal('scramble', ['333', cubeutil.getConjMoves(gen, true), 0]);
+					var gen = tools.getCurPuzzle() == '222' ? scramble_222.genFacelet(currentFacelet) : scramble_333.genFacelet(currentFacelet);
+					if (gen) kernel.pushSignal('scramble', ['333', cubeutil.getConjMoves(gen, true), 0]);
 				}
 				giikerutil.markScrambled();
 			} else {

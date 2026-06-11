@@ -198,7 +198,7 @@ execMain(function(timer) {
 	function doScramble(facelets) {
 		if (!puzzleObj) return;
 		if (facelets != mathlib.SOLVED_FACELET) {
-			var gen = scramble_333.genFacelet(facelets);
+			var gen = getPuzzle() == '2' ? scramble_222.genFacelet(facelets) : scramble_333.genFacelet(facelets);
 			if (gen) {
 				var moves = puzzleObj.parseScramble(gen, true);
 				puzzleObj.applyMoves(moves);
