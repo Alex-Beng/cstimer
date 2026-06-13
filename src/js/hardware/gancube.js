@@ -415,19 +415,31 @@ execMain(function() {
 				for (var i = 0; i < 6; i++) {
 					mac.push((dataView.getUint8(dataView.byteLength - i - 1) + 0x100).toString(16).slice(1));
 				}
-				return Promise.resolve(mac.join(':'));
+				return mac.join(':');
 			}
-			return Promise.reject(-3);
+			return null;
 		}).then(function(mac) {
-			giikerutil.log('[gancube] init, found cube bluetooth hardware MAC = ' + mac);
+			if (mac) {
+				giikerutil.log('[gancube] init, found cube bluetooth hardware MAC = ' + mac);
+				return mac;
+			}
+			giikerutil.log('[gancube] init, unable to automatically determine cube MAC');
+			if (is251) {
+				mac = giikerutil.reqMacAddr(true, false, null, null);
+				giikerutil.log('[gancube] init, user entered MAC = ' + mac);
+				return mac;
+			}
+			return null;
+		}).then(function(mac) {
+			if (!mac) {
+				return Promise.reject(-1);
+			}
 			deviceMac = mac;
 			if (is251) {
 				var keyIv = getKeyGAN251(mac);
 				decoder = $.aes128(keyIv.key);
 				decoder.iv = keyIv.iv;
 			}
-		}, function(err) {
-			giikerutil.log('[gancube] init, unable to automatically determine cube MAC, error code = ' + err);
 		}).then(function() {
 			return device.gatt.connect();
 		}).then(function(gatt) {
