@@ -246,14 +246,7 @@ execMain(function(timer) {
 
 	function canStart(facelet) {
 		if (tools.getCurPuzzle() == '222') {
-			var cc = new mathlib.CubieCube();
-			cc.fromFacelet(facelet);
-			for (var i = 0; i < 8; i++) {
-				if (cc.ca[i] != i) {
-					return true;
-				}
-			}
-			return kernel.getProp('giiMode') != 'n';
+			return cubeutil.can222Start(facelet);
 		}
 		return facelet != mathlib.SOLVED_FACELET || kernel.getProp('giiMode') != 'n';
 	}
@@ -276,15 +269,7 @@ execMain(function(timer) {
 			}
 		}
 		if (tools.getCurPuzzle() == '222') {
-			var croner222Idx = [0, 2, 6, 8, ];
-			for (var begIdx = 0; begIdx < mathlib.SOLVED_FACELET.length; begIdx+=9) {
-				for (var i = 0; i < croner222Idx.length; i++) {
-					if (facelet[begIdx + croner222Idx[i]] != mathlib.SOLVED_FACELET[begIdx + croner222Idx[i]]) {
-						return false;
-					}
-				}
-			}
-			return true;
+			return cubeutil.is222Solved(facelet);
 		}
 		return facelet == mathlib.SOLVED_FACELET;
 	}
@@ -294,7 +279,7 @@ execMain(function(timer) {
 		if (timer.status() == -1) {
 			if (kernel.getProp('giiMode') == 'n') {
 				if (!giikerutil.checkScramble()) {
-					var gen = tools.getCurPuzzle() == '222' ? scramble_222.genFacelet(currentFacelet) : scramble_333.genFacelet(currentFacelet);
+					var gen = cubeutil.getCurScrambler().genFacelet(currentFacelet);
 					if (gen) kernel.pushSignal('scramble', ['333', cubeutil.getConjMoves(gen, true), 0]);
 				}
 				giikerutil.markScrambled();

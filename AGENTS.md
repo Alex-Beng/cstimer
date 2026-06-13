@@ -54,7 +54,7 @@
 
 | 领域 | 变更 |
 |------|------|
-| **新硬件支持** | `src/js/hardware/gan251cube.js` — GAN 251 智能魔方驱动（519行） |
+| **新硬件支持** | `src/js/hardware/gancube.js` — GAN 251 已合并入 gancube 作为 V4 子协议，`puzzleSize: 2` |
 | **远程魔方** | 新增 `src/js/hardware/remotecube.js`、`src/js/timer/remotecube.js`、`src/js/tools/remotecube.js` — 通过 HTTP/串口远程操作实体魔方，支持 2 阶和 3 阶 |
 | **2 阶智能魔方** | `src/js/timer/giiker.js` 大幅重写 — 2x2 无棱块的特殊处理（`isSolvedState`、`checkScramble`、`markSolved`），打乱校验仅比较角块 |
 | **蓝牙层** | `src/js/hardware/bluetooth.js` — 蓝牙前缀优先级调整（GAN251 优先）|
@@ -68,4 +68,4 @@
 
 - **2x2 智能魔方调试日志丰富** — `giikerutil.log(...)` 遍布整个 `giiker.js`，调试时可搜索 `[btutil-cb]`、`[chkScr]` 等前缀
 - **远程魔方有两种通信模式** — HTTP（POST 请求）和 Web Serial API（串口），URL 保存在 `localStorage['remoteCubeUrl']` 中
-- **GAN 251 使用 Gen4 协议**，与老款 GAN 魔方协议不兼容（见 `gan251cube.js` 与 `gancube.js` 的区分）
+- **GAN 251 使用 Gen4 协议**，已合并入 `gancube.js`（`puzzleSize: 2`），共享 `parseV4Data` 进行数据包解析，密钥派生使用独立的 `GAN251_BASE_KEY/IV`

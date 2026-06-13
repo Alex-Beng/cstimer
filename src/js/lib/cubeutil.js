@@ -577,6 +577,31 @@ var cubeutil = (function() {
 		return cc.ori || 0;
 	}
 
+	function is222Solved(facelet) {
+		var idx = [0, 2, 6, 8];
+		for (var b = 0; b < 54; b += 9) {
+			for (var i = 0; i < 4; i++) {
+				if (facelet[b + idx[i]] != mathlib.SOLVED_FACELET[b + idx[i]]) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	function can222Start(facelet) {
+		var cc = new mathlib.CubieCube();
+		cc.fromFacelet(facelet);
+		for (var i = 0; i < 8; i++) {
+			if (cc.ca[i] != i) return true;
+		}
+		return kernel.getProp('giiMode') != 'n';
+	}
+
+	function getCurScrambler() {
+		return tools.getCurPuzzle() == '222' ? scramble_222 : scramble_333;
+	}
+
 	return {
 		getProgress: getProgress,
 		getStepNames: getStepNames,
@@ -590,6 +615,9 @@ var cubeutil = (function() {
 		getIdentData: getIdentData,
 		parseScramble: parseScramble,
 		getConjMoves: getConjMoves,
-		getPreConj: getPreConj
+		getPreConj: getPreConj,
+		is222Solved: is222Solved,
+		can222Start: can222Start,
+		getCurScrambler: getCurScrambler
 	}
 })();

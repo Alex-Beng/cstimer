@@ -42,6 +42,9 @@ execMain(function() {
 	// List of Company Identifier Codes, fill with all values range [0x0001, 0xFF01] possible for GAN cubes
 	var GAN_CIC_LIST = mathlib.valuedArray(256, function (i) { return (i << 8) | 0x01 });
 
+	var GAN251_BASE_KEY = 'NoDhBoEYFYCZwJwHZyzuAzJVGBsqZF8YEoMMDsEJIEAGcaaHcAFlYF0g';
+	var GAN251_BASE_IV  = 'NoRgTA7ANAnNYAYAcUliiE0QwMxQFZo1UoAWANlTKjBg1xXAVnoggF0g';
+
 	var decoder = null;
 	var deviceName = null;
 	var deviceMac = null;
@@ -76,6 +79,28 @@ execMain(function() {
 			iv[i] = (iv[i] + value[5 - i]) % 255;
 		}
 		return [key, iv];
+	}
+
+	function getKeyGAN251(mac) {
+		var baseKey = JSON.parse(LZString.decompressFromEncodedURIComponent(GAN251_BASE_KEY));
+		var baseIv = JSON.parse(LZString.decompressFromEncodedURIComponent(GAN251_BASE_IV));
+		var parts = mac.split(':');
+		var salt = [];
+		for (var i = 5; i >= 0; i--) {
+			salt.push(parseInt(parts[i], 16));
+		}
+		var key = [];
+		var iv = [];
+		for (var i = 0; i < 16; i++) {
+			if (i < 6) {
+				key[i] = (baseKey[i] + salt[i]) % 0xff;
+				iv[i] = (baseIv[i] + salt[i]) % 0xff;
+			} else {
+				key[i] = baseKey[i];
+				iv[i] = baseIv[i];
+			}
+		}
+		return { key: key, iv: iv };
 	}
 
 	function decode(value) {
@@ -332,24 +357,28 @@ execMain(function() {
 		return v4sendRequest(req);
 	}
 
+	function v4setupService() {
+		return _service_v4data.getCharacteristics().then(function(chrcts) {
+			giikerutil.log('[gancube] v4 find chrcts', chrcts);
+			_chrct_v4read = GiikerCube.findUUID(chrcts, CHRCT_UUID_V4READ);
+			_chrct_v4write = GiikerCube.findUUID(chrcts, CHRCT_UUID_V4WRITE);
+			if (!_chrct_v4read) {
+				giikerutil.log('[gancube] v4 cannot find v4read chrct');
+			}
+		}).then(function() {
+			giikerutil.log('[gancube] v4 start notifications');
+			return _chrct_v4read.startNotifications();
+		}).then(function() {
+			giikerutil.log('[gancube] v4 notification started');
+			return _chrct_v4read.addEventListener('characteristicvaluechanged', onStateChangedV4);
+		});
+	}
+
 	function v4init() {
 		giikerutil.log('[gancube] v4init start');
 		keyCheck = 0;
 		v2initKey(true, false, 0);
-		return _service_v4data.getCharacteristics().then(function(chrcts) {
-			giikerutil.log('[gancube] v4init find chrcts', chrcts);
-			_chrct_v4read = GiikerCube.findUUID(chrcts, CHRCT_UUID_V4READ);
-			_chrct_v4write = GiikerCube.findUUID(chrcts, CHRCT_UUID_V4WRITE);
-			if (!_chrct_v4read) {
-				giikerutil.log('[gancube] v4init cannot find v4read chrct');
-			}
-		}).then(function() {
-			giikerutil.log('[gancube] v4init v4read start notifications');
-			return _chrct_v4read.startNotifications();
-		}).then(function() {
-			giikerutil.log('[gancube] v4init v4read notification started');
-			return _chrct_v4read.addEventListener('characteristicvaluechanged', onStateChangedV4);
-		}).then(function() {
+		return v4setupService().then(function() {
 			return v4requestHardwareInfo();
 		}).then(function() {
 			return v4requestFacelets();
@@ -358,10 +387,27 @@ execMain(function() {
 		});
 	}
 
+	function gan251Init() {
+		giikerutil.log('[gancube] gan251Init start');
+		keyCheck = 0;
+		return v4setupService().then(function() {
+			return v4requestHardwareInfo();
+		}).then(function() {
+			return v4requestFacelets();
+		}).then(function() {
+			return v4requestBattery();
+		});
+	}
+
+	function isGAN251() {
+		return /^GAN251/i.test(deviceName || '');
+	}
+
 	function init(device) {
 		clear();
 		deviceName = device.name;
-		giikerutil.log('[gancube] init gan cube start');
+		var is251 = isGAN251();
+		giikerutil.log('[gancube] init', is251 ? 'GAN251' : 'GAN', 'cube start');
 		return GiikerCube.waitForAdvs().then(function(mfData) {
 			var dataView = getManufacturerDataBytes(mfData);
 			if (dataView && dataView.byteLength >= 6) {
@@ -375,6 +421,11 @@ execMain(function() {
 		}).then(function(mac) {
 			giikerutil.log('[gancube] init, found cube bluetooth hardware MAC = ' + mac);
 			deviceMac = mac;
+			if (is251) {
+				var keyIv = getKeyGAN251(mac);
+				decoder = $.aes128(keyIv.key);
+				decoder.iv = keyIv.iv;
+			}
 		}, function(err) {
 			giikerutil.log('[gancube] init, unable to automatically determine cube MAC, error code = ' + err);
 		}).then(function() {
@@ -393,7 +444,7 @@ execMain(function() {
 			}
 			_service_v4data = GiikerCube.findUUID(services, SERVICE_UUID_V4DATA);
 			if (_service_v4data) {
-				return v4init();
+				return is251 ? gan251Init() : v4init();
 			}
 			_service_meta = GiikerCube.findUUID(services, SERVICE_UUID_META);
 			_service_data = GiikerCube.findUUID(services, SERVICE_UUID_DATA);
@@ -1039,5 +1090,14 @@ execMain(function() {
 		cics: GAN_CIC_LIST,
 		getBatteryLevel: getBatteryLevel,
 		clear: clear
+	});
+	GiikerCube.regCubeModel({
+		prefix: ['GAN251', 'gan251ui_', 'ganic251_', 'gan251ui'],
+		init: init,
+		opservs: [SERVICE_UUID_V4DATA],
+		cics: GAN_CIC_LIST,
+		getBatteryLevel: getBatteryLevel,
+		clear: clear,
+		puzzleSize: 2
 	});
 });
