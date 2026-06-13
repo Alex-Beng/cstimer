@@ -252,7 +252,7 @@
 					if (moves[i][1] > 0) {
 						scramble.push([1, moves[i][1], "URFDLB".charAt(moves[i][0]), [1, 2, -1][moves[i][2] - 1]]);
 					} else {
-						scramble.push([1, 3, "URFDLB".charAt(moves[i][0]), [1, 2, -1][-moves[i][2] - 1]]);
+						scramble.push([1, this.size, "URFDLB".charAt(moves[i][0]), [1, 2, -1][-moves[i][2] - 1]]);
 					}
 				}
 				return scramble;
