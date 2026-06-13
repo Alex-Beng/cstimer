@@ -42,20 +42,19 @@ execMain(function() {
 	// List of Company Identifier Codes, fill with all values range [0x0001, 0xFF01] possible for GAN cubes
 	var GAN_CIC_LIST = mathlib.valuedArray(256, function (i) { return (i << 8) | 0x01 });
 
-	var GAN251_BASE_KEY = 'NoDhBoEYFYCZwJwHZyzuAzJVGBsqZF8YEoMMDsEJIEAGcaaHcAFlYF0g';
-	var GAN251_BASE_IV  = 'NoRgTA7ANAnNYAYAcUliiE0QwMxQFZo1UoAWANlTKjBg1xXAVnoggF0g';
-
 	var decoder = null;
 	var deviceName = null;
 	var deviceMac = null;
 
 	var KEYS = [
-		"NoRgnAHANATADDWJYwMxQOxiiEcfYgSK6Hpr4TYCs0IG1OEAbDszALpA",
-		"NoNg7ANATFIQnARmogLBRUCs0oAYN8U5J45EQBmFADg0oJAOSlUQF0g",
-		"NoRgNATGBs1gLABgQTjCeBWSUDsYBmKbCeMADjNnXxHIoIF0g",
-		"NoRg7ANAzBCsAMEAsioxBEIAc0Cc0ATJkgSIYhXIjhMQGxgC6QA",
-		"NoVgNAjAHGBMYDYCcdJgCwTFBkYVgAY9JpJYUsYBmAXSA",
-		"NoRgNAbAHGAsAMkwgMyzClH0LFcArHnAJzIqIBMGWEAukA"
+		"NoRgnAHANATADDWJYwMxQOxiiEcfYgSK6Hpr4TYCs0IG1OEAbDszALpA", //  0: V1  key (version 0x0100xx)
+		"NoNg7ANATFIQnARmogLBRUCs0oAYN8U5J45EQBmFADg0oJAOSlUQF0g", //  1: V1  key (version 0x0101xx)
+		"NoRgNATGBs1gLABgQTjCeBWSUDsYBmKbCeMADjNnXxHIoIF0g",       //  2: V2  key (ver=0)
+		"NoRg7ANAzBCsAMEAsioxBEIAc0Cc0ATJkgSIYhXIjhMQGxgC6QA",     //  3: V2  IV  (ver=0)
+		"NoVgNAjAHGBMYDYCcdJgCwTFBkYVgAY9JpJYUsYBmAXSA",           //  4: V3  key (ver=1, AiCube)
+		"NoRgNAbAHGAsAMkwgMyzClH0LFcArHnAJzIqIBMGWEAukA",          //  5: V3  IV  (ver=1, AiCube)
+		"NoDhBoEYFYCZwJwHZyzuAzJVGBsqZF8YEoMMDsEJIEAGcaaHcAFlYF0g", //  6: GAN251 key
+		"NoRgTA7ANAnNYAYAcUliiE0QwMxQFZo1UoAWANlTKjBg1xXAVnoggF0g"  //  7: GAN251 IV
 	];
 
 	function getKey(version, value) {
@@ -82,8 +81,8 @@ execMain(function() {
 	}
 
 	function getKeyGAN251(mac) {
-		var baseKey = JSON.parse(LZString.decompressFromEncodedURIComponent(GAN251_BASE_KEY));
-		var baseIv = JSON.parse(LZString.decompressFromEncodedURIComponent(GAN251_BASE_IV));
+		var baseKey = JSON.parse(LZString.decompressFromEncodedURIComponent(KEYS[6]));
+		var baseIv = JSON.parse(LZString.decompressFromEncodedURIComponent(KEYS[7]));
 		var parts = mac.split(':');
 		var salt = [];
 		for (var i = 5; i >= 0; i--) {
@@ -432,7 +431,7 @@ execMain(function() {
 			return null;
 		}).then(function(mac) {
 			if (!mac) {
-				return Promise.reject(-1);
+				return Promise.reject('init failed: MAC required for GAN251 key derivation');
 			}
 			deviceMac = mac;
 			if (is251) {
