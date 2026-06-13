@@ -251,6 +251,9 @@ execMain(function() {
 			var rst = kernel.getProp('giiRST');
 			if (rst == 'a' || rst == 'p' && confirm(CONFIRM_GIIRST)) {
 				giikerutil.markSolved();
+			} else if (rst == 'p') {
+				giikerutil.resetSolvedInv();
+				GiikerCube.callback(latestFacelet, [], [null, locTime], deviceName);
 			}
 		}
 	}

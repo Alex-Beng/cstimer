@@ -97,6 +97,35 @@ function getCurScrambler() {
 | `checkScramble()` line 135 | Keep as-is (different logic — compares scramble state to current state) |
 | `markSolved()` line 393 | Keep as-is (different logic — CubieCube multiplication) |
 
+## Part 3: Fix "Reset bluetooth cube as solved?" Cancel → Still Shows Solved
+
+### Root Cause
+
+`bluetoothutil.init()` loads `solvedStateInv` from `giiSolved` (saved by a previous `markSolved()`):
+```javascript
+curRawState = kernel.getProp('giiSolved', mathlib.SOLVED_FACELET);
+curRawCubie.fromFacelet(curRawState);
+solvedStateInv.invFrom(curRawCubie);  // ← non-identity
+```
+
+When V4 facelet arrives, `initCubeState()` calls `GiikerCube.callback()` which transforms:
+```javascript
+CubieCube.CubeMult(solvedStateInv, curRawCubie, curCubie);
+// curCubie = inv(oldState) * newState → relative state
+```
+
+If the physical cube hasn't moved since `markSolved()` was last called, `curCubie` is solved.
+The confirm dialog (`rst == 'p'`) appears because `latestFacelet != giiSolved` (raw state ≠ saved).
+But if user clicks Cancel:
+- `markSolved()` is NOT called (correct)
+- `solvedStateInv` remains non-identity → subsequent state tracking still shows wrong relative state
+
+### Fix
+
+1. **`bluetoothutil.js`**: Export `resetSolvedInv()` that resets `solvedStateInv = new CubieCube()` (identity)
+2. **`gancube.js` `initCubeState()`**: On Cancel (`rst == 'p'` + confirm false), call `resetSolvedInv()` + re-run callback with raw facelet
+3. Same fix applied to `qiyicube.js` and `moyu32cube.js` (same pattern)
+
 ## File Summary
 
 | File | Lines Δ |
@@ -105,6 +134,8 @@ function getCurScrambler() {
 | `gan251cube.js` | -519 lines (deleted) |
 | `cubeutil.js` | ~+30 lines |
 | `giiker.js` | ~-20 lines |
-| `bluetoothutil.js` | ~-10 lines |
+| `bluetoothutil.js` | ~-10 lines (Part 2) + ~+4 lines (Part 3) |
 | `index.php` | -1 line |
 | `Makefile` | -1 line |
+| `qiyicube.js` | ~+3 lines |
+| `moyu32cube.js` | ~+3 lines |

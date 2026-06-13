@@ -174,6 +174,9 @@ execMain(function() {
 				var rst = kernel.getProp('giiRST');
 				if (rst == 'a' || rst == 'p' && confirm(CONFIRM_GIIRST)) {
 					giikerutil.markSolved();
+				} else if (rst == 'p') {
+					giikerutil.resetSolvedInv();
+					GiikerCube.callback(newFacelet, [], [Math.trunc(ts / 1.6), locTime], _deviceName);
 				}
 			}
 		} else if (opcode == 0x3) { // state change

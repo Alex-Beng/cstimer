@@ -825,6 +825,9 @@ var giikerutil = execMain(function(CubieCube) {
 			evtCallback = func;
 		},
 		markSolved: markSolved,
+		resetSolvedInv: function() {
+			solvedStateInv = new mathlib.CubieCube();
+		},
 		checkScramble: checkScramble,
 		markScrambled: markScrambled,
 		init: init,
