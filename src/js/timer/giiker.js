@@ -45,7 +45,7 @@ execMain(function(timer) {
 				if (!puzzleObj) {
 					return;
 				}
-				var preScramble = puzzleObj.parseScramble('U2 U2', true);
+				var preScramble = puzzleObj.parseScramble('U2 U2', cubeSize == 2 ? false : true);
 				curVRCCubie.ori = 0;
 				for (var i = 0; i < preScramble.length; i++) {
 					curVRCCubie.selfMoveStr(puzzleObj.move2str(preScramble[i]));
