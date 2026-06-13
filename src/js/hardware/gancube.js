@@ -407,29 +407,35 @@ execMain(function() {
 		deviceName = device.name;
 		var is251 = isGAN251();
 		giikerutil.log('[gancube] init', is251 ? 'GAN251' : 'GAN', 'cube start');
-		return GiikerCube.waitForAdvs().then(function(mfData) {
-			var dataView = getManufacturerDataBytes(mfData);
-			if (dataView && dataView.byteLength >= 6) {
-				var mac = [];
-				for (var i = 0; i < 6; i++) {
-					mac.push((dataView.getUint8(dataView.byteLength - i - 1) + 0x100).toString(16).slice(1));
+		function getMac() {
+			return GiikerCube.waitForAdvs().then(function(mfData) {
+				var dataView = getManufacturerDataBytes(mfData);
+				if (dataView && dataView.byteLength >= 6) {
+					var mac = [];
+					for (var i = 0; i < 6; i++) {
+						mac.push((dataView.getUint8(dataView.byteLength - i - 1) + 0x100).toString(16).slice(1));
+					}
+					return mac.join(':');
 				}
-				return mac.join(':');
-			}
-			return null;
-		}).then(function(mac) {
-			if (mac) {
-				giikerutil.log('[gancube] init, found cube bluetooth hardware MAC = ' + mac);
-				return mac;
-			}
-			giikerutil.log('[gancube] init, unable to automatically determine cube MAC');
-			if (is251) {
-				mac = giikerutil.reqMacAddr(true, false, null, null);
-				giikerutil.log('[gancube] init, user entered MAC = ' + mac);
-				return mac;
-			}
-			return null;
-		}).then(function(mac) {
+				return null;
+			}, function(err) {
+				giikerutil.log('[gancube] init, unable to automatically determine cube MAC', err);
+				return null;
+			}).then(function(mac) {
+				if (mac) {
+					giikerutil.log('[gancube] init, found cube bluetooth hardware MAC = ' + mac);
+					return mac;
+				}
+				if (is251) {
+					mac = giikerutil.reqMacAddr(true, false, null, null);
+					giikerutil.log('[gancube] init, user entered MAC = ' + mac);
+					return mac;
+				}
+				return null;
+			});
+		}
+
+		return getMac().then(function(mac) {
 			if (!mac) {
 				return Promise.reject('init failed: MAC required for GAN251 key derivation');
 			}
