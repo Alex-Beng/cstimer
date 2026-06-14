@@ -699,7 +699,19 @@ var giikerutil = execMain(function(CubieCube) {
 		if (virtual) {
 			targetCubie = scrHinter.getScrCubie();
 		}
-		if (!targetCubie.isEqual(curCubie)) {
+		var isMatch;
+		if (tools.getCurPuzzle() == '222') {
+			isMatch = true;
+			for (var i = 0; i < 8; i++) {
+				if (targetCubie.ca[i] != curCubie.ca[i]) {
+					isMatch = false;
+					break;
+				}
+			}
+		} else {
+			isMatch = targetCubie.isEqual(curCubie);
+		}
+		if (!isMatch) {
 			DEBUG && console.log('[bluetooth] scramble equal, start hack!');
 			hackedSolvedCubieInv = new mathlib.CubieCube();
 			hackedCubie.invFrom(curCubie);
