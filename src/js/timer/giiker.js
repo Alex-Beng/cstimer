@@ -274,7 +274,13 @@ execMain(function(timer) {
 		return facelet == mathlib.SOLVED_FACELET;
 	}
 
+	var markScrambledRunning = false;
+
 	function markScrambled(now) {
+		if (markScrambledRunning) {
+			return;
+		}
+		markScrambledRunning = true;
 		clearReadyTid();
 		if (timer.status() == -1) {
 			if (kernel.getProp('giiMode') == 'n') {
@@ -294,6 +300,7 @@ execMain(function(timer) {
 				metronome.playTick();
 			}
 		}
+		markScrambledRunning = false;
 	}
 
 	function setVRC(enable) {

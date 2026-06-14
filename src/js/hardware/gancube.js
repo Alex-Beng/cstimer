@@ -983,7 +983,6 @@ execMain(function() {
 			}
 			giikerutil.log('[gancube]', 'v4 processing facelets event', prevMoveCnt, moveCnt, value);
 			var cc = new mathlib.CubieCube();
-			var echk = 0;
 			var cchk = 0xf00;
 			for (var i = 0; i < 7; i++) {
 				var perm = parseInt(value.slice(32 + i * 3, 35 + i * 3), 2);
@@ -993,17 +992,25 @@ execMain(function() {
 				cc.ca[i] = ori << 3 | perm;
 			}
 			cc.ca[7] = (cchk & 0xff8) % 24 | cchk & 0x7;
-			for (var i = 0; i < 11; i++) {
-				var perm = parseInt(value.slice(69 + i * 4, 73 + i * 4), 2);
-				var ori = parseInt(value.slice(113 + i, 114 + i), 2);
-				echk ^= perm << 1 | ori;
-				cc.ea[i] = perm << 1 | ori;
-			}
-			cc.ea[11] = echk;
-			if (cc.verify() != 0) {
-				keyCheck++;
-				giikerutil.log('[gancube]', 'v4 facelets state verify error');
-				return;
+			if (isGAN251()) {
+				// 2x2 has no edges; firmware edge data may be invalid -> set solved
+				for (var i = 0; i < 12; i++) {
+					cc.ea[i] = i << 1;
+				}
+			} else {
+				var echk = 0;
+				for (var i = 0; i < 11; i++) {
+					var perm = parseInt(value.slice(69 + i * 4, 73 + i * 4), 2);
+					var ori = parseInt(value.slice(113 + i, 114 + i), 2);
+					echk ^= perm << 1 | ori;
+					cc.ea[i] = perm << 1 | ori;
+				}
+				cc.ea[11] = echk;
+				if (cc.verify() != 0) {
+					keyCheck++;
+					giikerutil.log('[gancube]', 'v4 facelets state verify error');
+					return;
+				}
 			}
 			latestFacelet = cc.toFaceCube();
 			giikerutil.log('[gancube]', 'v4 facelets event state parsed', latestFacelet);
