@@ -373,16 +373,7 @@ var giikerutil = execMain(function(CubieCube) {
 	function markSolved() {
 		//mark current state as solved
 		solvedStateInv.invFrom(curRawCubie);
-		if (tools.getCurPuzzle() == '222') {
-			// 222 has no edges, curState should reflect solved corners
-			// after markSolved, solvedStateInv * SOLVED = rawSolved
-			var solvedCC = new mathlib.CubieCube();
-			var solvedRawCC = new mathlib.CubieCube();
-			CubieCube.CubeMult(solvedStateInv, solvedCC, solvedRawCC);
-			curState = solvedRawCC.toFaceCube();
-		} else {
-			curState = mathlib.SOLVED_FACELET;
-		}
+		curState = mathlib.SOLVED_FACELET;
 		kernel.setProp('giiSolved', curRawState);
 		moveTsStart = moveTsList.length;
 		scrambleLength = 0;
