@@ -274,6 +274,27 @@
 				}
 				return cubeutil.getProgress(facelet.join(''), kernel.getProp('vrcMP', 'n'));
 			}
+			if (size == 2) {
+				var f24 = [];
+				var s2 = size * size;
+				for (var f = 0; f < 6; f++) {
+					for (var j = 0; j < size; j++) {
+						var y = (f == 0) ? size - 1 - j : j;
+						for (var i = 0; i < size; i++) {
+							var x = (f == 1 || f == 2) ? size - 1 - i : i;
+							f24[(f + 3) % 6 * s2 + j * size + i] = "DLBURF".charAt(this.posit[f * s2 + y * size + x]);
+						}
+					}
+				}
+				var f54 = [];
+				var centers = "URFDLB";
+				var map = [0, 2, 6, 8];
+				for (var f = 0; f < 6; f++) {
+					for (var k = 0; k < 9; k++) f54[f * 9 + k] = centers[f];
+					for (var k = 0; k < 4; k++) f54[f * 9 + map[k]] = f24[f * 4 + k];
+				}
+				return cubeutil.get222Progress(f54.join(''), kernel.getProp('vrcMP', 'n'));
+			}
 			var cnt = 0;
 			for (var i = 0; i < 6; i++) {
 				var std = this.posit[cnt];

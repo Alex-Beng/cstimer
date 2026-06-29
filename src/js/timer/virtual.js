@@ -27,7 +27,18 @@ execMain(function(timer) {
 				timer.startTime(now);
 				moveCnt = 0;
 				timer.curTime([insTime > 17000 ? -1 : (insTime > 15000 ? 2000 : 0)]);
-				timer.status(curScrSize == 3 && curScrType != "r3" ? cubeutil.getStepCount(kernel.getProp('vrcMP', 'n')) : 1);
+				var vrcMP = kernel.getProp('vrcMP', 'n');
+				var stepCount;
+				if (curScrType == "r3") {
+					stepCount = 1;
+				} else if (curScrSize == 3) {
+					stepCount = cubeutil.getStepCount(vrcMP);
+				} else if (curScrSize == 2) {
+					stepCount = cubeutil.get222StepCount(vrcMP);
+				} else {
+					stepCount = 1;
+				}
+				timer.status(stepCount);
 				var inspectionMoves = rawMoves[0];
 				rawMoves = [];
 				for (var i = 0; i < timer.status(); i++) {

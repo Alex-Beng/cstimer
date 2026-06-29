@@ -474,12 +474,6 @@ var cubeutil = (function() {
 	}
 
 	function getProgress(facelet, method) {
-		if (tools.getCurPuzzle() == '222') {
-			if (method == 'cll') {
-				return getProgressNAxis(facelet, get222ProgressCLL, 1);
-			}
-			return getProgressNAxis(facelet, get222ProgressOrtega, 1);
-		}
 		switch (method) {
 			case 'cfop':
 				return getProgressNAxis(facelet, getCFOPProgress, 6);
@@ -500,12 +494,6 @@ var cubeutil = (function() {
 
 	function getStepNames(method) {
 		giikerutil.log("cur puzzle:", tools.getCurPuzzle(), "method:", method);
-		if (tools.getCurPuzzle() == '222') {
-			if (method == 'cll') {
-				return ['solve', 'cll', 'face'];
-			}
-			return ['solve', 'face'];
-		}
 		switch (method) {
 			case 'cfop':
 				return ['pll', 'oll', 'f2l', 'cross'];
@@ -529,10 +517,10 @@ var cubeutil = (function() {
 		return stepNames ? stepNames.length : 0;
 	}
 
-	function getPrettyReconstruction(rawMoves, method) {
+	function getPrettyReconstruction(rawMoves, method, is222) {
 		var prettySolve = "";
 		var prettyMoves = getPrettyMoves(rawMoves);
-		var stepNames = getStepNames(method).reverse();
+		var stepNames = (is222 ? get222StepNames(method) : getStepNames(method)).reverse();
 		var totalMoves = 0;
 		for (var i = 0; i < prettyMoves.length; i++) {
 			totalMoves += prettyMoves[i][1];
@@ -625,6 +613,23 @@ var cubeutil = (function() {
 		return tools.getCurPuzzle() == '222' ? scramble_222 : scramble_333;
 	}
 
+	function get222Progress(facelet, method) {
+		if (method == 'cll') {
+			return getProgressNAxis(facelet, get222ProgressCLL, 1);
+		}
+		return getProgressNAxis(facelet, get222ProgressOrtega, 1);
+	}
+
+	function get222StepCount(method) {
+		if (method == 'cll') return 3;
+		return 2;
+	}
+
+	function get222StepNames(method) {
+		if (method == 'cll') return ['solve', 'cll', 'face'];
+		return ['solve', 'face'];
+	}
+
 	return {
 		getProgress: getProgress,
 		getStepNames: getStepNames,
@@ -641,6 +646,9 @@ var cubeutil = (function() {
 		getPreConj: getPreConj,
 		is222Solved: is222Solved,
 		can222Start: can222Start,
-		getCurScrambler: getCurScrambler
+		getCurScrambler: getCurScrambler,
+		get222Progress: get222Progress,
+		get222StepCount: get222StepCount,
+		get222StepNames: get222StepNames
 	}
 })();

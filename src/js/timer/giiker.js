@@ -208,13 +208,14 @@ execMain(function(timer) {
 			}
 			timer.startTime(locTime);
 			timer.curTime([insTime > 17000 ? -1 : (insTime > 15000 ? 2000 : 0)]);
-			timer.status(cubeutil.getStepCount(solvingMethod));
+			var is222 = tools.getCurPuzzle() == '222';
+			timer.status(is222 ? cubeutil.get222StepCount(solvingMethod) : cubeutil.getStepCount(solvingMethod));
 			rawMoves = [];
 			for (var i = 0; i < timer.status(); i++) {
 				rawMoves[i] = [];
 			}
 			totPhases = timer.status();
-			var initialProgress = cubeutil.getProgress(prevFacelet, solvingMethod);
+			var initialProgress = is222 ? cubeutil.get222Progress(prevFacelet, solvingMethod) : cubeutil.getProgress(prevFacelet, solvingMethod);
 			timer.updateMulPhase(totPhases, initialProgress, locTime);
 			timer.lcd.reset(enableVRC);
 			timer.lcd.fixDisplay(false, true);
@@ -222,12 +223,13 @@ execMain(function(timer) {
 		if (timer.status() >= 1) {
 			if (prevMoves.length > 0)
 				rawMoves[timer.status() - 1].push([prevMoves[0], lastTs[0], lastTs[1]]);
-			var curProgress = cubeutil.getProgress(facelet, solvingMethod);
+			var is222 = tools.getCurPuzzle() == '222';
+			var curProgress = is222 ? cubeutil.get222Progress(facelet, solvingMethod) : cubeutil.getProgress(facelet, solvingMethod);
 			timer.updateMulPhase(totPhases, curProgress, locTime);
 
 			if (isGiiSolved(currentFacelet)) {
 				rawMoves.reverse();
-				var pretty = cubeutil.getPrettyReconstruction(rawMoves, solvingMethod);
+				var pretty = cubeutil.getPrettyReconstruction(rawMoves, solvingMethod, is222);
 				var moveCnt = pretty.totalMoves;
 				giikerutil.setLastSolve(pretty.prettySolve);
 				timer.curTime()[1] = locTime - timer.startTime();
