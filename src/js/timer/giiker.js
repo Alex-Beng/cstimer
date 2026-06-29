@@ -93,15 +93,7 @@ execMain(function(timer) {
 				giikerutil.log('[vrc-setState] shouldReset->genFacelet, stateLen:', state.length);
 				resetVRC(false);
 				curVRCCubie.fromFacelet(mathlib.SOLVED_FACELET);
-				if (cubeSize == 2) {
-					var cc2 = new mathlib.CubieCube();
-					cc2.fromFacelet(state);
-					var solvedRef = new mathlib.CubieCube();
-					for (var i = 0; i < 12; i++) cc2.ea[i] = solvedRef.ea[i];
-					todoMoves = scramble_222.genFacelet(cc2.toFaceCube());
-				} else {
-					todoMoves = scramble_333.genFacelet(state);
-				}
+				todoMoves = cubeSize == 2 ? scramble_222.genFacelet(state) : scramble_333.genFacelet(state);
 				giikerutil.log('[vrc-setState] genFacelet:', todoMoves ? todoMoves.substring(0, 50) : 'null');
 			} else {
 				todoMoves = todoMoves.reverse().join(' ');

@@ -613,7 +613,20 @@ var cubeutil = (function() {
 		return tools.getCurPuzzle() == '222' ? scramble_222 : scramble_333;
 	}
 
+	function expand222Facelet(facelet) {
+		if (facelet.length == 54) return facelet;
+		var f54 = [];
+		var centers = "URFDLB";
+		var map = [0, 2, 6, 8];
+		for (var f = 0; f < 6; f++) {
+			for (var k = 0; k < 9; k++) f54[f * 9 + k] = centers[f];
+			for (var k = 0; k < 4; k++) f54[f * 9 + map[k]] = facelet[f * 4 + k];
+		}
+		return f54.join('');
+	}
+
 	function get222Progress(facelet, method) {
+		facelet = expand222Facelet(facelet);
 		if (method == 'cll') {
 			return getProgressNAxis(facelet, get222ProgressCLL, 1);
 		}
