@@ -103,6 +103,7 @@ execMain(function(timer) {
 				resetVRC(false, true);
 				curVRCCubie.fromFacelet(mathlib.SOLVED_FACELET);
 				todoMoves = cubeSize == 2 ? scramble_222.genFacelet(state) : scramble_333.genFacelet(state);
+				console.log('[setState] genFacelet:', todoMoves, 'ori:', curVRCCubie.ori, 'state:', state.substring(0, 30));
 				giikerutil.log('[vrc-setState] genFacelet:', todoMoves ? todoMoves.substring(0, 50) : 'null');
 			} else {
 				todoMoves = todoMoves.reverse().join(' ');
@@ -111,7 +112,9 @@ execMain(function(timer) {
 			if (!todoMoves || todoMoves.match(/^\s*$/) || !puzzleObj) {
 				scramble = [];
 			} else {
-				scramble = puzzleObj.parseScramble(cubeutil.getConjMoves(todoMoves, true, curVRCCubie.ori));
+				var conjMoves = cubeutil.getConjMoves(todoMoves, true, curVRCCubie.ori);
+				console.log('[setState] conjMoves:', conjMoves, 'ori:', curVRCCubie.ori);
+				scramble = puzzleObj.parseScramble(conjMoves);
 			}
 			if (scramble.length < 5) {
 				giikerutil.log('[vrc-setState] addMoves:', scramble.length);
