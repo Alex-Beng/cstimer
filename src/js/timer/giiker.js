@@ -100,7 +100,7 @@ execMain(function(timer) {
 			}
 			if (shouldReset) { //cannot get current state according to prevMoves
 				giikerutil.log('[vrc-setState] shouldReset->genFacelet, stateLen:', state.length);
-				resetVRC(false);
+				resetVRC(false, true);
 				curVRCCubie.fromFacelet(mathlib.SOLVED_FACELET);
 				todoMoves = cubeSize == 2 ? scramble_222.genFacelet(state) : scramble_333.genFacelet(state);
 				giikerutil.log('[vrc-setState] genFacelet:', todoMoves ? todoMoves.substring(0, 50) : 'null');

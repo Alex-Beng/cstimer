@@ -181,6 +181,24 @@ local: all
 	cp $(dest)/js/twisty.js $(dest)/local/js/twisty.js
 	cp $(dest)/css/style.css $(dest)/local/css/style.css
 
+src_local:
+	mkdir -p $(dest)/local/js $(dest)/local/css $(dest)/local/lang
+	cp -r $(src)/js/. $(dest)/local/js/
+	cp $(src)/css/style.css $(dest)/local/css/style.css
+	cp $(src)/lang/*.js $(dest)/local/lang/
+	cp $(src)/lang/*.php $(dest)/local/lang/
+	cp $(dest)/cstimer.webmanifest $(dest)/local/cstimer.webmanifest
+	cp $(dest)/cstimer512x512.png $(dest)/local/cstimer512x512.png
+	cp $(dest)/js/jquery.min.js $(dest)/local/js/lib/jquery-1.8.0.js
+	@echo "Build Version: $(version)"
+	@sed -i 's/\$$version = "[^"]*"/\$$version = "$(version)"/g' $(dest)/local/lang/langDet.php
+	cd $(src) && php index.php | sed "s/.*manifest.*//g" > ../$(dest)/local/index.html
+	cp $(dest)/sw.js $(dest)/local/sw.js
+	@sed -i "s/'timer\.php'/'index.html'/" $(dest)/local/sw.js
+	@sed -i "/js\/twisty\.js/d" $(dest)/local/sw.js
+	@sed -i '$$d' $(dest)/local/sw.js
+	@echo 'var CACHE_NAME = "cstimer_src_$(version)";' >> $(dest)/local/sw.js
+
 check: $(twistySrc) $(timerSrc)
 	@$(compile) --externs experiment/checkwrap.js $(src)/lang/en-us.js $(timerSrc) $(twistySrc) -O ADVANCED --checks-only --jscomp_off checkTypes
 
@@ -219,4 +237,4 @@ $(dest)/sw.js: $(cache) version
 	@sed -i '$$d' $@
 	@echo 'var CACHE_NAME = "cstimer_cache_'`cat $(cache) | md5sum | awk '{print $$1}'`'";' >> $@
 
-.PHONY: all clean version check
+.PHONY: all clean version check src_local
