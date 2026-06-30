@@ -37,6 +37,7 @@ var cubeutil = (function() {
 	var c2LLPattern = "0-1---2-36-7---R-R4-5---F-FD-D---D-Da-b---L-L8-9---B-B";
 	var c2LLMask = toEqus("---------------R-R------F-FD-D---D-D------L-L------B-B");
 	var c222faceMask = toEqus("---------" + "------R-R" + "------F-F" + "D-D---D-D" + "------L-L" + "------B-B");
+	var c222ollMask = toEqus("U-U---U-U" + "---------" + "---------" + "---------" + "---------" + "---------");
 	var solvedMask = toEqus(mathlib.SOLVED_FACELET);
 
 	var cubeRots = (function genRots() {
@@ -218,7 +219,8 @@ var cubeutil = (function() {
 	}
 
 	function get222ProgressOrtega(param) {
-		if (solvedProgress(param, c222faceMask)) return 2;
+		if (solvedProgress(param, c222faceMask)) return 3;
+		else if (solvedProgress(param, c222ollMask)) return 2;
 		else if (!is222Solved(param[0])) return 1;
 		return 0;
 	}
@@ -638,13 +640,13 @@ var cubeutil = (function() {
 	}
 
 	function get222StepCount(method) {
-		if (method == 'ortega') return 2;
+		if (method == 'ortega') return 3;
 		if (method == 'cll') return 3;
 		return 1;
 	}
 
 	function get222StepNames(method) {
-		if (method == 'ortega') return ['solve', 'face'];
+		if (method == 'ortega') return ['solve', 'oll', 'face'];
 		if (method == 'cll') return ['solve', 'cll', 'face'];
 		return ['solve'];
 	}

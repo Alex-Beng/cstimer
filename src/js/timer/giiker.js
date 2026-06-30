@@ -263,6 +263,7 @@ execMain(function(timer) {
 	}
 
 	function isGiiSolved(facelet) {
+		var solvingMethod = kernel.getProp('vrcMP', 'n');
 		if (kernel.getProp('giiMode') != 'n') {
 			var curScrType = (tools.getCurScramble() || [])[0];
 			var chkstep = {
@@ -276,13 +277,20 @@ execMain(function(timer) {
 				'f2l': 'f2l',
 				'lsll2': 'f2l'
 			}[curScrType];
+			console.log('[isGiiSolved] curScrType:', curScrType, 'chkstep:', chkstep, 'puzzle:', tools.getCurPuzzle(), 'method:', solvingMethod);
 			if (chkstep) {
-				return cubeutil.getStepProgress(chkstep, facelet) == 0;
+				var r = cubeutil.getStepProgress(chkstep, facelet);
+				console.log('[isGiiSolved] chkstep result:', r);
+				return r == 0;
 			}
 		}
 		if (tools.getCurPuzzle() == '222') {
-			var solvingMethod = kernel.getProp('vrcMP', 'n');
-			return cubeutil.get222Progress(facelet, solvingMethod) == 0;
+			var p = cubeutil.get222Progress(facelet, solvingMethod);
+			console.log('[isGiiSolved] get222Progress:', p, 'method:', solvingMethod);
+			if (solvingMethod == 'cll') {
+				return p <= 2;
+			}
+			return p == 0;
 		}
 		return facelet == mathlib.SOLVED_FACELET;
 	}

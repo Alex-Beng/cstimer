@@ -690,6 +690,7 @@ var giikerutil = execMain(function(CubieCube) {
 		if (virtual) {
 			targetCubie = scrHinter.getScrCubie();
 		}
+		console.log('[markScrambled] virtual:', virtual, 'puzzle:', tools.getCurPuzzle(), 'targetFacelet:', targetCubie.toFaceCube(), 'targetFaceletLen:', targetCubie.toFaceCube().length, 'curFacelet:', curCubie.toFaceCube());
 		var isMatch;
 		if (tools.getCurPuzzle() == '222') {
 			isMatch = true;
@@ -702,12 +703,14 @@ var giikerutil = execMain(function(CubieCube) {
 		} else {
 			isMatch = targetCubie.isEqual(curCubie);
 		}
+		console.log('[markScrambled] isMatch:', isMatch);
 		if (!isMatch) {
 			DEBUG && console.log('[bluetooth] scramble equal, start hack!');
 			hackedSolvedCubieInv = new mathlib.CubieCube();
 			hackedCubie.invFrom(curCubie);
 			CubieCube.CubeMult(targetCubie, hackedCubie, hackedSolvedCubieInv);
 			moveTsStart = moveTsList.length;
+			console.log('[markScrambled] hack: callback with targetFacelet:', targetCubie.toFaceCube());
 			callback(targetCubie.toFaceCube(), [], [null, $.now()]);
 		}
 		scrambleLength = moveTsList.length - moveTsStart;
