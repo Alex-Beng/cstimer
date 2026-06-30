@@ -84,7 +84,16 @@ execMain(function(timer) {
 			for (var i = 0; i < prevMoves.length; i++) {
 				todoMoves.push(prevMoves[i]);
 				tmpCubie1.selfMoveStr(prevMoves[i], true);
-				if (tmpCubie1.isEqual(curVRCCubie)) {
+				var isEq;
+				if (cubeSize == 2) {
+					isEq = true;
+					for (var j = 0; j < 8; j++) {
+						if (tmpCubie1.ca[j] != curVRCCubie.ca[j]) { isEq = false; break; }
+					}
+				} else {
+					isEq = tmpCubie1.isEqual(curVRCCubie);
+				}
+				if (isEq) {
 					shouldReset = false;
 					break;
 				}
@@ -271,7 +280,7 @@ execMain(function(timer) {
 			}
 		}
 		if (tools.getCurPuzzle() == '222') {
-			return cubeutil.is222Solved(facelet);
+			return giikerutil.isPhysicallySolved();
 		}
 		return facelet == mathlib.SOLVED_FACELET;
 	}
