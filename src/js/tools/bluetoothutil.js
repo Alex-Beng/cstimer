@@ -833,9 +833,6 @@ var giikerutil = execMain(function(CubieCube) {
 		},
 		checkScramble: checkScramble,
 		markScrambled: markScrambled,
-		isPhysicallySolved: function() {
-			return isSolvedState(curCubie);
-		},
 		init: init,
 		stop: stop,
 		isSync: isSync,

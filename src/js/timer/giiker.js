@@ -280,7 +280,7 @@ execMain(function(timer) {
 			}
 		}
 		if (tools.getCurPuzzle() == '222') {
-			return giikerutil.isPhysicallySolved();
+			return cubeutil.is222Solved(facelet);
 		}
 		return facelet == mathlib.SOLVED_FACELET;
 	}
