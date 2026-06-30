@@ -628,6 +628,9 @@ var cubeutil = (function() {
 
 	function get222Progress(facelet, method) {
 		facelet = expand222Facelet(facelet);
+		if (method == 'n') {
+			return is222Solved(facelet) ? 0 : 1;
+		}
 		if (method == 'cll') {
 			return getProgressNAxis(facelet, get222ProgressCLL, 1);
 		}
@@ -635,13 +638,15 @@ var cubeutil = (function() {
 	}
 
 	function get222StepCount(method) {
+		if (method == 'ortega') return 2;
 		if (method == 'cll') return 3;
-		return 2;
+		return 1;
 	}
 
 	function get222StepNames(method) {
+		if (method == 'ortega') return ['solve', 'face'];
 		if (method == 'cll') return ['solve', 'cll', 'face'];
-		return ['solve', 'face'];
+		return ['solve'];
 	}
 
 	return {
