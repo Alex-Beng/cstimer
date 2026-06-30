@@ -36,8 +36,9 @@ var cubeutil = (function() {
 	var LLPattern = "012345678cdeRRRRRR9abFFFFFFDDDDDDDDDijkLLLLLLfghBBBBBB";
 	var c2LLPattern = "0-1---2-36-7---R-R4-5---F-FD-D---D-Da-b---L-L8-9---B-B";
 	var c2LLMask = toEqus("---------------R-R------F-FD-D---D-D------L-L------B-B");
-	var c222faceMask = toEqus("---------" + "------R-R" + "------F-F" + "D-D---D-D" + "------L-L" + "------B-B");
+	var c222faceMask = toEqus("---------" + "---------" + "---------" + "D-D---D-D" + "---------" + "---------");
 	var c222ollMask = toEqus("U-U---U-U" + "---------" + "---------" + "---------" + "---------" + "---------");
+	var c222cllMask = toEqus("U-U---U-U" + "---------" + "---------" + "D-D---D-D" + "---------" + "---------");
 	var solvedMask = toEqus(mathlib.SOLVED_FACELET);
 
 	var cubeRots = (function genRots() {
@@ -227,7 +228,7 @@ var cubeutil = (function() {
 
 	function get222ProgressCLL(param) {
 		if (solvedProgress(param, c222faceMask)) return 3;
-		else if (solvedProgress(param, c2LLMask)) return 2;
+		else if (solvedProgress(param, c222cllMask)) return 2;
 		else if (!is222Solved(param[0])) return 1;
 		return 0;
 	}
