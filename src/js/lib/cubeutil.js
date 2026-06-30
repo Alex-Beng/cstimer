@@ -36,9 +36,9 @@ var cubeutil = (function() {
 	var LLPattern = "012345678cdeRRRRRR9abFFFFFFDDDDDDDDDijkLLLLLLfghBBBBBB";
 	var c2LLPattern = "0-1---2-36-7---R-R4-5---F-FD-D---D-Da-b---L-L8-9---B-B";
 	var c2LLMask = toEqus("---------------R-R------F-FD-D---D-D------L-L------B-B");
-	var c222faceMask = toEqus("---------" + "---------" + "---------" + "D-D-D-D-D" + "---------" + "---------");
-	var c222ollMask = toEqus("U-U-U-U-U" + "---------" + "---------" + "D-D-D-D-D" + "---------" + "---------");
-	var c222cllMask = toEqus("U-U-U-U-U" + "---------" + "---------" + "D-D-D-D-D" + "---------" + "---------");
+	var c222faceMask = toEqus("---------" + "---------" + "---------" + "D-D---D-D" + "---------" + "---------");
+	var c222ollMask = toEqus("U-U---U-U" + "---------" + "---------" + "D-D---D-D" + "---------" + "---------");
+	var c222cllMask = toEqus("U-U---U-U" + "---------" + "---------" + "D-D---D-D" + "---------" + "---------");
 	var solvedMask = toEqus(mathlib.SOLVED_FACELET);
 
 	var cubeRots = (function genRots() {

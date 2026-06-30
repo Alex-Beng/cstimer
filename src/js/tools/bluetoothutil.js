@@ -711,14 +711,6 @@ var giikerutil = execMain(function(CubieCube) {
 			CubieCube.CubeMult(targetCubie, hackedCubie, hackedSolvedCubieInv);
 			moveTsStart = moveTsList.length;
 			var targetFacelet = targetCubie.toFaceCube();
-			if (tools.getCurPuzzle() == '222' && targetFacelet.length == 54) {
-				var map = [0, 2, 6, 8];
-				var f24 = [];
-				for (var f = 0; f < 6; f++) {
-					for (var k = 0; k < 4; k++) f24.push(targetFacelet[f * 9 + map[k]]);
-				}
-				targetFacelet = f24.join('');
-			}
 			console.log('[markScrambled] hack: callback with targetFacelet:', targetFacelet, 'len:', targetFacelet.length);
 			callback(targetFacelet, [], [null, $.now()]);
 		}

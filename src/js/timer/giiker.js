@@ -290,9 +290,6 @@ execMain(function(timer) {
 		if (tools.getCurPuzzle() == '222') {
 			var p = cubeutil.get222Progress(facelet, solvingMethod);
 			console.log('[isGiiSolved] get222Progress:', p, 'method:', solvingMethod);
-			if (solvingMethod == 'cll') {
-				return p <= 2;
-			}
 			return p == 0;
 		}
 		return facelet == mathlib.SOLVED_FACELET;
