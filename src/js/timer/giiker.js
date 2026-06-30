@@ -266,6 +266,7 @@ execMain(function(timer) {
 		if (kernel.getProp('giiMode') != 'n') {
 			var curScrType = (tools.getCurScramble() || [])[0];
 			var chkstep = {
+				'222lsall': 'c222face',
 				'coll': 'cpll',
 				'cmll': 'cmll',
 				'oll': 'oll',
@@ -280,7 +281,8 @@ execMain(function(timer) {
 			}
 		}
 		if (tools.getCurPuzzle() == '222') {
-			return cubeutil.is222Solved(facelet);
+			var solvingMethod = kernel.getProp('vrcMP', 'n');
+			return cubeutil.get222Progress(facelet, solvingMethod) == 0;
 		}
 		return facelet == mathlib.SOLVED_FACELET;
 	}

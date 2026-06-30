@@ -231,14 +231,15 @@ var cubeutil = (function() {
 	}
 
 	var stepParams = {
-		'cross': [6, crossMask],
-		'f2l':   [6, f2lMask],
-		'oll':   [6, ollMask],
-		'eoll':  [6, eollMask],
-		'cpll':  [6, cpllMask],
-		'fb':    [24, roux1Mask],
-		'sb':    [24, roux2Mask],
-		'cmll':  [24, roux3Mask]
+		'cross':    [6, crossMask],
+		'f2l':      [6, f2lMask],
+		'oll':      [6, ollMask],
+		'eoll':     [6, eollMask],
+		'cpll':     [6, cpllMask],
+		'fb':       [24, roux1Mask],
+		'sb':       [24, roux2Mask],
+		'cmll':     [24, roux3Mask],
+		'c222face': [1, c222faceMask]
 	};
 
 	//return 0: solved, 1 not solved
