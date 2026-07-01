@@ -10,9 +10,7 @@ var scrHinter = execMain(function(CubieCube) {
 
 	function setScramble(scramble) {
 		rawScrTxt = scramble;
-		if (tools.getCurPuzzle() != '222') {
-			scramble = cubeutil.getConjMoves(scramble);
-		}
+		scramble = cubeutil.getConjMoves(scramble);
 		var scr = cubeutil.parseScramble(scramble, "URFDLB");
 		rawScr = scr.slice();
 		genState = null;
