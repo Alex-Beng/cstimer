@@ -486,6 +486,7 @@
 				return twistyScene.isMoveFinished() ? curProgress : Math.max(1, curProgress);
 			}
 			if (twisty.options.dimension == 2) {
+				console.log('[rc] facelet2:', getFacelet(twisty));
 				var curProgress = cubeutil.get222Progress(getFacelet(twisty), kernel.getProp('vrcMP', 'n'));
 				return twistyScene.isMoveFinished() ? curProgress : Math.max(1, curProgress);
 			}
