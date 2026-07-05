@@ -287,10 +287,10 @@
 					}
 				}
 				var f54 = [];
-				var centers = "URFDLB";
 				var map = [0, 2, 6, 8];
 				for (var f = 0; f < 6; f++) {
-					for (var k = 0; k < 9; k++) f54[f * 9 + k] = centers[f];
+					var col = f24[f * 4];
+					for (var k = 0; k < 9; k++) f54[f * 9 + k] = col;
 					for (var k = 0; k < 4; k++) f54[f * 9 + map[k]] = f24[f * 4 + k];
 				}
 				return cubeutil.get222Progress(f54.join(''), kernel.getProp('vrcMP', 'n'));

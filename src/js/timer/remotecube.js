@@ -154,7 +154,6 @@ execMain(function(timer) {
 			var curProgress;
 			if (mstep == 2) {
 				curProgress = puzzleObj.isSolved(kernel.getProp('vrcMP', 'n'));
-				console.log('[rc] isSolved:', curProgress, 'method:', kernel.getProp('vrcMP', 'n'), 'puzzle:', getPuzzle());
 				timer.updateMulPhase(totPhases, curProgress, now);
 			}
 			if (mstep == 2 && curProgress == 0) {

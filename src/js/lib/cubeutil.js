@@ -622,10 +622,10 @@ var cubeutil = (function() {
 	function expand222Facelet(facelet) {
 		if (facelet.length == 54) return facelet;
 		var f54 = [];
-		var centers = "URFDLB";
 		var map = [0, 2, 6, 8];
 		for (var f = 0; f < 6; f++) {
-			for (var k = 0; k < 9; k++) f54[f * 9 + k] = centers[f];
+			var col = facelet[f * 4];
+			for (var k = 0; k < 9; k++) f54[f * 9 + k] = col;
 			for (var k = 0; k < 4; k++) f54[f * 9 + map[k]] = facelet[f * 4 + k];
 		}
 		return f54.join('');
