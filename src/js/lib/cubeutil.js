@@ -228,8 +228,7 @@ var cubeutil = (function() {
 	}
 
 	function get222ProgressCLL(param) {
-		if (solvedProgress(param, c222layerMask)) return 3;
-		else if (solvedProgress(param, c222cllMask)) return 2;
+		if (solvedProgress(param, c222layerMask)) return 2;
 		else if (solvedProgress(param)) return 1;
 		return 0;
 	}
@@ -645,13 +644,13 @@ var cubeutil = (function() {
 
 	function get222StepCount(method) {
 		if (method == 'ortega') return 3;
-		if (method == 'cll') return 3;
+		if (method == 'cll') return 2;
 		return 1;
 	}
 
 	function get222StepNames(method) {
 		if (method == 'ortega') return ['solve', 'oll', 'face'];
-		if (method == 'cll') return ['solve', 'cll', 'layer'];
+		if (method == 'cll') return ['solve', 'layer'];
 		return ['solve'];
 	}
 
