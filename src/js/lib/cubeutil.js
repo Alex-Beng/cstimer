@@ -493,6 +493,8 @@ var cubeutil = (function() {
 				return getProgressNAxis(facelet, getCF3ZBProgress, 6);
 			case 'n':
 				return getProgressNAxis(facelet, solvedProgress, 1);
+			default:
+				return getProgressNAxis(facelet, solvedProgress, 1);
 		}
 	}
 

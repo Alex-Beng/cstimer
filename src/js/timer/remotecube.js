@@ -115,7 +115,6 @@ execMain(function(timer) {
 	}
 
 	function moveListener(move, mstep, ts) {
-		console.log('[remotecube] moveListener mstep:', mstep, 'status:', timer.status(), 'isConnected:', isConnected, 'move:', JSON.stringify(move));
 		if (!isConnected) return;
 		if (mstep == 1) return;
 		var now = ts || $.now();
@@ -155,11 +154,9 @@ execMain(function(timer) {
 			var curProgress;
 			if (mstep == 2) {
 				curProgress = puzzleObj.isSolved(kernel.getProp('vrcMP', 'n'));
-				console.log('[remotecube] mstep=2 isSolved:', curProgress, 'status:', timer.status(), 'now-startTime:', now - timer.startTime());
 				timer.updateMulPhase(totPhases, curProgress, now);
 			}
 			if (mstep == 2 && curProgress == 0) {
-				console.log('[remotecube] SOLVE DETECTED, stopping timer');
 				moveCnt += puzzleObj.moveCnt();
 				flushMoves();
 				timer.lcd.setStaticAppend('');
