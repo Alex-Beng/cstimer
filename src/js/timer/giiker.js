@@ -98,9 +98,9 @@ execMain(function(timer) {
 					break;
 				}
 			}
+			console.log('[vrc-setState] shouldReset:', shouldReset, 'cubeSize:', cubeSize, 'ori:', curVRCCubie.ori, 'prevMoves:', prevMoves.length);
 			if (shouldReset) { //cannot get current state according to prevMoves
 				giikerutil.log('[vrc-setState] shouldReset->genFacelet, stateLen:', state.length);
-				resetVRC(false, true);
 				curVRCCubie.fromFacelet(mathlib.SOLVED_FACELET);
 				todoMoves = cubeSize == 2 ? scramble_222.genFacelet(state) : scramble_333.genFacelet(state);
 				console.log('[setState] genFacelet:', todoMoves, 'ori:', curVRCCubie.ori, 'state:', state.substring(0, 30));
@@ -125,6 +125,7 @@ execMain(function(timer) {
 			}
 			isReseted = false;
 			curVRCCubie.fromFacelet(state);
+			console.log('[vrc-setState] moves applied, target state:', state.substring(0, 30));
 		}
 
 		function setOri(ori) {
@@ -298,6 +299,7 @@ execMain(function(timer) {
 	var markScrambledRunning = false;
 
 	function markScrambled(now) {
+		console.log('[markScrambled] giiMode:', kernel.getProp('giiMode'), 'status:', timer.status(), 'puzzle:', tools.getCurPuzzle());
 		if (markScrambledRunning) {
 			return;
 		}
