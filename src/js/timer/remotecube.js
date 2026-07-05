@@ -118,7 +118,6 @@ execMain(function(timer) {
 		if (!isConnected) return;
 		if (mstep == 1) return;
 		var now = ts || $.now();
-		if (mstep == 0) console.log('[remotecube] mstep:', mstep, 'status:', timer.status(), 'puzzle:', getPuzzle());
 		if (timer.status() == -3 || timer.status() == -2) {
 			if (puzzleObj.isRotation(move)) {
 				if (mstep == 0) {
@@ -135,7 +134,7 @@ execMain(function(timer) {
 				timer.startTime(now);
 				moveCnt = 0;
 				timer.curTime([insTime > 17000 ? -1 : (insTime > 15000 ? 2000 : 0)]);
-				timer.status(cubeutil.getStepCount(kernel.getProp('vrcMP', 'n')));
+				timer.status(getPuzzle() == '2' ? cubeutil.get222StepCount(kernel.getProp('vrcMP', 'n')) : cubeutil.getStepCount(kernel.getProp('vrcMP', 'n')));
 				var inspectionMoves = rawMoves[0];
 				rawMoves = [];
 				for (var i = 0; i < timer.status(); i++) {
@@ -155,11 +154,9 @@ execMain(function(timer) {
 			var curProgress;
 			if (mstep == 2) {
 				curProgress = puzzleObj.isSolved(kernel.getProp('vrcMP', 'n'));
-				console.log('[remotecube] mstep=2 isSolved:', curProgress, 'method:', kernel.getProp('vrcMP', 'n'), 'status:', timer.status());
 				timer.updateMulPhase(totPhases, curProgress, now);
 			}
 			if (mstep == 2 && curProgress == 0) {
-				console.log('[remotecube] SOLVE DETECTED');
 				moveCnt += puzzleObj.moveCnt();
 				flushMoves();
 				timer.lcd.setStaticAppend('');

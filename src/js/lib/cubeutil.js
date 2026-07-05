@@ -222,14 +222,14 @@ var cubeutil = (function() {
 	function get222ProgressOrtega(param) {
 		if (solvedProgress(param, c222faceMask)) return 3;
 		else if (solvedProgress(param, c222ollMask)) return 2;
-		else if (!is222Solved(param[0])) return 1;
+		else if (solvedProgress(param)) return 1;
 		return 0;
 	}
 
 	function get222ProgressCLL(param) {
 		if (solvedProgress(param, c222faceMask)) return 3;
 		else if (solvedProgress(param, c222cllMask)) return 2;
-		else if (!is222Solved(param[0])) return 1;
+		else if (solvedProgress(param)) return 1;
 		return 0;
 	}
 
