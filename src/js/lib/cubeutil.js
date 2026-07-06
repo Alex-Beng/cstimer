@@ -597,8 +597,9 @@ var cubeutil = (function() {
 	function is222Solved(facelet) {
 		var idx = [0, 2, 6, 8];
 		for (var b = 0; b < 54; b += 9) {
-			for (var i = 0; i < 4; i++) {
-				if (facelet[b + idx[i]] != mathlib.SOLVED_FACELET[b + idx[i]]) {
+			var col = facelet[b + idx[0]];
+			for (var i = 1; i < 4; i++) {
+				if (facelet[b + idx[i]] != col) {
 					return false;
 				}
 			}
