@@ -98,13 +98,16 @@ execMain(function(timer) {
 					break;
 				}
 			}
-			console.log('[vrc-setState] shouldReset:', shouldReset, 'cubeSize:', cubeSize, 'ori:', curVRCCubie.ori, 'prevMoves:', prevMoves.length);
 			if (shouldReset) { //cannot get current state according to prevMoves
-				giikerutil.log('[vrc-setState] shouldReset->genFacelet, stateLen:', state.length);
 				curVRCCubie.fromFacelet(mathlib.SOLVED_FACELET);
-				todoMoves = cubeSize == 2 ? scramble_222.genFacelet(state) : scramble_333.genFacelet(state);
-				console.log('[setState] genFacelet:', todoMoves, 'ori:', curVRCCubie.ori, 'state:', state.substring(0, 30));
-				giikerutil.log('[vrc-setState] genFacelet:', todoMoves ? todoMoves.substring(0, 50) : 'null');
+				var rawScr = kernel.getProp('__vrcScrambleRaw');
+				if (rawScr) {
+					todoMoves = cubeutil.getConjMoves(rawScr);
+					kernel.setProp('__vrcScrambleRaw', '');
+				} else {
+					todoMoves = cubeSize == 2 ? scramble_222.genFacelet(state) : scramble_333.genFacelet(state);
+				}
+				giikerutil.log('[vrc-setState] shouldReset todoMoves:', todoMoves ? todoMoves.substring(0, 50) : 'null');
 			} else {
 				todoMoves = todoMoves.reverse().join(' ');
 			}
@@ -113,7 +116,6 @@ execMain(function(timer) {
 				scramble = [];
 			} else {
 				var conjMoves = cubeutil.getConjMoves(todoMoves, true, curVRCCubie.ori);
-				console.log('[setState] conjMoves:', conjMoves, 'ori:', curVRCCubie.ori);
 				scramble = puzzleObj.parseScramble(conjMoves);
 			}
 			if (scramble.length < 5) {
@@ -125,7 +127,6 @@ execMain(function(timer) {
 			}
 			isReseted = false;
 			curVRCCubie.fromFacelet(state);
-			console.log('[vrc-setState] moves applied, target state:', state.substring(0, 30));
 		}
 
 		function setOri(ori) {
@@ -281,16 +282,13 @@ execMain(function(timer) {
 				'f2l': 'f2l',
 				'lsll2': 'f2l'
 			}[curScrType];
-			console.log('[isGiiSolved] curScrType:', curScrType, 'chkstep:', chkstep, 'puzzle:', tools.getCurPuzzle(), 'method:', solvingMethod);
 			if (chkstep) {
 				var r = cubeutil.getStepProgress(chkstep, facelet);
-				console.log('[isGiiSolved] chkstep result:', r);
 				return r == 0;
 			}
 		}
 		if (tools.getCurPuzzle() == '222') {
 			var p = cubeutil.get222Progress(facelet, solvingMethod);
-			console.log('[isGiiSolved] get222Progress:', p, 'method:', solvingMethod);
 			return p == 0;
 		}
 		return facelet == mathlib.SOLVED_FACELET;
@@ -299,7 +297,6 @@ execMain(function(timer) {
 	var markScrambledRunning = false;
 
 	function markScrambled(now) {
-		console.log('[markScrambled] giiMode:', kernel.getProp('giiMode'), 'status:', timer.status(), 'puzzle:', tools.getCurPuzzle());
 		if (markScrambledRunning) {
 			return;
 		}

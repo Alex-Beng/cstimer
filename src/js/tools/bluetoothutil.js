@@ -146,6 +146,7 @@ var scrHinter = execMain(function(CubieCube) {
 	return {
 		setScramble: setScramble,
 		getScrCubie: getScrCubie,
+		getRawScramble: function() { return rawScrTxt; },
 		checkScramble: checkScramble,
 		checkState: checkState
 	}
@@ -689,8 +690,8 @@ var giikerutil = execMain(function(CubieCube) {
 		var targetCubie = curCubie;
 		if (virtual) {
 			targetCubie = scrHinter.getScrCubie();
+			kernel.setProp('__vrcScrambleRaw', scrHinter.getRawScramble());
 		}
-		console.log('[markScrambled] virtual:', virtual, 'puzzle:', tools.getCurPuzzle(), 'targetFacelet:', targetCubie.toFaceCube(), 'targetFaceletLen:', targetCubie.toFaceCube().length, 'curFacelet:', curCubie.toFaceCube());
 		var isMatch;
 		if (tools.getCurPuzzle() == '222') {
 			isMatch = true;
@@ -703,7 +704,6 @@ var giikerutil = execMain(function(CubieCube) {
 		} else {
 			isMatch = targetCubie.isEqual(curCubie);
 		}
-		console.log('[markScrambled] isMatch:', isMatch);
 		if (!isMatch) {
 			DEBUG && console.log('[bluetooth] scramble equal, start hack!');
 			hackedSolvedCubieInv = new mathlib.CubieCube();
@@ -711,7 +711,6 @@ var giikerutil = execMain(function(CubieCube) {
 			CubieCube.CubeMult(targetCubie, hackedCubie, hackedSolvedCubieInv);
 			moveTsStart = moveTsList.length;
 			var targetFacelet = targetCubie.toFaceCube();
-			console.log('[markScrambled] hack: callback with targetFacelet:', targetFacelet, 'len:', targetFacelet.length);
 			callback(targetFacelet, [], [null, $.now()]);
 		}
 		scrambleLength = moveTsList.length - moveTsStart;
