@@ -64,6 +64,7 @@ execMain(function(timer) {
 		}
 
 		function setState(state, prevMoves, isFast) {
+			console.log('[vrc-debug] setState called, state:', state.substring(0, 18), 'prevMoves:', prevMoves.length, 'puzzle:', tools.getCurPuzzle());
 			giikerutil.log('[vrc-setState] in, pzOk:', puzzleObj != undefined, 'vrc:', enableVRC);
 			if (puzzleObj == undefined || !enableVRC) {
 				giikerutil.log('[vrc-setState] SKIP');
@@ -286,13 +287,16 @@ execMain(function(timer) {
 				'f2l': 'f2l',
 				'lsll2': 'f2l'
 			}[curScrType];
+			console.log('[solve-debug] curScrType:', curScrType, 'chkstep:', chkstep, 'method:', solvingMethod, 'puzzle:', tools.getCurPuzzle());
 			if (chkstep) {
 				var r = cubeutil.getStepProgress(chkstep, facelet);
+				console.log('[solve-debug] getStepProgress:', r, '→ solved:', r == 0);
 				return r == 0;
 			}
 		}
 		if (tools.getCurPuzzle() == '222') {
 			var p = cubeutil.get222Progress(facelet, solvingMethod);
+			console.log('[solve-debug] get222Progress:', p, 'method:', solvingMethod, 'facelet:', facelet.substring(0, 18));
 			return p == 0;
 		}
 		return facelet == mathlib.SOLVED_FACELET;
