@@ -489,12 +489,19 @@ window.twistyjs = (function() {
 			}
 			moveQueue = moveQueue.concat(movets);
 			while (cachedFireMoves.length != 0) {
-				twisty.advanceMoveCallback(twisty, cachedFireMoves[0][0]);
+				if (cachedFireMoves[0]) {
+					twisty.advanceMoveCallback(twisty, cachedFireMoves[0][0]);
+				}
 				fireMoveEnded(cachedFireMoves.shift());
 			}
 			while (moveQueue.length > 0) {
 				if (this.isAnimationFinished()) {
 					startMove();
+				}
+				if (!currentMove[0]) {
+					moveQueue = [];
+					moveProgress = [];
+					break;
 				}
 				twisty.advanceMoveCallback(twisty, currentMove[0][0]);
 				fireMoveEnded(currentMove.shift());
@@ -511,14 +518,21 @@ window.twistyjs = (function() {
 			}
 			if (moveProgress[0] < 1) {
 				for (var i = 0; i < currentMove.length; i++) {
-					twisty.animateMoveCallback(twisty, currentMove[i][0], moveProgress[i], animationStep);
+					if (currentMove[i]) {
+						twisty.animateMoveCallback(twisty, currentMove[i][0], moveProgress[i], animationStep);
+					}
 				}
 			} else {
-				cachedFireMoves.push(currentMove.shift());
-				moveProgress.shift();
+				if (currentMove[0]) {
+					cachedFireMoves.push(currentMove.shift());
+				} else {
+					moveProgress.shift();
+				}
 				if (currentMove.length == 0) {
 					while (cachedFireMoves.length != 0) {
-						twisty.advanceMoveCallback(twisty, cachedFireMoves[0][0]);
+						if (cachedFireMoves[0]) {
+							twisty.advanceMoveCallback(twisty, cachedFireMoves[0][0]);
+						}
 						fireMoveEnded(cachedFireMoves.shift());
 					}
 				}
@@ -541,13 +555,14 @@ window.twistyjs = (function() {
 
 		function startAnimation() {
 			if (pendingAnimationLoop === null) {
+				if (moveQueue.length == 0) return;
 				//log("Starting move queue: " + movesToString(moveQueue));
 				startMove();
 				lastTimeStamp = $.now();
 				pendingAnimationLoop = requestAnimFrame(animateLoop, twistyCanvas);
-			} else if (!currentMove[0] || twisty.isParallelMove(twisty, currentMove[0][0], moveQueue[0][0])) {
+			} else if (moveQueue.length == 0 || !currentMove[0] || twisty.isParallelMove(twisty, currentMove[0][0], moveQueue[0][0])) {
 				//			console.log('parallel');
-				startMove();
+				if (moveQueue.length > 0) startMove();
 			}
 		}
 

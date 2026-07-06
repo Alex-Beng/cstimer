@@ -100,15 +100,17 @@ execMain(function(timer) {
 				}
 			}
 			if (shouldReset) { //cannot get current state according to prevMoves
+				console.log('[vrc-debug] shouldReset! cubeSize:', cubeSize, 'curSize:', curSize, 'puzzleObj:', !!puzzleObj, 'enableVRC:', enableVRC);
 				curVRCCubie.fromFacelet(mathlib.SOLVED_FACELET);
 				var rawScr = kernel.getProp('__vrcScrambleRaw');
-				console.log('[vrc-debug] rawScr from kernel:', rawScr, 'preScrT:', kernel.getProp('preScrT'), 'giiOri:', kernel.getProp('giiOri'), 'ori:', curVRCCubie.ori);
+				console.log('[vrc-debug] rawScr from kernel:', JSON.stringify(rawScr), 'preScrT:', kernel.getProp('preScrT'), 'giiOri:', kernel.getProp('giiOri'), 'ori:', curVRCCubie.ori);
 				if (rawScr) {
 					todoMoves = cubeutil.getConjMoves(rawScr);
-					console.log('[vrc-debug] getConjMoves(rawScr):', todoMoves);
+					console.log('[vrc-debug] getConjMoves(rawScr):', JSON.stringify(todoMoves), 'len:', todoMoves ? todoMoves.length : 0);
 					kernel.setProp('__vrcScrambleRaw', '');
 				} else {
 					todoMoves = cubeSize == 2 ? scramble_222.genFacelet(state) : scramble_333.genFacelet(state);
+					console.log('[vrc-debug] genFacelet fallback, todoMoves:', JSON.stringify(todoMoves));
 				}
 				giikerutil.log('[vrc-setState] shouldReset todoMoves:', todoMoves ? todoMoves.substring(0, 50) : 'null');
 			} else {
@@ -117,17 +119,28 @@ execMain(function(timer) {
 			var scramble;
 			if (!todoMoves || todoMoves.match(/^\s*$/) || !puzzleObj) {
 				scramble = [];
+				console.log('[vrc-debug] scramble empty: todoMoves=', JSON.stringify(todoMoves), 'puzzleObj=', !!puzzleObj);
 			} else {
 				var conjMoves = cubeutil.getConjMoves(todoMoves, true, curVRCCubie.ori);
-				console.log('[vrc-debug] conjMoves:', conjMoves, 'ori:', curVRCCubie.ori, 'todoMoves:', todoMoves);
+				console.log('[vrc-debug] conjMoves:', JSON.stringify(conjMoves), 'ori:', curVRCCubie.ori, 'todoMoves:', JSON.stringify(todoMoves));
 				scramble = puzzleObj.parseScramble(conjMoves);
+				console.log('[vrc-debug] parseScramble result:', scramble ? scramble.length : 'null', 'moves:', JSON.stringify(scramble ? scramble.slice(0, 3) : null));
 			}
+			console.log('[vrc-debug] apply: scramble.length:', scramble.length, 'puzzleObj:', !!puzzleObj);
 			if (scramble.length < 5) {
 				giikerutil.log('[vrc-setState] addMoves:', scramble.length);
-				puzzleObj.addMoves(scramble);
+				try {
+					puzzleObj.addMoves(scramble);
+				} catch (e) {
+					console.error('[vrc-debug] addMoves error:', e.message, e.stack);
+				}
 			} else {
 				giikerutil.log('[vrc-setState] applyMoves:', scramble.length);
-				puzzleObj.applyMoves(scramble);
+				try {
+					puzzleObj.applyMoves(scramble);
+				} catch (e) {
+					console.error('[vrc-debug] applyMoves error:', e.message, 'scramble:', JSON.stringify(scramble.slice(0, 5)), 'puzzleObj:', !!puzzleObj);
+				}
 			}
 			isReseted = false;
 			curVRCCubie.fromFacelet(state);
