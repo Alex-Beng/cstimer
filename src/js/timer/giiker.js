@@ -101,8 +101,10 @@ execMain(function(timer) {
 			if (shouldReset) { //cannot get current state according to prevMoves
 				curVRCCubie.fromFacelet(mathlib.SOLVED_FACELET);
 				var rawScr = kernel.getProp('__vrcScrambleRaw');
+				console.log('[vrc-debug] rawScr from kernel:', rawScr, 'preScrT:', kernel.getProp('preScrT'), 'giiOri:', kernel.getProp('giiOri'), 'ori:', curVRCCubie.ori);
 				if (rawScr) {
 					todoMoves = cubeutil.getConjMoves(rawScr);
+					console.log('[vrc-debug] getConjMoves(rawScr):', todoMoves);
 					kernel.setProp('__vrcScrambleRaw', '');
 				} else {
 					todoMoves = cubeSize == 2 ? scramble_222.genFacelet(state) : scramble_333.genFacelet(state);
@@ -116,6 +118,7 @@ execMain(function(timer) {
 				scramble = [];
 			} else {
 				var conjMoves = cubeutil.getConjMoves(todoMoves, true, curVRCCubie.ori);
+				console.log('[vrc-debug] conjMoves:', conjMoves, 'ori:', curVRCCubie.ori, 'todoMoves:', todoMoves);
 				scramble = puzzleObj.parseScramble(conjMoves);
 			}
 			if (scramble.length < 5) {
@@ -127,6 +130,7 @@ execMain(function(timer) {
 			}
 			isReseted = false;
 			curVRCCubie.fromFacelet(state);
+			console.log('[vrc-debug] VRC after apply, puzzle should show:', state.substring(0, 27), 'curVRCCubie.ori:', curVRCCubie.ori);
 		}
 
 		function setOri(ori) {

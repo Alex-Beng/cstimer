@@ -690,6 +690,7 @@ var giikerutil = execMain(function(CubieCube) {
 		var targetCubie = curCubie;
 		if (virtual) {
 			targetCubie = scrHinter.getScrCubie();
+			console.log('[vrc-debug] markScrambled rawScr:', scrHinter.getRawScramble(), 'targetFacelet:', targetCubie.toFaceCube());
 			kernel.setProp('__vrcScrambleRaw', scrHinter.getRawScramble());
 		}
 		var isMatch;
