@@ -607,6 +607,17 @@ var cubeutil = (function() {
 		return true;
 	}
 
+	function isCaSolved(ca) {
+		var seen = {};
+		for (var i = 0; i < ca.length; i++) {
+			if ((ca[i] >> 3) != 0) return false;
+			var perm = ca[i] & 0x7;
+			if (seen[perm]) return false;
+			seen[perm] = true;
+		}
+		return true;
+	}
+
 	function can222Start(facelet) {
 		var cc = new mathlib.CubieCube();
 		cc.fromFacelet(facelet);
@@ -670,6 +681,7 @@ var cubeutil = (function() {
 		getConjMoves: getConjMoves,
 		getPreConj: getPreConj,
 		is222Solved: is222Solved,
+		isCaSolved: isCaSolved,
 		can222Start: can222Start,
 		getCurScrambler: getCurScrambler,
 		get222Progress: get222Progress,

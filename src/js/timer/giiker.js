@@ -64,7 +64,6 @@ execMain(function(timer) {
 		}
 
 		function setState(state, prevMoves, isFast) {
-			console.log('[vrc-debug] setState called, state:', state.substring(0, 18), 'prevMoves:', prevMoves.length, 'puzzle:', tools.getCurPuzzle());
 			giikerutil.log('[vrc-setState] in, pzOk:', puzzleObj != undefined, 'vrc:', enableVRC);
 			if (puzzleObj == undefined || !enableVRC) {
 				giikerutil.log('[vrc-setState] SKIP');
@@ -100,17 +99,13 @@ execMain(function(timer) {
 				}
 			}
 			if (shouldReset) { //cannot get current state according to prevMoves
-				console.log('[vrc-debug] shouldReset! cubeSize:', cubeSize, 'curSize:', curSize, 'puzzleObj:', !!puzzleObj, 'enableVRC:', enableVRC);
 				curVRCCubie.fromFacelet(mathlib.SOLVED_FACELET);
 				var rawScr = kernel.getProp('__vrcScrambleRaw');
-				console.log('[vrc-debug] rawScr from kernel:', JSON.stringify(rawScr), 'preScrT:', kernel.getProp('preScrT'), 'giiOri:', kernel.getProp('giiOri'), 'ori:', curVRCCubie.ori);
 				if (rawScr) {
 					todoMoves = cubeutil.getConjMoves(rawScr);
-					console.log('[vrc-debug] getConjMoves(rawScr):', JSON.stringify(todoMoves), 'len:', todoMoves ? todoMoves.length : 0);
 					kernel.setProp('__vrcScrambleRaw', '');
 				} else {
 					todoMoves = cubeSize == 2 ? scramble_222.genFacelet(state) : scramble_333.genFacelet(state);
-					console.log('[vrc-debug] genFacelet fallback, todoMoves:', JSON.stringify(todoMoves));
 				}
 				giikerutil.log('[vrc-setState] shouldReset todoMoves:', todoMoves ? todoMoves.substring(0, 50) : 'null');
 			} else {
@@ -119,32 +114,27 @@ execMain(function(timer) {
 			var scramble;
 			if (!todoMoves || todoMoves.match(/^\s*$/) || !puzzleObj) {
 				scramble = [];
-				console.log('[vrc-debug] scramble empty: todoMoves=', JSON.stringify(todoMoves), 'puzzleObj=', !!puzzleObj);
 			} else {
 				var conjMoves = cubeutil.getConjMoves(todoMoves, true, curVRCCubie.ori);
-				console.log('[vrc-debug] conjMoves:', JSON.stringify(conjMoves), 'ori:', curVRCCubie.ori, 'todoMoves:', JSON.stringify(todoMoves));
 				scramble = puzzleObj.parseScramble(conjMoves);
-				console.log('[vrc-debug] parseScramble result:', scramble ? scramble.length : 'null', 'moves:', JSON.stringify(scramble ? scramble.slice(0, 3) : null));
 			}
-			console.log('[vrc-debug] apply: scramble.length:', scramble.length, 'puzzleObj:', !!puzzleObj);
 			if (scramble.length < 5) {
 				giikerutil.log('[vrc-setState] addMoves:', scramble.length);
 				try {
 					puzzleObj.addMoves(scramble);
 				} catch (e) {
-					console.error('[vrc-debug] addMoves error:', e.message, e.stack);
+					console.error('[vrc] addMoves error:', e.message);
 				}
 			} else {
 				giikerutil.log('[vrc-setState] applyMoves:', scramble.length);
 				try {
 					puzzleObj.applyMoves(scramble);
 				} catch (e) {
-					console.error('[vrc-debug] applyMoves error:', e.message, 'scramble:', JSON.stringify(scramble.slice(0, 5)), 'puzzleObj:', !!puzzleObj);
+					console.error('[vrc] applyMoves error:', e.message);
 				}
 			}
 			isReseted = false;
 			curVRCCubie.fromFacelet(state);
-			console.log('[vrc-debug] VRC after apply, puzzle should show:', state.substring(0, 27), 'curVRCCubie.ori:', curVRCCubie.ori);
 		}
 
 		function setOri(ori) {
@@ -300,17 +290,17 @@ execMain(function(timer) {
 				'f2l': 'f2l',
 				'lsll2': 'f2l'
 			}[curScrType];
-			console.log('[solve-debug] curScrType:', curScrType, 'chkstep:', chkstep, 'method:', solvingMethod, 'puzzle:', tools.getCurPuzzle());
 			if (chkstep) {
 				var r = cubeutil.getStepProgress(chkstep, facelet);
-				console.log('[solve-debug] getStepProgress:', r, '→ solved:', r == 0);
 				return r == 0;
 			}
 		}
 		if (tools.getCurPuzzle() == '222') {
-			var p = cubeutil.get222Progress(facelet, solvingMethod);
-			console.log('[solve-debug] get222Progress:', p, 'method:', solvingMethod, 'facelet:', facelet.substring(0, 18));
-			return p == 0;
+			var cube = GiikerCube.getCube();
+			if (cube && cube.ca) {
+				return cubeutil.isCaSolved(cube.ca);
+			}
+			return cubeutil.get222Progress(facelet, solvingMethod) == 0;
 		}
 		return facelet == mathlib.SOLVED_FACELET;
 	}
