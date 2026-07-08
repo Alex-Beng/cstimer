@@ -260,8 +260,9 @@ execMain(function(timer) {
 					}
 					DEBUG && console.log('time fit, new=', timer.curTime());
 					sol = cubeutil.getConjMoves(cubeutil.moveSeq2str(sol), true);
-					kernel.pushSignal('time', ["", 0, timer.curTime(), 0, [sol, '333']]);
-				} else if (kernel.getProp('giiMode') != 'n') {
+					kernel.pushSignal('time', ["", 0, timer.curTime(), 0, [sol, tools.getCurPuzzle()]]);
+				}
+				if (kernel.getProp('giiMode') != 'n') {
 					kernel.pushSignal('ctrl', ['scramble', 'next']);
 				}
 			}
@@ -400,7 +401,7 @@ execMain(function(timer) {
 					}
 					DEBUG && console.log('time fit, new=', timer.curTime());
 					sol = cubeutil.getConjMoves(cubeutil.moveSeq2str(sol), true);
-					kernel.pushSignal('time', ["", 0, timer.curTime(), 0, [sol, '333']]);
+					kernel.pushSignal('time', ["", 0, timer.curTime(), 0, [sol, tools.getCurPuzzle()]]);
 				}
 			} else if (keyCode == 32 && timer.status() == -1 && kernel.getProp('giiSK') && canStart(currentFacelet)) {
 				markScrambled($.now());
