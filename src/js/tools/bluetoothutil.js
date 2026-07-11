@@ -622,6 +622,7 @@ var giikerutil = execMain(function(CubieCube) {
 			}
 			scrHinter.setScramble(curScramble);
 			scrHinter.checkState(curCubie);
+			kernel.setProp('__vrcScrambleRaw', curScramble);
 		} else if (signal == 'property') {
 			if (['giiVRC', 'imgSize'].indexOf(value[0]) >= 0) {
 				renderStatus();

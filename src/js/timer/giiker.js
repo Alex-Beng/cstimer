@@ -103,7 +103,6 @@ execMain(function(timer) {
 				var rawScr = kernel.getProp('__vrcScrambleRaw');
 				if (rawScr) {
 					todoMoves = cubeutil.getConjMoves(rawScr);
-					kernel.setProp('__vrcScrambleRaw', '');
 				} else {
 					todoMoves = cubeSize == 2 ? scramble_222.genFacelet(state) : scramble_333.genFacelet(state);
 				}
@@ -120,18 +119,10 @@ execMain(function(timer) {
 			}
 			if (scramble.length < 5) {
 				giikerutil.log('[vrc-setState] addMoves:', scramble.length);
-				try {
-					puzzleObj.addMoves(scramble);
-				} catch (e) {
-					console.error('[vrc] addMoves error:', e.message);
-				}
+				puzzleObj.addMoves(scramble);
 			} else {
 				giikerutil.log('[vrc-setState] applyMoves:', scramble.length);
-				try {
-					puzzleObj.applyMoves(scramble);
-				} catch (e) {
-					console.error('[vrc] applyMoves error:', e.message);
-				}
+				puzzleObj.applyMoves(scramble);
 			}
 			isReseted = false;
 			curVRCCubie.fromFacelet(state);
@@ -352,11 +343,11 @@ execMain(function(timer) {
 			}
 		}, /^(?:preScrT?|isTrainScr|giiOri)$/);
 		kernel.regListener('giikerVRC', 'scramble', function(signal, value) {
-			if (enableVRC && timer.status() == -1 && kernel.getProp('giiMode') == 'at' && GiikerCube.isConnected()) {
+			if (enableVRC && timer.status() == -1 && kernel.getProp('giiMode') != 'n' && GiikerCube.isConnected()) {
 				clearReadyTid();
 				waitReadyTid = setTimeout(function() {
 					markScrambled($.now());
-				}, 500);
+				}, 200);
 			}
 		});
 	});
@@ -404,7 +395,12 @@ execMain(function(timer) {
 					kernel.pushSignal('time', ["", 0, timer.curTime(), 0, [sol, tools.getCurPuzzle()]]);
 				}
 			} else if (keyCode == 32 && timer.status() == -1 && kernel.getProp('giiSK') && canStart(currentFacelet)) {
-				markScrambled($.now());
+				if (enableVRC && kernel.getProp('giiMode') != 'n') {
+					clearReadyTid();
+					kernel.pushSignal('ctrl', ['scramble', 'next']);
+				} else {
+					markScrambled($.now());
+				}
 			}
 		},
 		onkeyup: function(keyCode) {
