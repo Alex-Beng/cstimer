@@ -536,6 +536,83 @@
 			return ret.join("");
 		}
 
+		// Highlight stickers by facelet index (copilot hint).  The stickers are
+		// re-coloured, and the original colours are restored on the next clear.
+		var highlightSaved = null;
+
+		function highlight(twisty, facelets) {
+			twisty = twisty || this;
+			var state = twisty.cubePieces;
+			if (highlightSaved) {
+				for (var i = 0; i < highlightSaved.length; i++) {
+					var item = highlightSaved[i];
+					item[0].material = item[1];
+				}
+				highlightSaved = null;
+			}
+			if (!facelets || !facelets.length || twisty.options.dimension != 3) {
+				twisty.twistyScene.requestRender();
+				return;
+			}
+			var wanted = {};
+			for (var i = 0; i < facelets.length; i++) {
+				wanted[facelets[i]] = 1;
+			}
+			highlightSaved = [];
+			for (var f = 0; f < state.length; f++) {
+				var stickers = state[f];
+				for (var s = 0; s < stickers.length; s++) {
+					// locate this sticker's facelet index by matching orientation
+					var pos = findStickerFacelet(twisty, f, s);
+					if (pos >= 0 && wanted[pos]) {
+						var mesh = stickers[s][1].children[0];
+						highlightSaved.push([mesh, mesh.material]);
+						mesh.material = highlightMaterial;
+					}
+				}
+			}
+			twisty.twistyScene.requestRender();
+		}
+
+		function findStickerFacelet(twisty, faceIndex, stickerIndex) {
+			// compute the facelet string once per call site and reuse the order
+			if (!twisty._faceletIndex) {
+				twisty._faceletIndex = buildStickerFaceletIndex(twisty);
+			}
+			return twisty._faceletIndex[faceIndex + ':' + stickerIndex];
+		}
+
+		function buildStickerFaceletIndex(twisty) {
+			var ret = {};
+			var state = twisty.cubePieces;
+			var dimension = twisty.options.dimension;
+			var xyXchg = [1, 0, 0, 1, 0, 0];
+			var xInv = [1, -1, -1, -1, -1, -1];
+			var yInv = [1, -1, 1, 1, 1, -1];
+			for (var faceIndex = 0; faceIndex < state.length; faceIndex++) {
+				for (var stickerIndex = 0; stickerIndex < state[faceIndex].length; stickerIndex++) {
+					var sticker = state[faceIndex][stickerIndex];
+					var coord = [];
+					coord.push(Math.round(twistyjs.matrixVector3Dot(sticker[0], sidesNorm['U'])));
+					coord.push(Math.round(twistyjs.matrixVector3Dot(sticker[0], sidesNorm['R'])));
+					coord.push(Math.round(twistyjs.matrixVector3Dot(sticker[0], sidesNorm['F'])));
+					var idx = coord.indexOf(dimension) + coord.indexOf(-dimension) + 1;
+					var axis = idx + (coord[idx] > 0 ? 0 : 3);
+					coord.splice(idx, 1);
+					var xy = xyXchg[axis];
+					var x = (coord[xy] * xInv[axis] + dimension - 1) / 2;
+					var y = (coord[1 - xy] * yInv[axis] + dimension - 1) / 2;
+					ret[faceIndex + ':' + stickerIndex] = axis * dimension * dimension + x * dimension + y;
+				}
+			}
+			return ret;
+		}
+
+		var highlightMaterial = new THREE.MeshBasicMaterial({
+			color: 0xff00ff,
+			opacity: cubeOptions.opacity
+		});
+
 		function isInspectionLegalMove(twisty, move) {
 			return move[0] <= 1 && move[1] >= twisty.options.dimension;
 		}
@@ -695,6 +772,8 @@
 			animateMoveCallback: animateMoveCallback,
 			advanceMoveCallback: advanceMoveCallback,
 			toggleColorVisible: toggleColorVisible,
+			getFacelet: getFacelet,
+			highlight: highlight,
 			keydownCallback: keydownCallback,
 			getRaycastMoves: getRaycastMoves,
 			getTouchMoves: getTouchMoves,
@@ -703,7 +782,6 @@
 			isParallelMove: isParallelMove,
 			generateScramble: generateScramble,
 			parseScramble: parseScramble,
-			getFacelet: getFacelet,
 			moveCnt: moveCnt,
 			borderMaterial: borderMaterial,
 			move2str: move2str,

@@ -130,28 +130,35 @@
 		var width = twisty.twistyScene.fixSize(size + 2 + gap * 4, size * 2 + gap * 3);
 		var ctx = twisty.twistyScene.getCanvas()[0].getContext('2d');
 		var posit = twisty.posit;
+		var marks = twisty.highlighted;
+		var isMarked = function(idx) {
+			return marks && marks.indexOf(idx) != -1;
+		};
+		var markColor = function(color, idx) {
+			return isMarked(idx) ? '#000' : color;
+		};
 		for (var i = 0; i < size; i++) {
 			var ii = size - 1 - i;
 			var piece = [[0, 0, 1, 1], [i, i + 1, i + 1, i]];
 			// L and R
 			if (i != 0) {
-				drawPolygon(ctx, colors[posit[(1 * size + i) * size + 0]], piece, [width, gap, size + gap * 2]);
-				drawPolygon(ctx, colors[posit[(4 * size + i) * size + 0]], piece, [width, size + 1 + gap * 3, size + gap * 2]);
+				drawPolygon(ctx, markColor(colors[posit[(1 * size + i) * size + 0]], (1 * size + i) * size + 0), piece, [width, gap, size + gap * 2]);
+				drawPolygon(ctx, markColor(colors[posit[(4 * size + i) * size + 0]], (4 * size + i) * size + 0), piece, [width, size + 1 + gap * 3, size + gap * 2]);
 			}
 			if (i != size - 1) {
-				drawPolygon(ctx, colors[posit[(1 * size + 0) * size + ii]], piece, [width, gap + 0, gap + 0]);
-				drawPolygon(ctx, colors[posit[(4 * size + 0) * size + ii]], piece, [width, gap + size + 1 + gap * 2, gap]);
+				drawPolygon(ctx, markColor(colors[posit[(1 * size + 0) * size + ii]], (1 * size + 0) * size + ii), piece, [width, gap + 0, gap + 0]);
+				drawPolygon(ctx, markColor(colors[posit[(4 * size + 0) * size + ii]], (4 * size + 0) * size + ii), piece, [width, gap + size + 1 + gap * 2, gap]);
 			}
 			for (var j = 0; j < size; j++) {
 				piece = [[i, i, i + 1, i + 1], [j, j + 1, j + 1, j]];
 				// U and F
-				drawPolygon(ctx, colors[posit[(3 * size + j) * size + i]], piece, [width, 1 + gap * 2, gap]);
-				drawPolygon(ctx, colors[posit[(5 * size + j) * size + i]], piece, [width, 1 + gap * 2, size + gap * 2]);
+				drawPolygon(ctx, markColor(colors[posit[(3 * size + j) * size + i]], (3 * size + j) * size + i), piece, [width, 1 + gap * 2, gap]);
+				drawPolygon(ctx, markColor(colors[posit[(5 * size + j) * size + i]], (5 * size + j) * size + i), piece, [width, 1 + gap * 2, size + gap * 2]);
 			}
 		}
 		var piece2 = [[0, 0, 1, 1], [0, 2 + gap, 2 + gap, 0]];
-		drawPolygon(ctx, colors[posit[(1 * size + 0) * size + 0]], piece2, [width, gap, gap + size - 1]);
-		drawPolygon(ctx, colors[posit[(4 * size + 0) * size + 0]], piece2, [width, size + 1 + gap * 3, gap + size - 1]);
+		drawPolygon(ctx, markColor(colors[posit[(1 * size + 0) * size + 0]], (1 * size + 0) * size + 0), piece2, [width, gap, gap + size - 1]);
+		drawPolygon(ctx, markColor(colors[posit[(4 * size + 0) * size + 0]], (4 * size + 0) * size + 0), piece2, [width, size + 1 + gap * 3, gap + size - 1]);
 		if (size > 5) {
 			drawPolygon(ctx, '#fff', [[-0.1, -0.1, 0.1, 0.1], [-0.1, 0.1, 0.1, -0.1]], [width, size * 0.5 + 1 + gap * 2, size * 0.5 + gap]);
 			drawPolygon(ctx, '#fff', [[-0.1, -0.1, 0.1, 0.1], [-0.1, 0.1, 0.1, -0.1]], [width, size * 0.5 + 1 + gap * 2, size * 1.5 + gap * 2]);
@@ -361,6 +368,20 @@
 		}
 
 		this.toggleColorVisible = $.noop;
-	}
 
+		// facelet string in URFDLB order (used by the cube copilot)
+		this.getFacelet = function(twisty) {
+			twisty = twisty || this;
+			return $.map(twisty.posit, function(v) {
+				return 'URFDLB'.charAt(v);
+			}).join('');
+		};
+
+		// highlighted facelet indices, drawn as an overlay in render()
+		this.highlight = function(twisty, facelets) {
+			twisty = twisty || this;
+			twisty.highlighted = facelets;
+			twisty.render();
+		};
+	}
 })();

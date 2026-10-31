@@ -109,6 +109,9 @@ window.twistyjs = (function() {
 		this.getTwisty = function() {
 			return twisty;
 		};
+		this.requestRender = function() {
+			render();
+		};
 
 		this.initializeTwisty = function(twistyType) {
 			moveQueue = [];

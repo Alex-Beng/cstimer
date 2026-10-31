@@ -191,6 +191,7 @@ execMain(function(timer) {
 		var prevFacelet = currentFacelet;
 		currentFacelet = facelet;
 		curPuzzle = puzzle || '333';
+		kernel.pushSignal('giikerState', [facelet]);
 		if (!enable) {
 			return;
 		}

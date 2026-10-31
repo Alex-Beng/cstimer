@@ -62,6 +62,18 @@ var puzzleFactory = execMain(function() {
 		return this.twisty.parseScramble(scramble, addPreScr);
 	};
 
+	Puzzle.prototype.getFacelet = function() {
+		if (this.twisty.getFacelet) {
+			return this.twisty.getFacelet(this.twisty);
+		}
+	};
+
+	Puzzle.prototype.highlight = function(facelets) {
+		if (this.twisty.highlight) {
+			return this.twisty.highlight(this.twisty, facelets);
+		}
+	};
+
 	var toInitCalls = [];
 
 	var prevParents = [];

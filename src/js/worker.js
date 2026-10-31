@@ -28,8 +28,21 @@ var csTimerWorker = execBoth(ISCSTIMER && function() {
 	worker.postMessage([0, 'set', ['SCRAMBLE_NOOBSS', SCRAMBLE_NOOBSS]]);
 
 	return {
-		getScramble: getScramble
+		getScramble: getScramble,
+		getHint: getHint,
+		warmUp: warmUp
 	};
+
+	function getHint(facelet, options, callback) {
+		++msgid;
+		callbacks[msgid] = callback;
+		worker.postMessage([msgid, 'hint', [facelet, options]]);
+		return msgid;
+	}
+
+	function warmUp() {
+		worker.postMessage([0, 'warmup', []]);
+	}
 }, function() {
 	self.kernel = {
 		getProp: function(key, def) {
@@ -78,6 +91,13 @@ var csTimerWorker = execBoth(ISCSTIMER && function() {
 		getImage: function(scramble, type) {
 			var ret = image.draw([type || '333', scramble]);
 			return ret && ret.render();
+		},
+		getHint: function(facelet, options) {
+			return cubeCopilot.getHint(facelet, options || {});
+		},
+		warmUp: function() {
+			cubeCopilot.buildAlllLut();
+			return cubeCopilot.warmUp();
 		}
 	};
 	self.onmessage = function(e) {
@@ -98,6 +118,12 @@ var csTimerWorker = execBoth(ISCSTIMER && function() {
 				break;
 			case 'image': //generate scramble image
 				ret = funcs.getImage.apply(null, details)
+				break;
+			case 'hint': //cube copilot hint
+				ret = funcs.getHint.apply(null, details);
+				break;
+			case 'warmup': //build copilot tables
+				ret = funcs.warmUp();
 				break;
 			case 'set': //set global values
 				funcs.setGlobal.apply(null, details);

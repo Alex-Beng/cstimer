@@ -25,6 +25,9 @@ lib/lzstring.js \
 lib/min2phase.js \
 lib/cubeutil.js \
 lib/puzzlefactory.js \
+lib/scrambleready.js \
+lib/alll.js \
+lib/copilot.js \
 kernel.js \
 export.js \
 logohint.js \
@@ -76,6 +79,7 @@ tools/thistlethwaite.js \
 tools/pat3x3gen.js \
 tools/bluetoothutil.js \
 tools/metronome.js \
+tools/copilotui.js \
 tools/onlinecomp.js \
 tools/battle.js \
 tools/syncseed.js \
@@ -125,6 +129,9 @@ lib/poly3dlib.js \
 lib/pat3x3.js \
 lib/min2phase.js \
 lib/cubeutil.js \
+lib/scrambleready.js \
+lib/alll.js \
+lib/copilot.js \
 solver/ftocta.js \
 solver/megaminx.js \
 scramble/scramble.js \

@@ -6,6 +6,10 @@ execMain(function(timer) {
 	var totPhases = 1;
 	var rawMoves = [];
 	var puncCode = {Semicolon: 186, Comma: 188, Period: 190, Slash: 191};
+	var pendingStart = null;
+	var startSeq = 0;
+	var scrSeq = 0;
+	var scrSettleTid = 0;
 
 	//mstep: 0 move start, 1 move doing, 2 move finish
 	function moveListener(move, mstep, ts) {
@@ -53,9 +57,11 @@ execMain(function(timer) {
 				curProgress = puzzleObj.isSolved(kernel.getProp('vrcMP', 'n'));
 				timer.updateMulPhase(totPhases, curProgress, now);
 				fixRelayCounter();
+				pushVirtualState();
 			}
 			if (mstep == 2 && curProgress == 0) {
 				moveCnt += puzzleObj.moveCnt();
+				cancelPendingStart();
 				if (/^r\d+$/.exec(curScrType) && curScramble.length != 0) {
 					if (curScrType != "r3") {
 						curScrSize++;
@@ -117,6 +123,25 @@ execMain(function(timer) {
 		}
 	}
 
+	function pushVirtualState() {
+		if (!puzzleObj || curScrSize != 3 || !puzzleObj.getFacelet) {
+			return;
+		}
+		try {
+			var facelet = puzzleObj.getFacelet();
+			if (facelet && facelet.length == 54) {
+				kernel.pushSignal('virtualState', [facelet]);
+			}
+		} catch (e) {}
+	}
+
+	function highlightFacelets(facelets) {
+		if (!puzzleObj || !puzzleObj.highlight) {
+			return;
+		}
+		puzzleObj.highlight(facelets);
+	}
+
 	function scrambleIt() {
 		reset();
 		var scramble = curScramble;
@@ -134,6 +159,68 @@ execMain(function(timer) {
 		];
 	}
 
+	function cancelPendingStart() {
+		if (pendingStart) {
+			clearTimeout(pendingStart.tid);
+			pendingStart = null;
+		}
+	}
+
+	function isScrambleReady() {
+		if (!scrambleGate.isReady()) {
+			return false;
+		}
+		if (!curScramble) {
+			return true;
+		}
+		return curScrType == kernel.getProp('scrType');
+	}
+
+	function doStart(seq) {
+		if (seq != startSeq || timer.status() != -1 || !isEnable || !puzzleObj) {
+			return;
+		}
+		if (!isScrambleReady()) {
+			pendingStart = {
+				seq: seq,
+				tid: setTimeout(doStart.bind(null, seq), 50)
+			};
+			return;
+		}
+		var now = $.now();
+		try {
+			if (relayScrs) {
+				curScramble = relayScrs.slice();
+			}
+			scrambleIt();
+		} catch (e) {
+			if (DEBUG) {
+				console.log('[virtual] scramble failed', e);
+			}
+			clearTimeout(scrSettleTid);
+			scrSettleTid = setTimeout(tryPendingStart, 50);
+			return;
+		}
+		if (timer.checkUseIns()) {
+			timer.startTime(now);
+			timer.status(-3); //inspection
+		} else {
+			timer.lcd.val(0);
+			timer.status(-2); //ready
+		}
+		$('#lcd').css({'visibility': 'hidden'}); // enable dragging
+		timer.lcd.fixDisplay(false, true);
+	}
+
+	function tryPendingStart() {
+		if (pendingStart && timer.status() == -1) {
+			var seq = pendingStart.seq;
+			clearTimeout(pendingStart.tid);
+			pendingStart = null;
+			doStart(seq);
+		}
+	}
+
 	function onkeydown(keyCode, e) {
 		if (puzzleObj == undefined) {
 			return;
@@ -141,23 +228,14 @@ execMain(function(timer) {
 		var now = $.now();
 		if (timer.status() == -1) { // idle
 			if (keyCode == 32) {
-				if (relayScrs) {
-					curScramble = relayScrs.slice();
-				}
-				scrambleIt();
-				if (timer.checkUseIns()) {
-					timer.startTime(now);
-					timer.status(-3); //inspection
-				} else {
-					timer.lcd.val(0);
-					timer.status(-2); //ready
-				}
-				$('#lcd').css({'visibility': 'hidden'}); // enable dragging
-				timer.lcd.fixDisplay(false, true);
+				cancelPendingStart();
+				doStart(++startSeq);
 			}
 		} else if (timer.status() == -3 || timer.status() == -2 || timer.status() >= 1) { // Scrambled or Running
 			if (keyCode == 27 || keyCode == 28) { //ESC
 				var recordDNF = timer.status() >= 1;
+				cancelPendingStart();
+				startSeq++;
 				timer.lcd.setStaticAppend('');
 				timer.status(-1);
 				reset();
@@ -190,7 +268,20 @@ execMain(function(timer) {
 	var isReseted = false;
 
 	function procSignal(signal, value) {
-		if (signal == 'scramble' || signal == 'scrambleX') {
+		if (signal == 'scrambling') {
+			scrambleGate.beginGenerating();
+			scrSeq++;
+			clearTimeout(scrSettleTid);
+		} else if (signal == 'scramble' || signal == 'scrambleX') {
+			scrambleGate.publish();
+			if (value[0] == '-') {
+				curScrType = '';
+				curScramble = '';
+				scrSeq++;
+				clearTimeout(scrSettleTid);
+				cancelPendingStart();
+				return;
+			}
 			curScrType = value[0];
 			curScramble = value[1];
 			var puzzle = tools.puzzleType(curScrType);
@@ -215,6 +306,19 @@ execMain(function(timer) {
 			} else {
 				relayScrs = null;
 			}
+			var curSeq = ++scrSeq;
+			clearTimeout(scrSettleTid);
+			scrSettleTid = setTimeout(function() {
+				if (curSeq == scrSeq && timer.status() == -1) {
+					tryPendingStart();
+				}
+			}, 0);
+		} else if (signal == 'timerStatus') {
+			if (value != -1) {
+				cancelPendingStart();
+			} else if (scrambleGate.isReady()) {
+				setTimeout(tryPendingStart, 0);
+			}
 		}
 	}
 
@@ -228,6 +332,8 @@ execMain(function(timer) {
 		} else {
 			div.hide();
 			isReseted = false;
+			cancelPendingStart();
+			startSeq++;
 		}
 	}
 
@@ -239,6 +345,8 @@ execMain(function(timer) {
 	$(function() {
 		kernel.regListener('timer', 'scramble', procSignal);
 		kernel.regListener('timer', 'scrambleX', procSignal);
+		kernel.regListener('timer', 'scrambling', procSignal);
+		kernel.regListener('timer', 'timerStatus', procSignal);
 		div.appendTo("#container");
 	});
 
@@ -246,6 +354,7 @@ execMain(function(timer) {
 		onkeydown: onkeydown,
 		setEnable: setEnable,
 		setSize: setSize,
-		reset: reset
+		reset: reset,
+		highlight: highlightFacelets
 	};
 }, [timer]);
