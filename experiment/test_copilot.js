@@ -275,7 +275,7 @@ console.log('F2L cases', f2lTests, 'avg moves', (f2lMoves / Math.max(f2lTests, 1
 var stats = copilot.buildAlllLut();
 var LL_STATES = 62208;
 console.log('ALLL base algs', stats.entries, 'LUT states', stats.unique,
-	'coverage', (stats.unique * 100 / LL_STATES).toFixed(2) + '%');
+	'(exact coverage incl. AUF is checked by test_coverage.js)');
 
 var lut = copilot.ensureAlllLut();
 var verified = 0;

@@ -13,7 +13,6 @@ function makeCubeCopilot() {
 	var ALLL_READY = false;
 
 	var AUF_STR = ['', 'U', 'U2', "U'"];
-	var U_CUBES = null;
 
 	var F2L_PAIRS = [
 		{corner: 4, edge: 8, name: 'FR'},
@@ -44,21 +43,6 @@ function makeCubeCopilot() {
 			MOVE_CUBES.push(cc);
 		}
 		return MOVE_CUBES;
-	}
-
-	function getUCubes() {
-		if (U_CUBES) {
-			return U_CUBES;
-		}
-		U_CUBES = [];
-		for (var i = 0; i < 4; i++) {
-			var cc = new mathlib.CubieCube();
-			for (var p = 0; p < i; p++) {
-				cc.selfMoveStr('U');
-			}
-			U_CUBES.push(cc);
-		}
-		return U_CUBES;
 	}
 
 	function mul(a, b) {
@@ -399,37 +383,6 @@ function makeCubeCopilot() {
 
 	// ------------------------------------------------------------ ALLL / 1LLL
 
-	function invertAlg(alg) {
-		var tokens = alg.split(/\s+/).filter(function(t) {
-			return !!t;
-		});
-		var ret = [];
-		for (var i = tokens.length - 1; i >= 0; i--) {
-			var t = tokens[i];
-			var m = /^(.+?)(2|'|2')?$/.exec(t);
-			var base = m[1];
-			var mod = m[2] || '';
-			if (mod == '2' || mod == "2'") {
-				ret.push(base + '2');
-			} else if (mod == "'") {
-				ret.push(base);
-			} else {
-				ret.push(base + "'");
-			}
-		}
-		return ret.join(' ');
-	}
-
-	function applyAlg(cc, alg) {
-		var tokens = alg.split(/\s+/);
-		for (var i = 0; i < tokens.length; i++) {
-			if (tokens[i]) {
-				cc.selfMoveStr(tokens[i]);
-			}
-		}
-		return cc;
-	}
-
 	/** permutation/orientation of the U layer only (ignores whole-cube rotation) */
 	function llKey(cc) {
 		var ret = [];
@@ -442,41 +395,122 @@ function makeCubeCopilot() {
 		return ret.join(',');
 	}
 
+	/** face-move indices actually applied by one token, in the given frame */
+	function movesAppliedBy(token, ori) {
+		var m = /^([URFDLB])(w?)(2|'|2')?$/.exec(token);
+		if (m) {
+			var axis = 'URFDLB'.indexOf(m[1]);
+			var pow = powOf(m[3] || '');
+			var faceIdx = m[2] ? (axis + 3) % 6 : axis;
+			return [mathlib.CubieCube.rotMulM[ori][faceIdx * 3 + pow % 4 - 1]];
+		}
+		var s = /^([EMS])(2|'|2')?$/.exec(token);
+		if (s) {
+			var saxis = {S: 2, E: 3, M: 4}[s[1]];
+			var spow = powOf(s[2] || '');
+			return [
+				mathlib.CubieCube.rotMulM[ori][saxis * 3 + (4 - spow) % 4 - 1],
+				mathlib.CubieCube.rotMulM[ori][(saxis + 3) % 6 * 3 + spow % 4 - 1]
+			];
+		}
+		return [];
+	}
+
+	function powOf(mod) {
+		if (mod == "'") {
+			return 3;
+		}
+		if (mod == '2' || mod == "2'") {
+			return 2;
+		}
+		return 1;
+	}
+
 	/**
-	 * Build the 1LLL recognition LUT.
+	 * Inverse of a token sequence as a *function*.
 	 *
-	 * For each base alg A and AUF pair (r, p), the position solved by
-	 * "U^r A U^p" is  T = (U^r A U^p)^-1 = U^-p A^-1 U^-r.
-	 * T is built with two cube multiplications from a cached inverse, so the
-	 * whole table costs a few hundred thousand cheap multiplications.
+	 * `ori` is part of the state: a wide/slice token changes the frame used by
+	 * the moves that follow, so reversing the tokens with primed moves is not
+	 * the inverse.  The frame depends only on the token sequence, so record it
+	 * before every token and undo the applied face moves in reverse order.
+	 */
+	function inverseState(tokens) {
+		var probe = new mathlib.CubieCube();
+		var oriBefore = new Array(tokens.length);
+		for (var i = 0; i < tokens.length; i++) {
+			oriBefore[i] = probe.ori;
+			probe.selfMoveStr(tokens[i]);
+		}
+		var cc = new mathlib.CubieCube();
+		var tmp = new mathlib.CubieCube();
+		for (var i = tokens.length - 1; i >= 0; i--) {
+			var applied = movesAppliedBy(tokens[i], oriBefore[i]);
+			for (var k = applied.length - 1; k >= 0; k--) {
+				var inv = ~~(applied[k] / 3) * 3 + (2 - applied[k] % 3);
+				mathlib.CubieCube.CubeMult(cc, mathlib.CubieCube.moveCube[inv], tmp);
+				cc.init(tmp.ca, tmp.ea);
+			}
+		}
+		cc.ori = 0;
+		return cc;
+	}
+
+	/**
+	 * A last-layer key is legal only when the twist/flip sums and the two
+	 * permutation parities agree.  Algs whose net effect rotates the centres
+	 * (a leftover slice) would otherwise inject unreachable keys.
+	 */
+	function isLegalKey(key) {
+		var p = key.split(',').map(Number);
+		var coSum = p[1] + p[3] + p[5] + p[7];
+		var eoSum = p[9] + p[11] + p[13] + p[15];
+		var cp = [p[0], p[2], p[4], p[6]];
+		var ep = [p[8], p[10], p[12], p[14]];
+		function inv(a) {
+			var c = 0;
+			for (var i = 0; i < a.length; i++) {
+				for (var j = i + 1; j < a.length; j++) {
+					if (a[i] > a[j]) {
+						c++;
+					}
+				}
+			}
+			return c % 2;
+		}
+		return coSum % 3 == 0 && eoSum % 2 == 0 && inv(cp) == inv(ep);
+	}
+
+	/**
+	 * Build the 1LLL recognition LUT: for every base alg and pre/post AUF, the
+	 * position it solves becomes the key.
 	 */
 	function buildAlllLut() {
 		ALLL = {};
 		var list = (typeof ALLL_DATA == 'undefined') ? [] : ALLL_DATA;
-		var uCubes = getUCubes();
-		var uInv = [uCubes[0], uCubes[3], uCubes[2], uCubes[1]];
-		var stats = {entries: list.length, slots: 0};
+		var stats = {entries: list.length, slots: 0, illegal: 0};
 		for (var i = 0; i < list.length; i++) {
 			var entry = list[i];
 			var sep = entry.indexOf('|');
 			var name = entry.slice(0, sep);
-			var alg = entry.slice(sep + 1);
-			var aCube = applyAlg(new mathlib.CubieCube(), alg);
-			var inv = new mathlib.CubieCube();
-			inv.invFrom(aCube);
+			var tokens = entry.slice(sep + 1).split(/\s+/).filter(function(t) {
+				return !!t;
+			});
 			for (var r = 0; r < 4; r++) {
 				for (var p = 0; p < 4; p++) {
-					var t = mul(mul(uInv[p], inv), uInv[r]);
-					var key = llKey(t);
-					var full = [];
+					var seq = [];
 					if (AUF_STR[r]) {
-						full.push(AUF_STR[r]);
+						seq.push(AUF_STR[r]);
 					}
-					full.push(alg);
+					seq = seq.concat(tokens);
 					if (AUF_STR[p]) {
-						full.push(AUF_STR[p]);
+						seq.push(AUF_STR[p]);
 					}
-					var display = full.join(' ');
+					var key = llKey(inverseState(seq));
+					if (!isLegalKey(key)) {
+						stats.illegal++;
+						continue;
+					}
+					var display = seq.join(' ');
 					if (!(key in ALLL) || display.length < ALLL[key].alg.length) {
 						ALLL[key] = {name: name, alg: display, len: display.split(/\s+/).length};
 					}
@@ -501,6 +535,22 @@ function makeCubeCopilot() {
 		return ALLL ? Object.keys(ALLL).length : 0;
 	}
 
+	/** If a single U turn solves the layer, return that turn. */
+	function solveByAuf(cc) {
+		var AUF = ['', 'U', 'U2', "U'"];
+		for (var k = 1; k < 4; k++) {
+			var test = new mathlib.CubieCube();
+			test.init(cc.ca.slice(), cc.ea.slice());
+			for (var i = 0; i < k; i++) {
+				test.selfMoveStr('U');
+			}
+			if (test.isEqual(mathlib.CubieCube.SOLVED)) {
+				return AUF[k];
+			}
+		}
+		return null;
+	}
+
 	function solveLastLayer(facelet) {
 		var cc = cubieFromFacelet(facelet);
 		if (!isF2LDone(cc)) {
@@ -511,6 +561,16 @@ function makeCubeCopilot() {
 		}
 		var hit = ensureAlllLut()[llKey(cc)];
 		if (!hit) {
+			// A solved layer rotated by a U turn is not stored in the LUT (the
+			// algs there solve a scrambled layer), so handle it directly.
+			var auf = solveByAuf(cc);
+			if (auf) {
+				return {
+					name: 'AUF',
+					alg: auf,
+					moves: [auf]
+				};
+			}
 			return null;
 		}
 		return {

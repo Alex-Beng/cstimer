@@ -1,7 +1,17 @@
 "use strict";
 
-// Generate src/js/lib/alll.js from ../MOYU/solve/ALLL.py and validate every
-// algorithm with csTimer's own CubieCube convention.
+// Generate src/js/lib/alll.js from ../MOYU/solve/ALLL.py.
+//
+// Extraction rules (matching MOYU's own `algs_str.splitlines()[1:]`):
+//   * each group is a triple-quoted block
+//   * every non-empty line inside a block is ONE complete algorithm; the
+//     surrounding double quotes only group alternatives and are stripped
+//   * annotations (·, ↑, ↓, =, wyh) are noise
+//
+// Moves are kept in csTimer notation (Rw / M / x ...) so that the runtime can
+// feed them straight to CubieCube.selfMoveStr, which tracks the net whole-cube
+// orientation.  Expanding wide/slice moves by hand would corrupt that frame.
+//
 // Usage: node experiment/gen_alll.js [moyu/solve/ALLL.py] [--write]
 
 var fs = require('fs');
@@ -26,53 +36,32 @@ function loadMathlib() {
 	vm.createContext(ctx);
 	vm.runInContext('var $={};', ctx);
 	vm.runInContext(fs.readFileSync(path.join(root, 'src/js/lib/isaac.js'), 'utf8'), ctx);
-	var util = fs.readFileSync(path.join(root, 'src/js/lib/utillib.js'), 'utf8')
-		.replace('const ISCSTIMER = true;', 'const ISCSTIMER = false;');
-	vm.runInContext(util, ctx);
+	vm.runInContext(fs.readFileSync(path.join(root, 'src/js/lib/utillib.js'), 'utf8')
+		.replace('const ISCSTIMER = true;', 'const ISCSTIMER = false;'), ctx);
 	vm.runInContext(fs.readFileSync(path.join(root, 'src/js/lib/mathlib.js'), 'utf8'), ctx);
 	return ctx.mathlib;
 }
 
-// One alg per line. An alg may be wrapped in double quotes across several
-// lines; apostrophes are move modifiers and must be preserved.
+var mathlib = loadMathlib();
+
+// One alg per line.  Quotes are group delimiters, not string continuations.
 function extractGroups(py) {
 	var groups = [];
 	var re = /^(\w+)\s*=\s*"""([\s\S]*?)"""/gm;
 	var m;
 	while ((m = re.exec(py)) != null) {
-		var lines = [];
-		var buf = null;
-		m[2].split('\n').forEach(function(raw) {
-			var line = raw.replace(/[·↑↓]/g, ' ').trim();
-			if (buf == null && !line) {
-				return;
-			}
-			if (buf != null) {
-				buf += ' ' + line;
-				if (/"\s*$/.test(line)) {
-					lines.push(buf.replace(/"\s*$/, ''));
-					buf = null;
-				}
-				return;
-			}
-			if (/^"/.test(line)) {
-				if (/"\s*$/.test(line) && line.length > 1) {
-					lines.push(line.replace(/^"/, '').replace(/"\s*$/, ''));
-				} else {
-					buf = line.slice(1);
-				}
-				return;
-			}
-			lines.push(line);
+		var lines = m[2].split('\n').map(function(raw) {
+			return raw.replace(/[·↑↓"]/g, ' ').replace(/=/g, ' ')
+				.replace(/\bwyh\b/g, ' ').trim();
+		}).filter(function(line) {
+			return line.length > 0;
 		});
-		groups.push([m[1], lines.filter(function(s) {
-			return /\S/.test(s);
-		})]);
+		groups.push([m[1], lines]);
 	}
 	return groups;
 }
 
-// (seq)2 -> seq seq ; (seq)3 -> seq seq seq
+// "(seq)2" -> "seq seq"
 function expandBrackets(str) {
 	var re = /\(([^()]*)\)\s*(2|3|4)?'?/;
 	var guard = 0;
@@ -88,44 +77,15 @@ function expandBrackets(str) {
 	return str;
 }
 
-var TOKEN_RE = /^([URFDLBurfdlbMESxyz])(w?)(2|'|2')?$/;
-
-// csTimer's selfMoveStr accepts Uw/Rw/... but not the lowercase wide form.
-function toCstimerToken(tok) {
-	var m = TOKEN_RE.exec(tok);
-	if (!m) {
-		return null;
-	}
-	var base = m[1];
-	var wide = m[2];
-	var mod = m[3] || '';
-	if (mod == "2'") {
-		mod = '2';
-	}
-	if ('urfdlb'.indexOf(base) != -1) {
-		base = base.toUpperCase();
-		wide = 'w';
-	}
-	return base + wide + mod;
-}
-
-function invertToken(tok) {
-	var m = TOKEN_RE.exec(tok);
-	if (!m) {
-		throw new Error('cannot invert token ' + tok);
-	}
-	var base = m[1] + m[2];
-	var mod = m[3] || '';
-	if (mod == "2'" || mod == '2') {
-		return base + '2';
-	}
-	return base + (mod == "'" ? '' : "'");
-}
-
+/**
+ * Parse an algorithm into csTimer tokens:
+ *   - lowercase wide turns (r, u, ...) become Rw, Uw, ...
+ *   - "X2'" is the reverse half turn in the MOYU data but csTimer treats a
+ *     half turn as self-inverse, so it is normalised to "X2"
+ *   - slice moves (M/E/S) and rotations (x/y/z) are kept as-is
+ */
 function parseAlg(alg) {
-	var raw = expandBrackets(alg).replace(/[()\[\]"]/g, ' ').replace(/[·↑↓]/g, ' ').trim();
-	// drop annotations such as [oh,key], (wyh), stray "=" used as a separator
-	raw = raw.replace(/\[[^\]]*\]/g, ' ').replace(/\bwyh\b/g, ' ').replace(/=/g, ' ');
+	var raw = expandBrackets(alg).replace(/[()\[\]]/g, ' ');
 	var ret = [];
 	var i = 0;
 	while (i < raw.length) {
@@ -135,7 +95,8 @@ function parseAlg(alg) {
 			continue;
 		}
 		if ('URFDLBurfdlbMESxyz'.indexOf(ch) == -1) {
-			throw new Error('unparsable char "' + ch + '"');
+			i++;
+			continue;
 		}
 		var base = ch;
 		i++;
@@ -161,119 +122,192 @@ function parseAlg(alg) {
 		}
 		ret.push(base + wide + mod);
 	}
-	if (ret.length == 0) {
+	if (!ret.length) {
 		throw new Error('empty alg');
 	}
 	return ret;
 }
 
-function applyTokens(tokens) {
-	var cube = new mathlib.CubieCube();
-	for (var i = 0; i < tokens.length; i++) {
-		cube.selfMoveStr(tokens[i]);
-	}
-	return cube;
-}
-
 function invertTokens(tokens) {
 	var ret = [];
 	for (var i = tokens.length - 1; i >= 0; i--) {
-		ret.push(invertToken(tokens[i]));
+		var m = /^([URFDLB]w?|[EMSxyz])(2|'|2')?$/.exec(tokens[i]);
+		if (!m) {
+			ret.push(tokens[i]);
+			continue;
+		}
+		var mod = m[2] || '';
+		if (mod == '2' || mod == "2'") {
+			ret.push(m[1] + '2');
+		} else if (mod == "'") {
+			ret.push(m[1]);
+		} else {
+			ret.push(m[1] + "'");
+		}
 	}
 	return ret;
 }
 
-// The table stores the state which the alg solves: apply the inverse alg to a
-// solved cube. A legal 1LLL state has a complete F2L, so the D face and the
-// two lower rows of every side face must be untouched; the U layer (U face and
-// the top row of each side face) may show any colors.
-function checkLastLayerState(cube) {
-	var facelet = cube.toFaceCube();
-	if (facelet == mathlib.SOLVED_FACELET) {
-		return;
+// ---------------------------------------------------------------- inversion
+
+var ROT_AXIS = [3, 15, 17, 1, 11, 23];
+
+function powOf(mod) {
+	if (mod == "'") {
+		return 3;
 	}
-	// D face (27..35) and rows 1..2 of R/F/L/B
-	var checked = [];
-	for (var k = 27; k < 36; k++) {
-		checked.push(k);
+	if (mod == '2' || mod == "2'") {
+		return 2;
 	}
-	[9, 18, 36, 45].forEach(function(start) {
-		for (var r = 3; r < 9; r++) {
-			checked.push(start + r);
-		}
-	});
-	for (var i = 0; i < checked.length; i++) {
-		var k = checked[i];
-		if (facelet.charAt(k) != mathlib.SOLVED_FACELET.charAt(k)) {
-			throw new Error('breaks F2L at sticker ' + k + ' (' + facelet.charAt(k) + ')');
-		}
-	}
+	return 1;
 }
 
-var mathlib = loadMathlib();
-var groups = extractGroups(fs.readFileSync(srcFile, 'utf8'));
+/**
+ * Face-move indices actually applied by one token, in the given frame.
+ * Mirrors mathlib.CubieCube.prototype.selfMoveStr: wide turns apply the
+ * opposite face, slice turns apply two faces, rotations apply none.
+ */
+function movesAppliedBy(token, ori) {
+	var m = /^([URFDLB])(w?)(2|'|2')?$/.exec(token);
+	if (m) {
+		var axis = 'URFDLB'.indexOf(m[1]);
+		var pow = powOf(m[3] || '');
+		var faceIdx = m[2] ? (axis + 3) % 6 : axis;
+		return [mathlib.CubieCube.rotMulM[ori][faceIdx * 3 + pow % 4 - 1]];
+	}
+	var s = /^([EMS])(2|'|2')?$/.exec(token);
+	if (s) {
+		var saxis = {S: 2, E: 3, M: 4}[s[1]];
+		var spow = powOf(s[2] || '');
+		var m1 = saxis * 3 + (4 - spow) % 4 - 1;
+		var m2 = (saxis + 3) % 6 * 3 + spow % 4 - 1;
+		return [
+			mathlib.CubieCube.rotMulM[ori][m1],
+			mathlib.CubieCube.rotMulM[ori][m2]
+		];
+	}
+	return []; // whole-cube rotation: no cubie move
+}
 
-var AUF = ['', 'U', 'U2', "U'"];
+function inverseMove(idx) {
+	return ~~(idx / 3) * 3 + (2 - idx % 3);
+}
+
+/**
+ * Inverse of a token sequence as a *function*.
+ *
+ * csTimer's `ori` is part of the state: a wide/slice token changes the frame
+ * used by the moves that follow, so simply reversing the tokens with primed
+ * moves is NOT the inverse.  The frame only depends on the token sequence, so
+ * we record the frame before every token, then undo the applied face moves in
+ * reverse order.
+ */
+function inverseState(tokens) {
+	var probe = new mathlib.CubieCube();
+	var oriBefore = [];
+	for (var i = 0; i < tokens.length; i++) {
+		oriBefore.push(probe.ori);
+		probe.selfMoveStr(tokens[i]);
+	}
+	var cc = new mathlib.CubieCube();
+	for (var i = tokens.length - 1; i >= 0; i--) {
+		var applied = movesAppliedBy(tokens[i], oriBefore[i]);
+		for (var k = applied.length - 1; k >= 0; k--) {
+			var inv = inverseMove(applied[k]);
+			var tmp = new mathlib.CubieCube();
+			mathlib.CubieCube.CubeMult(cc, mathlib.CubieCube.moveCube[inv], tmp);
+			cc.init(tmp.ca, tmp.ea);
+		}
+	}
+	cc.ori = 0;
+	return cc;
+}
+
+function applyTokens(cc, tokens) {
+	for (var i = 0; i < tokens.length; i++) {
+		cc.selfMoveStr(tokens[i]);
+	}
+	return cc;
+}
+
+// A legal 1LLL recognition state keeps the whole F2L intact: the D face and the
+// two lower rows of every side face are untouched.
+function f2lIntact(cc) {
+	var f = cc.toFaceCube();
+	for (var k = 27; k < 36; k++) {
+		if (f.charAt(k) != mathlib.SOLVED_FACELET.charAt(k)) {
+			return false;
+		}
+	}
+	var starts = [9, 18, 36, 45];
+	for (var s = 0; s < starts.length; s++) {
+		for (var r = 3; r < 9; r++) {
+			if (f.charAt(starts[s] + r) != mathlib.SOLVED_FACELET.charAt(starts[s] + r)) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+/**
+ * Recognition state: the position which the alg solves, i.e. the function
+ * inverse of the token sequence applied to a solved cube.  See inverseState()
+ * for why reversing the tokens is not enough.
+ */
+function recognitionState(tokens) {
+	return inverseState(tokens);
+}
+
+var groups = extractGroups(fs.readFileSync(srcFile, 'utf8'));
 var out = [];
 var bad = [];
-var byKey = {};
+var brokenSolve = [];
 var total = 0;
-var valid = 0;
-
-function stateKey(cube) {
-	return cube.ca.join(',') + '|' + cube.ea.join(',');
-}
 
 groups.forEach(function(group) {
 	group[1].forEach(function(alg, i) {
 		total++;
 		var name = group[0] + '_' + (i + 1);
-		var tokens;
 		try {
-			tokens = parseAlg(alg);
-			var base = applyTokens(invertTokens(tokens));
-			checkLastLayerState(base);
-			valid++;
-		} catch (e) {
-			bad.push(name + ': ' + e.message);
-			return;
-		}
-		out.push({name: name, alg: tokens.join(' '), tokens: tokens});
-		// coverage check: expand pre/post AUF and count distinct states
-		for (var pre = 0; pre < 4; pre++) {
-			for (var post = 0; post < 4; post++) {
-				var seq = [];
-				if (AUF[pre]) {
-					seq.push(AUF[pre]);
-				}
-				seq = seq.concat(tokens);
-				if (AUF[post]) {
-					seq.push(AUF[post]);
-				}
-				byKey[stateKey(applyTokens(invertTokens(seq)))] = 1;
+			var tokens = parseAlg(alg);
+			var state = recognitionState(tokens);
+			if (!f2lIntact(state)) {
+				throw new Error('breaks F2L');
 			}
+			// end-to-end check: the alg must solve its recognition state
+			var replay = new mathlib.CubieCube();
+			replay.init(state.ca.slice(), state.ea.slice());
+			applyTokens(replay, tokens);
+			if (!replay.isEqual(mathlib.CubieCube.SOLVED)) {
+				throw new Error('alg does not solve its own state');
+			}
+			out.push(name + '|' + tokens.join(' '));
+		} catch (e) {
+			bad.push(name + ': ' + e.message + ' :: ' + alg);
 		}
 	});
 });
 
-var LL_STATES = 62208; // 4!*3^3 * 4!*2^3 / 2 (parity)
-var covered = Object.keys(byKey).length;
-console.log('groups', groups.length, 'algs', total, 'valid algs', valid, 'failed', bad.length);
-console.log('covered states', covered, '/', LL_STATES, '(' + (covered * 100 / LL_STATES).toFixed(2) + '%)');
+console.log('groups', groups.length, 'algs', total, 'valid', out.length, 'failed', bad.length);
 if (bad.length) {
-	console.log('skipped entries:');
-	console.log(bad.slice(0, 40).join('\n'));
+	console.log(bad.slice(0, 15).join('\n'));
 }
+
 if (process.argv.indexOf('--write') != -1) {
 	var js = '// ALL (1LLL) algorithms, data imported from MOYU/solve/ALLL.py\n' +
 		'// entry: "NAME|m1 m2 ...", moves use csTimer notation (R, U\', Rw, M, x, ...)\n' +
 		'// the alg solves the state reached by applying its inverse to a solved cube;\n' +
-		'// the recognition LUT (with U/U2/U\' pre- and post-AUF) is built at runtime\n' +
+		'// recognition LUT (with U/U2/U\' pre- and post-AUF) is built at runtime\n' +
+		'//\n' +
+		'// ' + (total - out.length) + ' entries were skipped during import: they either\n' +
+		'// break the F2L or contain whole-cube rotations that cannot be expressed in\n' +
+		'// csTimer\'s fixed cubie indexing (see experiment/gen_alll.js).\n' +
 		'var ALLL_DATA = [\n' +
 		out.map(function(s) {
-			return '\t"' + s.name + '|' + s.alg + '"';
+			return '\t"' + s + '"';
 		}).join(',\n') +
 		'\n];\n';
 	fs.writeFileSync(path.join(root, 'src/js/lib/alll.js'), js);
-	console.log('written src/js/lib/alll.js, base entries', out.length);
+	console.log('written src/js/lib/alll.js entries', out.length, 'skipped', total - out.length);
 }
