@@ -87,6 +87,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return Math.min(4, Math.max(1, ~~kernel.getProp('cpF2LCount', 2)));
 	}
 
+	/** how many off-track moves before the hint is re-planned */
+	function maxUndo() {
+		return Math.min(10, Math.max(1, ~~kernel.getProp('cpUndoMax', 3)));
+	}
+
 	/** smart-cube frame: cross at D, front from a fixed colour order */
 	function smartFacelet(raw) {
 		// once the cross plus one F2L pair are done the frame is fixed: later
@@ -445,6 +450,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 						hintUndo.push(cubeCopilot.invertToken(utok));
 					}
 					prevRaw = raw;
+					// too many wrong moves: forget the undos and re-plan
+					if (hintUndo.length > maxUndo()) {
+						finishHint();
+						updateStage(facelet, true);
+						requestNext(facelet);
+						return;
+					}
 					hintInfo.undo = hintUndo.slice(0);
 					if (!hintUndo.length) {
 						offTrack = false;
@@ -557,7 +569,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		} catch (e) {
 			return;
 		}
-		if (stage != 'f2l' && stage != 'll') {
+		if (stage != 'cross' && stage != 'f2l' && stage != 'll') {
 			return;
 		}
 		if (stage == 'll' && llMode() == 'off') {
@@ -650,6 +662,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (hint.kind == 'auf') {
 			return L('COPILOT_AUF', 'Adjust the top layer');
 		}
+		if (hint.kind == 'cross') {
+			return L('COPILOT_CROSS', 'Finish the cross');
+		}
 		return L('COPILOT_ALLL', 'One-look last layer: %s').replace('%s', hint.name);
 	}
 
@@ -667,7 +682,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			return L('COPILOT_NO_F2L', 'No F2L hint found');
 		}
 		if (hint.name == 'no-alg') {
-			return L('COPILOT_NO_ALLL', 'No algorithm for this last-layer case');
+			return hint.kind == 'cross' ? L('COPILOT_NO_CROSS', 'No cross hint found') :
+				L('COPILOT_NO_ALLL', 'No algorithm for this last-layer case');
 		}
 		return null;
 	}
@@ -1079,7 +1095,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		} else if (signal == 'timerStatus') {
 			onTimerStatus(value);
 		} else if (signal == 'property') {
-			if (/^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpF2LCount)$/.exec(value[0])) {
+			if (/^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpF2LCount|cpUndoMax)$/.exec(value[0])) {
 				clearAll();
 				refreshStatus();
 				if (isEnabled()) {
@@ -1100,6 +1116,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regProp('copilot', 'cpTimeout', 2, L('COPILOT_TIMEOUT', 'Hint after no progress (s)'), [6, 0, 120], 1);
 		kernel.regProp('copilot', 'cpF2LDepth', 2, L('COPILOT_F2LDEPTH', 'F2L max search depth'), [8, 4, 12], 1);
 		kernel.regProp('copilot', 'cpF2LCount', 2, L('COPILOT_F2LCOUNT', 'Number of F2L hints'), [2, 1, 4], 1);
+		kernel.regProp('copilot', 'cpUndoMax', 2, L('COPILOT_UNDOMAX', 'Re-plan after this many wrong moves'), [3, 1, 10], 1);
 		kernel.regProp('copilot', 'cpLlmode', 1, L('COPILOT_LLMODE', 'Last-layer method'), ['op', ['op', 'alll', 'off'], [
 			L('COPILOT_LL_OP', 'OLL + PLL'),
 			L('COPILOT_LL_ALLL', '1LLL (ALLL)'),
@@ -1130,7 +1147,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regListener('copilot', 'giikerState', procSignal);
 		kernel.regListener('copilot', 'virtualState', procSignal);
 		kernel.regListener('copilot', 'timerStatus', procSignal);
-		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpF2LCount|cpCustom)$/);
+		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpF2LCount|cpUndoMax|cpCustom)$/);
 		kernel.regListener('copilot', 'scramble', procSignal);
 		kernel.regListener('copilot', 'time', procSignal);
 

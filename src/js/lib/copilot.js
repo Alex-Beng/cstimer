@@ -977,6 +977,23 @@ function makeCubeCopilot() {
 		options = options || {};
 		var cc = cubieFromFacelet(facelet);
 		var stage = getStage(cc);
+		if (stage == 'cross') {
+			var cross = solveCross(facelet, options);
+			if (!cross || !cross.length) {
+				return {stage: 'cross', name: 'no-alg'};
+			}
+			return {
+				stage: 'cross',
+				kind: 'cross',
+				name: 'cross',
+				key: '',
+				base: cross.slice(),
+				pre: '',
+				post: '',
+				moves: cross,
+				alg: cross.join(' ')
+			};
+		}
 		if (stage == 'f2l') {
 			var pairs = solvePairs(facelet, options, options.f2lCount);
 			if (!pairs.length) {

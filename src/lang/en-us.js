@@ -112,6 +112,7 @@ var COPILOT_F2L_PAIRS = 'Next F2L pairs:';
 var COPILOT_COLORS = 'White|Red|Green|Yellow|Orange|Blue';
 var COPILOT_ORI = '%s bottom, %s front';
 var COPILOT_UNDO = 'Off the algorithm, undo: %s';
+var COPILOT_UNDOMAX = 'Re-plan after this many wrong moves';
 var COPILOT_CROSS = 'Finish the cross';
 var COPILOT_NO_CROSS = 'No cross hint found';
 

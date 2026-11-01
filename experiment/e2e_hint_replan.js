@@ -161,6 +161,39 @@ function overlay(page) {
 	if (back.text.indexOf(setup.hint) < 0) fail('hint did not resume: ' + back.text);
 	if (/undo|回退/i.test(back.text)) fail('still showing the undo after returning');
 
+	// beyond cpUndoMax wrong moves the hint is re-planned from the state
+	await page.evaluate(function() {
+		kernel.setProp('cpUndoMax', 1);
+		kernel.pushSignal('timerStatus', -1);
+		kernel.pushSignal('timerStatus', 1);
+		kernel.pushSignal('virtualState', [window.__start]);
+	});
+	await page.waitForTimeout(6000);
+	await page.evaluate(function() {
+		kernel.pushSignal('virtualState', [window.__w1]);
+	});
+	await page.waitForTimeout(300);
+	await page.evaluate(function() {
+		kernel.pushSignal('virtualState', [window.__w2]);
+	});
+	await page.waitForTimeout(1600);
+	var exceed = await overlay(page);
+	var rePlan = await page.evaluate(function() {
+		var h = cubeCopilot.getHint(window.__w2, {
+			maxDepth: 8,
+			timeLimit: 1500,
+			llMode: 'op',
+			f2lCount: 1
+		});
+		return {alg: h && h.moves ? h.moves.join(' ') : '', stage: h && h.stage};
+	});
+	console.log('over undo limit', JSON.stringify(exceed), 'expected', JSON.stringify(rePlan));
+	if (!exceed.visible) fail('hint disappeared after exceeding cpUndoMax');
+	if (/undo|回退/i.test(exceed.text)) fail('still showing undo beyond cpUndoMax');
+	if (rePlan.alg && exceed.text.indexOf(rePlan.alg) < 0) {
+		fail('hint was not re-planned for the current state: ' + exceed.text);
+	}
+
 	await browser.close();
 	server.close();
 	console.log(failures == 0 ? 'ALL OK' : ('FAILURES: ' + failures));
