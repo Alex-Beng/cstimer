@@ -1,14 +1,14 @@
 "use strict";
 
-// Verify auto hints fire while the solver is idle, and that they are visible
-// during a solve (window is not auto-hidden and a logo toast is pushed).
+// Verify auto hints fire while the solver is idle AND remain visible during a
+// solve, when csTimer fades #leftbar out and auto-hides module windows.
 var http = require('http');
 var fs = require('fs');
 var path = require('path');
 var pw = require('C:/Users/Administrator/AppData/Local/Temp/opencode/node_modules/playwright');
 
 var root = path.resolve(__dirname, '..', 'dist', 'local');
-var port = 8181;
+var port = 8191;
 var failures = 0;
 
 function fail(m) {
@@ -48,28 +48,11 @@ var server = http.createServer(function(req, res) {
 	await page.goto('http://localhost:' + port + '/', {waitUntil: 'load'});
 	await page.waitForTimeout(2500);
 
-	// spy on the logo banner so we can assert the hint becomes visible
-	await page.evaluate(function() {
-		window.__toasts = [];
-		var orig = logohint.push;
-		logohint.push = function(msg) {
-			window.__toasts.push(msg);
-			return orig.apply(logohint, arguments);
-		};
-	});
-
-	// configure and enter a solving state with an F2L-stage position
 	var setup = await page.evaluate(function() {
 		kernel.setProp('cpEnabled', true);
 		kernel.setProp('cpTimeout', 3);
 		kernel.setProp('cpF2LDepth', 6);
 
-		// open the copilot window (left bar index 5)
-		var btn = document.querySelectorAll('#leftbar .c5')[0];
-		if (btn) btn.click();
-
-		// build a facelet where the cross is solved and one F2L pair already
-		// inserted but the rest scrambled: R U R' keeps the cross intact
 		var m = new mathlib.CubieCube();
 		['R', 'U', "R'"].forEach(function(t) { m.selfMoveStr(t); });
 		var facelet = m.toFaceCube();
@@ -77,52 +60,52 @@ var server = http.createServer(function(req, res) {
 		kernel.pushSignal('timerStatus', 1);
 		kernel.pushSignal('virtualState', [facelet]);
 
-		return {
-			stage: cubeCopilot.getStage(facelet),
-			enabled: kernel.getProp('cpEnabled'),
-			timeout: kernel.getProp('cpTimeout')
-		};
+		// emulate what csTimer does when a solve starts: hide module windows
+		// and fade the left bar (which carries the logo banner)
+		kernel.ui.setAutoShow(false);
+
+		return {stage: cubeCopilot.getStage(facelet)};
 	});
 	console.log('setup', JSON.stringify(setup));
 	if (setup.stage != 'f2l') fail('test position is not F2L stage: ' + setup.stage);
 
-	// do NOT send any new state; just wait past the timeout
-	var dbg = await page.evaluate(function() {
-		return {
-			puzzle: tools.getCurPuzzle(),
-			train: (tools.isCurTrainScramble ? tools.isCurTrainScramble() : null),
-			scr: (tools.getCurScramble ? tools.getCurScramble() : null)
-		};
-	});
-	console.log('debug', JSON.stringify(dbg));
-	await page.waitForTimeout(10000);
+	// do not send any new state: the hint must still appear after the timeout
+	await page.waitForTimeout(11000);
 
 	var res = await page.evaluate(function() {
-		var div = document.querySelector('#copilotDiv');
+		var overlay = document.querySelector('#copilotHint');
+		var leftbar = document.querySelector('#leftbar');
+		var cs = overlay ? getComputedStyle(overlay) : null;
 		return {
-			toasts: window.__toasts,
-			hintText: (div ? div.textContent : '').replace(/\s+/g, ' ').trim(),
-			visible: div ? (div.offsetParent !== null) : false
+			overlayVisible: !!(cs && cs.display !== 'none' && cs.visibility !== 'hidden' && +cs.opacity > 0),
+			overlayDisplay: cs ? cs.display : null,
+			overlayText: (overlay ? overlay.textContent : '').replace(/\s+/g, ' ').trim(),
+			leftbarOpacity: leftbar ? getComputedStyle(leftbar).opacity : null
 		};
 	});
 	console.log('after idle wait', JSON.stringify(res));
 
-	if (!res.toasts.length) {
-		fail('no hint was pushed while idle (timeout polling missing?)');
+	if (!res.overlayVisible) {
+		fail('hint overlay not visible during a solve');
 	}
-	if (!/F2L|U |R |'/i.test(res.hintText)) {
-		fail('window shows no hint text: ' + res.hintText);
-	}
-	if (!res.visible) {
-		fail('copilot window is hidden during a solve');
+	if (!/F2L/.test(res.overlayText) || !/[URFDLB]/.test(res.overlayText)) {
+		fail('hint overlay has no F2L algorithm: ' + res.overlayText);
 	}
 
-	// leaving the solve must clear the hint again
-	var cleared = await page.evaluate(function() {
+	// ending the solve must remove the overlay
+	var after = await page.evaluate(function() {
 		kernel.pushSignal('timerStatus', -1);
-		return (document.querySelector('#copilotDiv').textContent || '').replace(/\s+/g, ' ');
+		var overlay = document.querySelector('#copilotHint');
+		var cs = overlay ? getComputedStyle(overlay) : null;
+		return {
+			visible: !!(cs && cs.display !== 'none'),
+			text: (overlay ? overlay.textContent : '').trim()
+		};
 	});
-	console.log('after solve end', JSON.stringify(cleared.slice(0, 120)));
+	console.log('after solve end', JSON.stringify(after));
+	if (after.visible || after.text) {
+		fail('hint overlay was not cleared when the solve ended');
+	}
 
 	await browser.close();
 	server.close();

@@ -11,6 +11,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var div = $('<div id="copilotDiv"/>');
 	var statusSpan = $('<span class="click"/>');
 	var hintSpan = $('<div/>').css({'font-family': 'Monospace', 'white-space': 'pre-wrap'});
+	var hintOverlay = $('<div id="copilotHint"/>');
 	var toolHintSpan = null;
 	var toolStatusSpan = null;
 	var toolChkEnable = null;
@@ -186,6 +187,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		hintedFacelet = null;
 		lastHint = null;
 		hintSpan.empty();
+		hideOverlay();
 		clearHighlight();
 		if (!canRun()) {
 			curStage = null;
@@ -263,6 +265,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			if (toolHintSpan) {
 				toolHintSpan.empty();
 			}
+			hideOverlay();
 			clearHighlight();
 		}
 	}
@@ -294,6 +297,46 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 	}
 
+	/**
+	 * During a solve csTimer fades #leftbar to 0.01 opacity (taking the logo
+	 * banner with it) and auto-hides module windows, so the hint needs its own
+	 * fixed overlay to be visible.
+	 */
+	function showOverlay(hint) {
+		var cat = '';
+		var alg = '';
+		if (hint.stage == 'f2l') {
+			if (hint.name == 'no-solution') {
+				hintOverlay.hide().empty();
+				return;
+			}
+			cat = COPILOT_F2L.replace('%s', hint.name);
+			alg = hint.alg;
+		} else if (hint.stage == 'll') {
+			if (hint.name == 'no-alg') {
+				hintOverlay.hide().empty();
+				return;
+			}
+			cat = COPILOT_ALLL.replace('%s', hint.name);
+			alg = hint.alg;
+		} else if (hint.stage == 'solved') {
+			hintOverlay.hide().empty();
+			return;
+		}
+		if (!alg) {
+			hintOverlay.hide().empty();
+			return;
+		}
+		hintOverlay.empty().append(
+			$('<div class="cp-cat"/>').html(cat),
+			$('<div class="cp-alg"/>').text(alg)
+		).show();
+	}
+
+	function hideOverlay() {
+		hintOverlay.hide().empty();
+	}
+
 	function showHint(hint) {
 		if (!hint) {
 			return;
@@ -306,30 +349,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (hint.stage == 'f2l' && hint.slot) {
 			highlightSlot(hint.slot);
 		}
-		// Windows are faded out while a solve runs, so the hint is also pushed
-		// to the logo banner, which is always visible.
-		var toast = hintToast(hint);
-		if (toast) {
-			logohint.push(toast);
-		}
+		showOverlay(hint);
 		// replace the transient "computing" status with the normal one
 		refreshStatus();
-	}
-
-	function hintToast(hint) {
-		if (hint.stage == 'f2l') {
-			if (hint.name == 'no-solution') {
-				return COPILOT_NO_F2L;
-			}
-			return 'F2L ' + hint.name + ': ' + hint.alg;
-		}
-		if (hint.stage == 'll') {
-			if (hint.name == 'no-alg') {
-				return COPILOT_NO_ALLL;
-			}
-			return COPILOT_ALLL.replace('%s', hint.name) + ' ' + hint.alg;
-		}
-		return null;
 	}
 
 	function clearHighlight() {
@@ -398,6 +420,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (toolHintSpan) {
 			toolHintSpan.empty();
 		}
+		hideOverlay();
 		clearHighlight();
 	}
 
@@ -496,6 +519,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 		kernel.addWindow('copilot', COPILOT_BUTTON, div, false, false, 5);
 		tools.regTool('copilot', l10n(TOOLS_COPILOT, 'Copilot'), toolExec);
+		hintOverlay.appendTo('body');
 		refreshStatus();
 		startPolling();
 	});

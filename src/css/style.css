@@ -1482,3 +1482,34 @@ html.cspt:not(.m) .mywindow, html.cspt:not(.m) #leftbar {
 html.cspt:not(.m) .mywindow:hover, html.cspt:not(.m) #leftbar:hover {
     z-index: 1 !important;
 }
+
+/* Cube Copilot hint overlay.
+   It must NOT live in #leftbar (faded to 0.01 opacity while solving) nor be a
+   module window (auto-hidden while solving), so it is a standalone fixed box. */
+#copilotHint {
+    position: fixed;
+    left: 50%;
+    top: 8%;
+    transform: translateX(-50%);
+    max-width: 80%;
+    padding: 0.4em 0.8em;
+    border-radius: 0.3em;
+    background: rgba(0, 0, 0, 0.72);
+    color: #fff;
+    font-family: Monospace;
+    text-align: center;
+    pointer-events: none;
+    z-index: 45;
+    display: none;
+}
+
+#copilotHint .cp-cat {
+    font-size: 1.1em;
+    opacity: 0.85;
+}
+
+#copilotHint .cp-alg {
+    font-size: 2em;
+    color: #ffd54a;
+    margin-top: 0.1em;
+}
