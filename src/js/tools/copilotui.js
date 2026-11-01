@@ -496,6 +496,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 					track.cursor = idx + 1;
 					if (track.cursor >= track.steps.length) {
 						track.done = true;
+						track.pair.done = true;
+						track.pair.remain = [];
 					} else {
 						track.pair.remain = track.steps[idx].remain.slice(0);
 					}
@@ -505,7 +507,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				}
 			}
 			if (matched) {
-						hintLastSig = sig;
+				hintLastSig = sig;
 				prevRaw = raw || prevRaw;
 				if (allDone) {
 					finishHint();
@@ -520,6 +522,15 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			// a whole-cube rotation (x/y/z) is pushed as a new facelet but does
 			// not change the position, so it must not count as a wrong move
 			if (sig && sig == hintLastSig) {
+				// rotating the virtual cube changes the frame of the remaining
+				// algorithm, so re-ask for it in the new orientation
+				if (!isSmart && raw && prevRaw && raw != prevRaw) {
+					prevRaw = raw;
+					finishHint();
+					updateStage(facelet, true);
+					requestNext(facelet);
+					return;
+				}
 				prevRaw = raw || prevRaw;
 				updateStage(facelet, false);
 				return;
