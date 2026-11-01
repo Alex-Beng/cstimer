@@ -69,7 +69,7 @@ var server = http.createServer(function(req, res) {
 	if (info.defaultEnabled !== false) fail('cpEnabled should default to false, got ' + info.defaultEnabled);
 	if (info.checkedNow !== false) fail('window checkbox should start unchecked');
 	if (info.windowCheckboxes < 1) fail('copilot window has no enable checkbox');
-	if (info.hasTimeoutProp !== 10) fail('cpTimeout default should be 10, got ' + info.hasTimeoutProp);
+	if (info.hasTimeoutProp !== 6) fail('cpTimeout default should be 6, got ' + info.hasTimeoutProp);
 	if (info.hasDepthProp !== 8) fail('cpF2LDepth default should be 8, got ' + info.hasDepthProp);
 
 	// toggling the checkbox must flip the property and the status text

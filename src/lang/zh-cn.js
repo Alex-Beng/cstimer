@@ -92,6 +92,7 @@ var COPILOT_SOLVED = '已复原';
 var TOOLS_COPILOT = 'Copilot';
 var COPILOT_TOOL_HELP = '虚拟魔方或蓝牙魔方还原时，某个阶段长时间没有进展就会给出提示（可在 设置 > Copilot 中调整）。';
 var COPILOT_NO_STATE = '还没有收到魔方局面，请先用虚拟魔方或连接蓝牙魔方';
+var COPILOT_COMPUTING = '计算中…';
 
 var TOOLS_RECONS = '解法复盘';
 var TOOLS_RECONS_NODATA = '未找到解法。';

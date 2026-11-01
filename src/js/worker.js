@@ -7,6 +7,19 @@ var csTimerWorker = execBoth(ISCSTIMER && function() {
 	var worker = new Worker('js/cstimer.js');
 	var callbacks = {};
 	var msgid = 0;
+	// Set when the worker script cannot be loaded (e.g. a source-only build that
+	// has no js/cstimer.js).  Callers must fall back to the main thread.
+	var isBroken = false;
+
+	worker.onerror = function() {
+		isBroken = true;
+		// nothing will ever answer: release pending callbacks with null
+		for (var id in callbacks) {
+			var cb = callbacks[id];
+			delete callbacks[id];
+			cb && cb(null);
+		}
+	};
 
 	worker.onmessage = function(e) {
 		//data: [msgid, type, ret]
@@ -18,6 +31,9 @@ var csTimerWorker = execBoth(ISCSTIMER && function() {
 
 	//[realType, len, state]
 	function getScramble(args, callback) {
+		if (isBroken) {
+			return 0;
+		}
 		++msgid;
 		callbacks[msgid] = callback;
 		worker.postMessage([msgid, 'scramble', args]);
@@ -30,10 +46,17 @@ var csTimerWorker = execBoth(ISCSTIMER && function() {
 	return {
 		getScramble: getScramble,
 		getHint: getHint,
-		warmUp: warmUp
+		warmUp: warmUp,
+		isAvailable: function() {
+			return !isBroken;
+		}
 	};
 
 	function getHint(facelet, options, callback) {
+		if (isBroken) {
+			callback && callback(null);
+			return 0;
+		}
 		++msgid;
 		callbacks[msgid] = callback;
 		worker.postMessage([msgid, 'hint', [facelet, options]]);
@@ -41,6 +64,9 @@ var csTimerWorker = execBoth(ISCSTIMER && function() {
 	}
 
 	function warmUp() {
+		if (isBroken) {
+			return;
+		}
 		worker.postMessage([0, 'warmup', []]);
 	}
 }, function() {

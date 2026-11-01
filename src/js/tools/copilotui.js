@@ -16,8 +16,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var toolChkEnable = null;
 	var toolBtnHint = null;
 	var toolBtnClear = null;
+	var tickTid = 0;
+	var hintedFacelet = null;
 
 	var COPILOT_TOOL_HELP_FALLBACK = 'Shows a hint when a stage of a virtual or bluetooth cube solve makes no progress.';
+	var COPILOT_COMPUTING_FALLBACK = 'Computing hint...';
 
 	/** language strings fall back to a placeholder when a locale misses them */
 	function l10n(value, fallback) {
@@ -45,7 +48,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function timeoutMs() {
-		return Math.max(3, ~~kernel.getProp('cpTimeout', 10)) * 1000;
+		return Math.max(3, ~~kernel.getProp('cpTimeout', 6)) * 1000;
 	}
 
 	function isCube3() {
@@ -64,8 +67,18 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	// ------------------------------------------------------------ worker glue
 
+	function workerUsable() {
+		if (!csTimerWorker || !csTimerWorker.getHint) {
+			return false;
+		}
+		if (csTimerWorker.isAvailable && !csTimerWorker.isAvailable()) {
+			return false;
+		}
+		return true;
+	}
+
 	function initWorker() {
-		if (workerReady || !csTimerWorker || !csTimerWorker.getHint) {
+		if (workerReady || !workerUsable()) {
 			return;
 		}
 		workerReady = true;
@@ -74,9 +87,22 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 	}
 
+	/**
+	 * A source-only build has no js/cstimer.js, so the worker never answers.
+	 * The hint is then computed on the main thread, deferred so the click/key
+	 * handler is not blocked.
+	 */
+	function inlineRequest(req) {
+		showStatus(l10n(COPILOT_COMPUTING, COPILOT_COMPUTING_FALLBACK));
+		setTimeout(function() {
+			var hint = computeHintInline(req.facelet, req.manual);
+			showHint(hint);
+		}, 0);
+	}
+
 	function postRequest(req) {
-		if (!csTimerWorker || !csTimerWorker.getHint) {
-			showHint(computeHintInline(req.facelet, req.manual));
+		if (!workerUsable()) {
+			inlineRequest(req);
 			return;
 		}
 		if (workerBusy) {
@@ -85,12 +111,34 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		workerBusy = true;
 		lastSentId = req.id;
+		var answered = false;
+		var fallbackTid = setTimeout(function() {
+			// the worker accepted the message but never replied
+			if (answered) {
+				return;
+			}
+			answered = true;
+			workerBusy = false;
+			inlineRequest(req);
+			if (queuedReq) {
+				var q = queuedReq;
+				queuedReq = null;
+				postRequest(q);
+			}
+		}, 9000);
 		csTimerWorker.getHint(req.facelet, {
 			maxDepth: req.maxDepth,
 			timeLimit: req.timeLimit
 		}, function(hint) {
+			if (answered) {
+				return;
+			}
+			answered = true;
+			clearTimeout(fallbackTid);
 			workerBusy = false;
-			if (req.id == lastSentId) {
+			if (hint == null) {
+				inlineRequest(req);
+			} else if (req.id == lastSentId) {
 				showHint(hint);
 			}
 			if (queuedReq) {
@@ -135,6 +183,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			return;
 		}
 		curFacelet = facelet;
+		hintedFacelet = null;
 		lastHint = null;
 		hintSpan.empty();
 		clearHighlight();
@@ -154,7 +203,22 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			lastWarnAt = 0;
 			return;
 		}
-		if (stage == 'solved' || stage == 'cross') {
+		checkTimeout();
+	}
+
+	/**
+	 * A stalled solve produces no new facelets, so the timeout cannot rely on
+	 * the state callback: it is polled while a solve is running.
+	 */
+	function checkTimeout() {
+		if (!canRun() || !curFacelet || !isSolving) {
+			return;
+		}
+		if (curStage != 'f2l' && curStage != 'll') {
+			return;
+		}
+		// one hint per position: do not nag while the user is thinking
+		if (curFacelet == hintedFacelet) {
 			return;
 		}
 		var now = $.now();
@@ -165,7 +229,22 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			return;
 		}
 		lastWarnAt = now;
-		requestHint(facelet, false);
+		hintedFacelet = curFacelet;
+		requestHint(curFacelet, false);
+	}
+
+	function startPolling() {
+		if (tickTid) {
+			return;
+		}
+		tickTid = setInterval(checkTimeout, 500);
+	}
+
+	function stopPolling() {
+		if (tickTid) {
+			clearInterval(tickTid);
+			tickTid = 0;
+		}
 	}
 
 	function onTimerStatus(status) {
@@ -179,6 +258,12 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			isSolving = false;
 			stageSince = $.now();
 			lastWarnAt = 0;
+			hintedFacelet = null;
+			hintSpan.empty();
+			if (toolHintSpan) {
+				toolHintSpan.empty();
+			}
+			clearHighlight();
 		}
 	}
 
@@ -221,6 +306,30 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (hint.stage == 'f2l' && hint.slot) {
 			highlightSlot(hint.slot);
 		}
+		// Windows are faded out while a solve runs, so the hint is also pushed
+		// to the logo banner, which is always visible.
+		var toast = hintToast(hint);
+		if (toast) {
+			logohint.push(toast);
+		}
+		// replace the transient "computing" status with the normal one
+		refreshStatus();
+	}
+
+	function hintToast(hint) {
+		if (hint.stage == 'f2l') {
+			if (hint.name == 'no-solution') {
+				return COPILOT_NO_F2L;
+			}
+			return 'F2L ' + hint.name + ': ' + hint.alg;
+		}
+		if (hint.stage == 'll') {
+			if (hint.name == 'no-alg') {
+				return COPILOT_NO_ALLL;
+			}
+			return COPILOT_ALLL.replace('%s', hint.name) + ' ' + hint.alg;
+		}
+		return null;
 	}
 
 	function clearHighlight() {
@@ -237,6 +346,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				timer.virtual.highlight(slot);
 			}
 		} catch (e) {}
+	}
+
+	function showStatus(text) {
+		statusSpan.empty().append(text);
+		if (toolStatusSpan) {
+			toolStatusSpan.empty().append(text);
+		}
 	}
 
 	function refreshStatus() {
@@ -275,6 +391,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		curFacelet = null;
 		curStage = null;
 		lastHint = null;
+		hintedFacelet = null;
 		stageSince = $.now();
 		lastWarnAt = 0;
 		hintSpan.empty();
@@ -337,6 +454,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			if (/^(cpEnabled|cpTimeout|cpF2LDepth)$/.exec(value[0])) {
 				clearAll();
 				refreshStatus();
+				if (isEnabled()) {
+					startPolling();
+				} else {
+					stopPolling();
+				}
 			}
 		} else if (signal == 'scramble' || signal == 'time') {
 			clearAll();
@@ -369,12 +491,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regListener('copilot', 'time', procSignal);
 
 		kernel.regProp('copilot', 'cpEnabled', 0, COPILOT_ENABLED, [false], 1);
-		kernel.regProp('copilot', 'cpTimeout', 2, COPILOT_TIMEOUT, [10, 3, 120], 1);
+		kernel.regProp('copilot', 'cpTimeout', 2, COPILOT_TIMEOUT, [6, 3, 120], 1);
 		kernel.regProp('copilot', 'cpF2LDepth', 2, COPILOT_F2LDEPTH, [8, 4, 12], 1);
 
-		kernel.addWindow('copilot', COPILOT_BUTTON, div, false, true, 5);
+		kernel.addWindow('copilot', COPILOT_BUTTON, div, false, false, 5);
 		tools.regTool('copilot', l10n(TOOLS_COPILOT, 'Copilot'), toolExec);
 		refreshStatus();
+		startPolling();
 	});
 
 	return {
