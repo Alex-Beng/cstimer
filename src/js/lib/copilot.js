@@ -863,6 +863,45 @@ function makeCubeCopilot() {
 		return ret;
 	}
 
+	function cloneCube(cc) {
+		var ret = new mathlib.CubieCube();
+		ret.init(cc.ca.slice(), cc.ea.slice());
+		ret.ori = cc.ori;
+		return ret;
+	}
+
+	/**
+	 * Steps of an algorithm, one entry per intermediate position.  A half turn
+	 * (`R2`) gets an extra entry after each quarter turn (`R` and `R'`), so a
+	 * user who turns it half way is seen as following the algorithm, not as
+	 * making a mistake.  `remain` is the algorithm still to run from that
+	 * position.
+	 */
+	function algSteps(facelet, tokens) {
+		var cc = cubieFromFacelet(facelet);
+		var steps = [];
+		for (var i = 0; i < tokens.length; i++) {
+			var token = tokens[i];
+			var rest = tokens.slice(i + 1);
+			var half = /^([URFDLB]w?|2-2[URFDLB]w|[EMSxyz])(2|2')$/.exec(token);
+			if (half) {
+				var base = half[1];
+				if (base.indexOf('2-2') == 0) {
+					base = base.slice(3);
+				}
+				var cw = cloneCube(cc);
+				cw.selfMoveStr(base);
+				steps.push({sig: cw.toFaceCube(), remain: [base].concat(rest)});
+				var ccw = cloneCube(cc);
+				ccw.selfMoveStr(base + "'");
+				steps.push({sig: ccw.toFaceCube(), remain: [base + "'"].concat(rest)});
+			}
+			cc.selfMoveStr(token);
+			steps.push({sig: cc.toFaceCube(), remain: rest});
+		}
+		return steps;
+	}
+
 	/** does `tokens` really solve the case described by `hint`? */
 	function validateAlg(facelet, tokens, hint) {
 		if (!tokens || !tokens.length || !hint) {
@@ -909,6 +948,7 @@ function makeCubeCopilot() {
 		ensurePllLut: ensurePllLut,
 		normalizeFacelet: normalizeFacelet,
 		algStates: algStates,
+		algSteps: algSteps,
 		validateAlg: validateAlg,
 		slotFacelets: slotFacelets,
 		F2L_PAIRS: F2L_PAIRS

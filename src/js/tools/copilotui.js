@@ -370,7 +370,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			var idx = -1;
 			if (sig) {
 				for (var i = hintCursor; i < hintSig.length; i++) {
-					if (hintSig[i] == sig) {
+					if (hintSig[i].sig == sig) {
 						idx = i;
 						break;
 					}
@@ -383,7 +383,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 					finishHint();
 					updateStage(facelet, true);
 				} else {
-					hintInfo.remain = hintInfo.moves.slice(hintCursor);
+					hintInfo.remain = hintSig[idx].remain.slice(0);
 					renderCurrent();
 					updateStage(facelet, false);
 				}
@@ -571,7 +571,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		hintSig = null;
 		if (hintInfo.moves && hintInfo.moves.length) {
 			try {
-				hintSig = cubeCopilot.algStates(facelet, hintInfo.moves);
+				hintSig = cubeCopilot.algSteps(facelet, hintInfo.moves);
 			} catch (e) {}
 		}
 		// remember this position so the poller does not ask again for it
@@ -668,7 +668,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		hintSig = null;
 		if (hintFacelet && hintInfo.moves && hintInfo.moves.length) {
 			try {
-				hintSig = cubeCopilot.algStates(hintFacelet, hintInfo.moves);
+				hintSig = cubeCopilot.algSteps(hintFacelet, hintInfo.moves);
 			} catch (e) {}
 		}
 		renderCurrent();
