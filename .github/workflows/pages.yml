@@ -2,7 +2,7 @@ name: Deploy to Github Pages
 
 on:
   push:
-    branches: ["master"]
+    branches: ["master", "feat/cube-copilot"]
 
   workflow_dispatch:
 
@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: "pages"
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -24,23 +24,58 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Setup java
-        uses: actions/setup-java@v4.0.0
-        with: 
+        uses: actions/setup-java@v4
+        with:
           distribution: 'temurin'
           java-version: '11'
+
       - name: Setup php
         uses: shivammathur/setup-php@2.37.1
         with:
           php-version: '8.0'
-      - name: Build cstimer
-        run: mkdir dist/local dist/local/js dist/local/css && make local
+
+      # master is published at the site root using the minified build
+      # (`make local`).  Every other branch is published under a subdirectory
+      # built straight from sources (`make src_local`), so e.g.
+      # feat/cube-copilot is reachable at /feat-cube-copilot/.
+      - name: Build all branches
+        run: |
+          set -e
+          mkdir -p dist/pages
+          git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+          BRANCHES="master feat/cube-copilot"
+          for BRANCH in $BRANCHES; do
+            if ! git rev-parse --verify "origin/$BRANCH" >/dev/null 2>&1; then
+              echo "Skipping missing branch: $BRANCH"
+              continue
+            fi
+            echo "::group::Building branch: $BRANCH"
+            git checkout -f --detach "origin/$BRANCH"
+            rm -rf dist/local
+            if [ "$BRANCH" = "master" ]; then
+              make local
+              cp -r dist/local/. dist/pages/
+            else
+              make src_local
+              SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9._-]/-/g')
+              mkdir -p "dist/pages/${SAFE_BRANCH}"
+              cp -r dist/local/. "dist/pages/${SAFE_BRANCH}/"
+            fi
+            echo "::endgroup::"
+          done
+
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'dist/local'
+          path: 'dist/pages'
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

@@ -24,6 +24,9 @@
   <script type="text/javascript" src="js/lib/min2phase.js"></script>
   <script type="text/javascript" src="js/lib/cubeutil.js"></script>
   <script type="text/javascript" src="js/lib/puzzlefactory.js"></script>
+  <script type="text/javascript" src="js/lib/scrambleready.js"></script>
+  <script type="text/javascript" src="js/lib/alll.js"></script>
+  <script type="text/javascript" src="js/lib/copilot.js"></script>
   <script type="text/javascript" src="js/kernel.js"></script>
   <script type="text/javascript" src="js/export.js"></script>
   <script type="text/javascript" src="js/logohint.js"></script>
@@ -75,6 +78,7 @@
   <script type="text/javascript" src="js/tools/pat3x3gen.js"></script>
   <script type="text/javascript" src="js/tools/bluetoothutil.js"></script>
   <script type="text/javascript" src="js/tools/metronome.js"></script>
+  <script type="text/javascript" src="js/tools/copilotui.js"></script>
   <script type="text/javascript" src="js/tools/onlinecomp.js"></script>
   <script type="text/javascript" src="js/tools/battle.js"></script>
   <script type="text/javascript" src="js/tools/syncseed.js"></script>
