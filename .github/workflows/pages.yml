@@ -2,7 +2,7 @@ name: Deploy to Github Pages
 
 on:
   push:
-    branches: ["master", "feat/cube-copilot"]
+    branches: ["master", "moyu", "feat/cube-copilot"]
 
   workflow_dispatch:
 
@@ -47,7 +47,7 @@ jobs:
           set -e
           mkdir -p dist/pages
           git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
-          BRANCHES="master feat/cube-copilot"
+          BRANCHES="master moyu feat/cube-copilot"
           for BRANCH in $BRANCHES; do
             if ! git rev-parse --verify "origin/$BRANCH" >/dev/null 2>&1; then
               echo "Skipping missing branch: $BRANCH"
