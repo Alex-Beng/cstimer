@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": 'scramble',
 	"stats": 'štatistiky',
 	"tools": 'Nástroje',
-	"vrc": 'virtual&<br>bluetooth'
+	"vrc": 'virtual&<br>bluetooth',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = 'please input image\'s url';
 var BGIMAGE_INVALID = 'invalid url';

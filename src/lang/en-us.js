@@ -83,7 +83,7 @@ var COPILOT_F2LDEPTH = 'F2L max search depth';
 var COPILOT_HINT = 'Hint';
 var COPILOT_CLEAR = 'Clear';
 var COPILOT_WAITING = 'Waiting for a solve...';
-var COPILOT_DISABLED = 'Copilot is off';
+var COPILOT_DISABLED = 'Copilot is off (enable above or in Options > Copilot)';
 var COPILOT_F2L = 'Next F2L pair: %s';
 var COPILOT_ALLL = 'One-look last layer: %s';
 var COPILOT_NO_F2L = 'No F2L hint found';
@@ -608,7 +608,8 @@ var MODULE_NAMES = {
 	"scramble": 'scramble',
 	"stats": 'statistics',
 	"tools": 'tools',
-	"vrc": 'virtual&<br>bluetooth'
+	"vrc": 'virtual&<br>bluetooth',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = 'please input image\'s url';
 var BGIMAGE_INVALID = 'invalid url';

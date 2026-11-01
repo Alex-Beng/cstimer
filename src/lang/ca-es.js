@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": 'barreja',
 	"stats": 'estadística',
 	"tools": 'eines',
-	"vrc": 'virtual i<br>bluetooth'
+	"vrc": 'virtual i<br>bluetooth',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = 'enganxeu URL de la imatge';
 var BGIMAGE_INVALID = 'url invàlid';

@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": 'keverés',
 	"stats": 'statisztikák',
 	"tools": 'eszközök',
-	"vrc": 'virtuális és<br>bluetooth'
+	"vrc": 'virtuális és<br>bluetooth',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = 'Kérlek másold be a kép URL-jét.';
 var BGIMAGE_INVALID = 'érvénytelen URL';

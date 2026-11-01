@@ -13,6 +13,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil) {
 	var hintSpan = $('<div/>').css({'font-family': 'Monospace', 'white-space': 'pre-wrap'});
 	var btnHint = $('<input type="button">').val(COPILOT_HINT);
 	var btnClear = $('<input type="button">').val(COPILOT_CLEAR);
+	var chkEnable = $('<input type="checkbox">');
 
 	var curFacelet = null;
 	var curStage = null;
@@ -218,6 +219,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil) {
 	}
 
 	function refreshStatus() {
+		chkEnable.prop('checked', isEnabled());
 		statusSpan.empty();
 		if (!isEnabled()) {
 			statusSpan.append(COPILOT_DISABLED);
@@ -229,7 +231,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil) {
 		btnClear.show();
 		statusSpan.append(COPILOT_WAITING);
 	}
-
 	function clearAll() {
 		curFacelet = null;
 		curStage = null;
@@ -262,10 +263,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil) {
 	$(function() {
 		div.append(
 			$('<div class="title"/>').append(COPILOT_TITLE),
+			$('<div/>').append($('<label>').append(chkEnable, ' ' + COPILOT_ENABLED)),
 			statusSpan,
 			$('<div/>').append(btnHint, ' ', btnClear),
 			hintSpan
 		);
+		chkEnable.change(function() {
+			kernel.setProp('cpEnabled', this.checked);
+		});
 		btnHint.click(function() {
 			if (curFacelet) {
 				requestHint(curFacelet, true);

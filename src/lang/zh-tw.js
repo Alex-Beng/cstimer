@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": '打亂',
 	"stats": '統計',
 	"tools": '工具',
-	"vrc": '虛擬與<br>計客'
+	"vrc": '虛擬與<br>計客',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = '請輸入圖片超連結';
 var BGIMAGE_INVALID = '無效的超連結';

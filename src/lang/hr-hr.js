@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": 'scramble',
 	"stats": 'statistika',
 	"tools": 'alati',
-	"vrc": 'virtualno&<br>bluetooth'
+	"vrc": 'virtualno&<br>bluetooth',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = 'unesi url slike';
 var BGIMAGE_INVALID = 'nevažeći url';

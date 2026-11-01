@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": 'blanding',
 	"stats": 'statistik',
 	"tools": 'værktøj',
-	"vrc": 'virtuel&<br>bluetooth'
+	"vrc": 'virtuel&<br>bluetooth',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = 'Vør venlig og sæt billedets url';
 var BGIMAGE_INVALID = 'ugyldig url';

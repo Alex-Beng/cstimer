@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": '섞기',
 	"stats": '통계',
 	"tools": '도구',
-	"vrc": '가상&<br>블루투스'
+	"vrc": '가상&<br>블루투스',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = '그림 파일 주소를 입력하세요(URL)';
 var BGIMAGE_INVALID = '잘못된 주소';

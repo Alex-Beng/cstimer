@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": 'スクランブル',
 	"stats": '統計情報',
 	"tools": 'ツール',
-	"vrc": '仮想・<br>Giiker'
+	"vrc": '仮想・<br>Giiker',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = '画像のURLを入力してください。';
 var BGIMAGE_INVALID = '無効なURL';

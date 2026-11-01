@@ -164,7 +164,8 @@ var kernel = execMain(function() {
 			"scramble": '\ue900',
 			"stats": '\ue9bb',
 			"tools": '\ue993',
-			"vrc": '\ue69d'
+			"vrc": '\ue69d',
+			"copilot": '\ue993'
 		};
 
 		function generateDiv() {

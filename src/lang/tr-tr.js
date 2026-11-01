@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": 'karıştırma',
 	"stats": 'istatistikler',
 	"tools": 'yardımcılar',
-	"vrc": 'Sanal&<br>Bluetooth'
+	"vrc": 'Sanal&<br>Bluetooth',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = 'lütfen resim url\'sini girin';
 var BGIMAGE_INVALID = 'geçersiz url';

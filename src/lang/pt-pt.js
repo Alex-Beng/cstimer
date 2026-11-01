@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": 'Embaralhamento',
 	"stats": 'Estatísticas',
 	"tools": 'Ferramentas',
-	"vrc": 'virtual&<br>bluetooth'
+	"vrc": 'virtual&<br>bluetooth',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = 'por favor, insira o url da imagem';
 var BGIMAGE_INVALID = 'url inválido!';

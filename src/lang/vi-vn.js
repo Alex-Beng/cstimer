@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": 'xáo trộn',
 	"stats": 'thành tích',
 	"tools": 'công cụ',
-	"vrc": 'ảo&<br>bluetooth'
+	"vrc": 'ảo&<br>bluetooth',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = 'Yêu cầu nhập URL của ảnh';
 var BGIMAGE_INVALID = 'URL không hợp lệ';

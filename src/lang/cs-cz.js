@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": 'zamíchání',
 	"stats": 'statistiky',
 	"tools": 'nástroje',
-	"vrc": 'virtuální&<br>Giiker'
+	"vrc": 'virtuální&<br>Giiker',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = 'prosím vložte url obrázku';
 var BGIMAGE_INVALID = 'neplatná adresa url';

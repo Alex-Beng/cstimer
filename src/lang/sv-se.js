@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": 'Blandning',
 	"stats": 'Statistik',
 	"tools": 'Verktyg',
-	"vrc": 'Virtuell&<br>Giiker'
+	"vrc": 'Virtuell&<br>Giiker',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = 'Vänligen skriv in bildens URL';
 var BGIMAGE_INVALID = 'Ogiltig URL';

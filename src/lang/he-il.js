@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": 'בלגון',
 	"stats": 'סטטיסטיקות',
 	"tools": 'כלים',
-	"vrc": 'virtual&<br>bluetooth'
+	"vrc": 'virtual&<br>bluetooth',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = 'בבקשה תכניס את הurl של התמונה';
 var BGIMAGE_INVALID = 'כתובת אתר לא חוקית';

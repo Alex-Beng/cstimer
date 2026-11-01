@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": 'скрамбл',
 	"stats": 'статистика',
 	"tools": 'инструменты',
-	"vrc": 'виртуальное и<br>Giiker'
+	"vrc": 'виртуальное и<br>Giiker',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = 'пожалуйста вставьте url изображения';
 var BGIMAGE_INVALID = 'неверный url';

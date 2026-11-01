@@ -83,7 +83,7 @@ var COPILOT_F2LDEPTH = 'F2L 最大搜索深度';
 var COPILOT_HINT = '提示';
 var COPILOT_CLEAR = '清除';
 var COPILOT_WAITING = '等待还原中…';
-var COPILOT_DISABLED = 'Copilot 已关闭';
+var COPILOT_DISABLED = 'Copilot 已关闭（勾选上方或在 设置 > Copilot 中开启）';
 var COPILOT_F2L = '下一组 F2L：%s';
 var COPILOT_ALLL = '顶层一步公式：%s';
 var COPILOT_NO_F2L = '未找到可用的 F2L 提示';
@@ -608,7 +608,8 @@ var MODULE_NAMES = {
 	"scramble": '打乱',
 	"stats": '统计',
 	"tools": '工具',
-	"vrc": '虚拟&<br>蓝牙魔方'
+	"vrc": '虚拟&<br>蓝牙魔方',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = '请输入图片地址(url)';
 var BGIMAGE_INVALID = '无效地址';

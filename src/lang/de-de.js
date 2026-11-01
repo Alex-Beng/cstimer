@@ -593,7 +593,8 @@ var MODULE_NAMES = {
 	"scramble": 'Scramble',
 	"stats": 'Statistiken',
 	"tools": 'Werkzeuge',
-	"vrc": 'virtueller<br>Giiker'
+	"vrc": 'virtueller<br>Giiker',
+	"copilot": 'Copilot'
 };
 var BGIMAGE_URL = 'Bitte Bild-URL eingeben';
 var BGIMAGE_INVALID = 'Ungültige URL';
