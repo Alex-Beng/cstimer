@@ -899,6 +899,29 @@ function makeCubeCopilot() {
 	}
 
 	/**
+	 * Re-express a position as seen from a rotated view (a whole-cube
+	 * orientation index from mathlib's rot2str), so hints use the face names
+	 * the user actually sees.  Smart cubes report a fixed frame; csTimer's
+	 * "Cube orientation" setting lets the user align that frame with the grip.
+	 */
+	function orientFacelet(facelet, ori) {
+		if (ori == null || ori < 0 || ori >= 24) {
+			return facelet;
+		}
+		var str = mathlib.CubieCube.rot2str[ori];
+		if (!str) {
+			return facelet;
+		}
+		var cc = cubieFromFacelet(facelet);
+		str.split(/\s+/).filter(function(t) {
+			return !!t;
+		}).forEach(function(t) {
+			cc.selfMoveStr(t);
+		});
+		return cc.toFaceCube(null, null, null, true);
+	}
+
+	/**
 	 * Steps of an algorithm, one entry per intermediate position.  A half turn
 	 * (`R2`) gets an extra entry after each quarter turn (`R` and `R'`), so a
 	 * user who turns it half way is seen as following the algorithm, not as
@@ -976,6 +999,7 @@ function makeCubeCopilot() {
 		ensurePllLut: ensurePllLut,
 		normalizeFacelet: normalizeFacelet,
 		canonicalSig: canonicalSig,
+		orientFacelet: orientFacelet,
 		algStates: algStates,
 		algSteps: algSteps,
 		validateAlg: validateAlg,

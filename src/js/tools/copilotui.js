@@ -22,6 +22,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var toolBtnClear = null;
 	var tickTid = 0;
 	var hintedFacelet = null;
+	var lastGiikerFacelet = null;
 
 	var btnHint = $('<input type="button">').val(L('COPILOT_HINT', 'Hint'));
 	var btnClear = $('<input type="button">').val(L('COPILOT_CLEAR', 'Clear'));
@@ -78,6 +79,16 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	function llMode() {
 		return kernel.getProp('cpLlmode', 'op');
+	}
+
+	/** csTimer's "Cube orientation" setting for smart cubes ("auto" or 0..23) */
+	function giikerOri() {
+		var v = kernel.getProp('giiOri', 'auto');
+		if (v == 'auto' || v == null) {
+			return -1;
+		}
+		var n = ~~v;
+		return (n >= 0 && n < 24) ? n : -1;
 	}
 
 	function isCube3() {
@@ -789,7 +800,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	function procSignal(signal, value) {
 		if (signal == 'giikerState') {
-			onFacelet(value[0]);
+			lastGiikerFacelet = value[0];
+			onFacelet(cubeCopilot.orientFacelet(value[0], giikerOri()));
 		} else if (signal == 'virtualState') {
 			onFacelet(value[0]);
 		} else if (signal == 'timerStatus') {
@@ -802,6 +814,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 					startPolling();
 				} else {
 					stopPolling();
+				}
+			} else if (value[0] == 'giiOri') {
+				clearAll();
+				if (lastGiikerFacelet) {
+					onFacelet(cubeCopilot.orientFacelet(lastGiikerFacelet, giikerOri()));
 				}
 			} else if (value[0] == 'cpCustom') {
 				rebuildHintFromDefault();
@@ -846,7 +863,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regListener('copilot', 'giikerState', procSignal);
 		kernel.regListener('copilot', 'virtualState', procSignal);
 		kernel.regListener('copilot', 'timerStatus', procSignal);
-		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpDrift|cpCustom)$/);
+		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpDrift|cpCustom|giiOri)$/);
 		kernel.regListener('copilot', 'scramble', procSignal);
 		kernel.regListener('copilot', 'time', procSignal);
 
