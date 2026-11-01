@@ -384,6 +384,52 @@ function makeCubeCopilot() {
 		return pairs.length ? pairs[0] : null;
 	}
 
+	/** shortest sequence that completes the D cross (used to guide back) */
+	function solveCross(facelet, options) {
+		options = options || {};
+		var maxDepth = options.maxDepth || 8;
+		var deadline = options.timeLimit ? $.now() + options.timeLimit : 0;
+		var cc = cubieFromFacelet(facelet);
+		if (isCrossSolved(cc)) {
+			return [];
+		}
+		var moves = getMoveCubes();
+		var path = [];
+
+		function dfs(state, remaining, lastFace) {
+			if (deadline && $.now() > deadline) {
+				return false;
+			}
+			if (crossDistance(state) > remaining) {
+				return false;
+			}
+			if (remaining == 0) {
+				return isCrossSolved(state);
+			}
+			for (var m = 0; m < moves.length; m++) {
+				var face = ~~(m / 3);
+				if (face == lastFace) {
+					continue;
+				}
+				var ns = mul(state, moves[m]);
+				path.push(MOVE_NAMES[m]);
+				if (dfs(ns, remaining - 1, face)) {
+					return true;
+				}
+				path.pop();
+			}
+			return false;
+		}
+
+		for (var depth = 1; depth <= maxDepth; depth++) {
+			path = [];
+			if (dfs(cc, depth, -1)) {
+				return path.slice();
+			}
+		}
+		return null;
+	}
+
 	/**
 	 * Build every pruning table up front so the first hint is not slow.
 	 * Returns the number of milliseconds spent.
@@ -523,6 +569,7 @@ function makeCubeCopilot() {
 					if (AUF_STR[p]) {
 						seq.push(AUF_STR[p]);
 					}
+					seq = simplifySeq(seq);
 					var key = llKey(inverseState(seq));
 					if (!isLegalKey(key)) {
 						stats.illegal++;
@@ -566,6 +613,47 @@ function makeCubeCopilot() {
 		return str ? str.split(/\s+/).filter(function(t) {
 			return !!t;
 		}) : [];
+	}
+
+	function parseMoveToken(token) {
+		var m = /^([URFDLB]w?|2-2[URFDLB]w|[EMSxyz])(2|'|2')?$/.exec(token);
+		if (!m) {
+			return null;
+		}
+		var mod = m[2] || '';
+		return {base: m[1], pow: mod == '' ? 1 : (mod == "'" ? 3 : 2)};
+	}
+
+	/**
+	 * Cancel adjacent turns of the same face, which is what creates the
+	 * "U U'" noise when an algorithm already starts/ends with the AUF that was
+	 * prepended/appended for recognition.
+	 */
+	function simplifySeq(tokens) {
+		var out = [];
+		for (var i = 0; i < tokens.length; i++) {
+			var t = parseMoveToken(tokens[i]);
+			if (!t) {
+				out.push(tokens[i]);
+				continue;
+			}
+			var merged = false;
+			if (out.length) {
+				var last = parseMoveToken(out[out.length - 1]);
+				if (last && last.base == t.base) {
+					var pow = (last.pow + t.pow) % 4;
+					out.pop();
+					if (pow) {
+						out.push(t.base + (pow == 1 ? '' : (pow == 2 ? '2' : "'")));
+					}
+					merged = true;
+				}
+			}
+			if (!merged) {
+				out.push(t.base + (t.pow == 1 ? '' : (t.pow == 2 ? '2' : "'")));
+			}
+		}
+		return out;
 	}
 
 	function parseEntry(entry) {
@@ -675,7 +763,7 @@ function makeCubeCopilot() {
 			}
 			var hit = lut[ollPattern(test)];
 			if (hit) {
-				var moves = tokensOf(AUF_STR[auf]).concat(hit.tokens);
+				var moves = simplifySeq(tokensOf(AUF_STR[auf]).concat(hit.tokens));
 				return {
 					kind: 'oll',
 					name: hit.name,
@@ -695,7 +783,7 @@ function makeCubeCopilot() {
 		var lut = ensurePllLut();
 		var hit = lut[llKey(cc)];
 		if (hit) {
-			var moves = tokensOf(hit.pre).concat(hit.tokens, tokensOf(hit.post));
+			var moves = simplifySeq(tokensOf(hit.pre).concat(hit.tokens, tokensOf(hit.post)));
 			return {
 				kind: 'pll',
 				name: hit.name,
@@ -716,7 +804,7 @@ function makeCubeCopilot() {
 			hit = lut[llKey(test)];
 			if (hit) {
 				var pre = tokensOf(AUF_STR[auf]).concat(tokensOf(hit.pre));
-				var moves2 = pre.concat(hit.tokens, tokensOf(hit.post));
+				var moves2 = simplifySeq(pre.concat(hit.tokens, tokensOf(hit.post)));
 				return {
 					kind: 'pll',
 					name: hit.name,
@@ -820,6 +908,23 @@ function makeCubeCopilot() {
 		options = options || {};
 		var cc = cubieFromFacelet(facelet);
 		var stage = getStage(cc);
+		if (stage == 'cross') {
+			var cross = solveCross(facelet, options);
+			if (!cross || !cross.length) {
+				return {stage: 'cross', name: 'no-alg'};
+			}
+			return {
+				stage: 'cross',
+				kind: 'cross',
+				name: 'cross',
+				key: '',
+				base: cross.slice(),
+				pre: '',
+				post: '',
+				moves: cross,
+				alg: cross.join(' ')
+			};
+		}
 		if (stage == 'f2l') {
 			var pairs = solvePairs(facelet, options, options.f2lCount);
 			if (!pairs.length) {
@@ -1058,6 +1163,7 @@ function makeCubeCopilot() {
 			return getStage(cubieFromFacelet(facelet));
 		},
 		solveNextPair: solveNextPair,
+		solveCross: solveCross,
 		solvePairs: solvePairs,
 		solveLastLayer: solveLastLayer,
 		getHint: getHint,
@@ -1073,6 +1179,7 @@ function makeCubeCopilot() {
 		normalizeFacelet: normalizeFacelet,
 		canonicalSig: canonicalSig,
 		orientFacelet: orientFacelet,
+		simplifySeq: simplifySeq,
 		pickSmartOrientation: pickSmartOrientation,
 		algStates: algStates,
 		algSteps: algSteps,

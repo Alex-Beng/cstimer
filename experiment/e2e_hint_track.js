@@ -128,15 +128,31 @@ function overlay(page) {
 				kernel.pushSignal('virtualState', [next]);
 			}
 		});
-		return {pushed: pushed.length, drift: kernel.getProp('cpDrift')};
+		var last = pushed[pushed.length - 1];
+		var expect = cubeCopilot.getHint(last, {
+			maxDepth: 8,
+			timeLimit: 1500,
+			llMode: 'op',
+			f2lCount: ~~kernel.getProp('cpF2LCount', 2)
+		});
+		return {
+			pushed: pushed.length,
+			drift: kernel.getProp('cpDrift'),
+			expectAlg: expect && expect.moves ? expect.moves.join(' ') : ''
+		};
 	});
 	console.log('drift pushes', JSON.stringify(drift));
-	var afterDrift = await overlay(page);
 	if (drift.pushed < 2) {
 		fail('could not build two non-matching states');
 	}
-	if (afterDrift.visible) {
-		fail('hint did not disappear after cpDrift non-matching moves');
+	// after cpDrift wrong moves the hint re-plans from the current position
+	await page.waitForTimeout(1600);
+	var afterDrift = await overlay(page);
+	console.log('after drift', JSON.stringify(afterDrift));
+	if (!afterDrift.visible) {
+		fail('hint disappeared instead of re-planning after cpDrift moves');
+	} else if (drift.expectAlg && afterDrift.text.indexOf(drift.expectAlg) < 0) {
+		fail('re-planned hint does not match the current position: ' + afterDrift.text);
 	}
 
 	// ------------------------------------------- custom algorithm editor

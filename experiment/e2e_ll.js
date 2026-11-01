@@ -134,7 +134,7 @@ function overlay(page) {
 
 	// a valid alternative algorithm must replace the displayed one
 	var alt = await page.evaluate(function() {
-		var text = "U U' R U R' U R U2 R'";
+		var text = "R U R' U R U2 R' D U D' U'";
 		var div = document.querySelector('#copilotDiv');
 		var input = div.querySelector('input[type=text]');
 		var buttons = [].slice.call(div.querySelectorAll('input[type=button]'));
@@ -148,7 +148,7 @@ function overlay(page) {
 	var altShown = await overlay(page);
 	console.log('alt overlay', JSON.stringify(altShown));
 	if (!altShown.visible) fail('hint disappeared after saving an alternative algorithm');
-	if (altShown.text.indexOf("U U' R U R' U R U2 R'") < 0) {
+	if (altShown.text.indexOf("R U R' U R U2 R' D U D' U'") < 0) {
 		fail('the custom algorithm is not displayed: ' + altShown.text);
 	}
 
@@ -156,8 +156,11 @@ function overlay(page) {
 	var afterOll = await page.evaluate(function() {
 		var cc = new mathlib.CubieCube();
 		cc.fromFacelet(window.__ollState);
-		window.__ollFull.slice().forEach(function(t) { cc.selfMoveStr(t); });
-		kernel.pushSignal('virtualState', [cc.toFaceCube()]);
+		// push every step, as the cube reports one facelet per move
+		window.__ollFull.slice().forEach(function(t) {
+			cc.selfMoveStr(t);
+			kernel.pushSignal('virtualState', [cc.toFaceCube()]);
+		});
 		return cubeCopilot.getStage(cc.toFaceCube());
 	});
 	console.log('after OLL', afterOll);

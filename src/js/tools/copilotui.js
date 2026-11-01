@@ -366,6 +366,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 					moves = alt;
 				}
 			}
+			try {
+				moves = cubeCopilot.simplifySeq(moves);
+			} catch (e) {}
 			pairs.push({
 				name: p.name,
 				key: p.key,
@@ -467,6 +470,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				if (allDone) {
 					finishHint();
 					updateStage(facelet, true);
+					requestNext(facelet);
 				} else {
 					renderCurrent();
 					updateStage(facelet, false);
@@ -484,13 +488,40 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				updateStage(facelet, false);
 				return;
 			}
+			// the user left the hinted line: re-plan from the current position
+			// instead of just dropping the hint (this is what guides them back)
 			finishHint();
 			updateStage(facelet, true);
+			requestNext(facelet);
 			return;
 		}
 
 		updateStage(facelet, false);
 		checkTimeout();
+	}
+
+	/** ask for a fresh hint for the current position right away */
+	function requestNext(facelet) {
+		if (!facelet || !canRun()) {
+			return;
+		}
+		var stage;
+		try {
+			stage = cubeCopilot.getStage(facelet);
+		} catch (e) {
+			return;
+		}
+		if (stage != 'cross' && stage != 'f2l' && stage != 'll') {
+			return;
+		}
+		if (stage == 'll' && llMode() == 'off') {
+			return;
+		}
+		// suppress the poller until this request is answered
+		hintedFacelet = facelet;
+		lastWarnAt = $.now();
+		stageSince = $.now();
+		requestHint(facelet, false);
 	}
 
 	/**
@@ -573,6 +604,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (hint.kind == 'auf') {
 			return L('COPILOT_AUF', 'Adjust the top layer');
 		}
+		if (hint.kind == 'cross') {
+			return L('COPILOT_CROSS', 'Finish the cross');
+		}
 		return L('COPILOT_ALLL', 'One-look last layer: %s').replace('%s', hint.name);
 	}
 
@@ -590,7 +624,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			return L('COPILOT_NO_F2L', 'No F2L hint found');
 		}
 		if (hint.name == 'no-alg') {
-			return L('COPILOT_NO_ALLL', 'No algorithm for this last-layer case');
+			return hint.kind == 'cross' ? L('COPILOT_NO_CROSS', 'No cross hint found') :
+				L('COPILOT_NO_ALLL', 'No algorithm for this last-layer case');
 		}
 		return null;
 	}

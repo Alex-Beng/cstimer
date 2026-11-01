@@ -111,6 +111,8 @@ var COPILOT_F2LCOUNT = 'F2L 提示组数';
 var COPILOT_F2L_PAIRS = '接下来几组 F2L：';
 var COPILOT_COLORS = '白|红|绿|黄|橙|蓝';
 var COPILOT_ORI = '%s底 %s前';
+var COPILOT_CROSS = '完成底十字';
+var COPILOT_NO_CROSS = '未找到底十字提示';
 
 var TOOLS_RECONS = '解法复盘';
 var TOOLS_RECONS_NODATA = '未找到解法。';

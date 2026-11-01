@@ -47,6 +47,17 @@ function applyAlg(facelet, tokens) {
 	tokens.forEach(function(t) { cc.selfMoveStr(t); });
 	return cc.toFaceCube();
 }
+var MOVE_RE = /^([URFDLB]w?|2-2[URFDLB]w|[EMSxyz])(2|'|2')?$/;
+function hasCancel(tokens) {
+	for (var i = 1; i < tokens.length; i++) {
+		var a = MOVE_RE.exec(tokens[i - 1]);
+		var b = MOVE_RE.exec(tokens[i]);
+		if (a && b && a[1] == b[1]) {
+			return true;
+		}
+	}
+	return false;
+}
 
 var PERMS = permutations(4);
 var CORI = [];
@@ -94,6 +105,10 @@ for (var ci = 0; ci < PERMS.length; ci++) {
 					continue;
 				}
 				kinds[h1.kind] = (kinds[h1.kind] || 0) + 1;
+				if (hasCancel(h1.moves)) {
+					bad++;
+					if (samples.length < 5) samples.push(['redundant', h1.kind, h1.alg]);
+				}
 				var f2 = applyAlg(facelet, h1.moves);
 				if (h1.kind == 'oll') {
 					var h2 = copilot.solveLastLayer(f2, 'op');
