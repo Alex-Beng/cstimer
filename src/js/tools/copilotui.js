@@ -440,6 +440,18 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			return;
 		}
 
+		var stageNow = null;
+		try {
+			stageNow = cubeCopilot.getStage(facelet);
+		} catch (e) {}
+		// CF finished while an F2L hint was active: go straight to the LL hint
+		if (stageNow == 'll' && hintInfo && hintInfo.stage != 'll') {
+			finishHint();
+			updateStage(facelet, true);
+			requestNext(facelet);
+			return;
+		}
+
 		// keep an active hint alive while the user follows it
 		if (hintInfo && hintTracks && hintTracks.length) {
 			// off the algorithm: show the inverse moves that lead back to it
@@ -580,8 +592,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			return;
 		}
 
+		var prevStage = curStage;
 		prevRaw = raw || prevRaw;
 		updateStage(facelet, false);
+		// reaching the last layer is a clear milestone: hint right away
+		if (curStage == 'll' && prevStage != 'll') {
+			requestNext(facelet);
+			return;
+		}
 		checkTimeout();
 	}
 
