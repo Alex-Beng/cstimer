@@ -871,6 +871,34 @@ function makeCubeCopilot() {
 	}
 
 	/**
+	 * Orientation-independent signature of a position.
+	 *
+	 * Turning the whole cube only re-expresses the same position in another
+	 * frame, which is a conjugation by the rotation, so the minimum over the 24
+	 * rotations is invariant under a regrip (x/y/z).
+	 */
+	function canonicalSigOf(cc) {
+		var rots = mathlib.CubieCube.rotCube;
+		var inv = mathlib.CubieCube.rotMulI[0];
+		var tmp = new mathlib.CubieCube();
+		var tmp2 = new mathlib.CubieCube();
+		var best = null;
+		for (var i = 0; i < rots.length; i++) {
+			mathlib.CubieCube.CubeMult(rots[inv[i]], cc, tmp);
+			mathlib.CubieCube.CubeMult(tmp, rots[i], tmp2);
+			var sig = tmp2.ca.join(',') + '|' + tmp2.ea.join(',');
+			if (best === null || sig < best) {
+				best = sig;
+			}
+		}
+		return best;
+	}
+
+	function canonicalSig(facelet) {
+		return canonicalSigOf(cubieFromFacelet(facelet));
+	}
+
+	/**
 	 * Steps of an algorithm, one entry per intermediate position.  A half turn
 	 * (`R2`) gets an extra entry after each quarter turn (`R` and `R'`), so a
 	 * user who turns it half way is seen as following the algorithm, not as
@@ -891,13 +919,13 @@ function makeCubeCopilot() {
 				}
 				var cw = cloneCube(cc);
 				cw.selfMoveStr(base);
-				steps.push({sig: cw.toFaceCube(), remain: [base].concat(rest)});
+				steps.push({sig: canonicalSigOf(cw), remain: [base].concat(rest)});
 				var ccw = cloneCube(cc);
 				ccw.selfMoveStr(base + "'");
-				steps.push({sig: ccw.toFaceCube(), remain: [base + "'"].concat(rest)});
+				steps.push({sig: canonicalSigOf(ccw), remain: [base + "'"].concat(rest)});
 			}
 			cc.selfMoveStr(token);
-			steps.push({sig: cc.toFaceCube(), remain: rest});
+			steps.push({sig: canonicalSigOf(cc), remain: rest});
 		}
 		return steps;
 	}
@@ -947,6 +975,7 @@ function makeCubeCopilot() {
 		ensureOllLut: ensureOllLut,
 		ensurePllLut: ensurePllLut,
 		normalizeFacelet: normalizeFacelet,
+		canonicalSig: canonicalSig,
 		algStates: algStates,
 		algSteps: algSteps,
 		validateAlg: validateAlg,

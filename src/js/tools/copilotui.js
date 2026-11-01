@@ -40,6 +40,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var hintSig = null;
 	var hintCursor = 0;
 	var hintMismatch = 0;
+	var hintLastSig = null;
 
 	var customRows = [];
 
@@ -68,7 +69,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function timeoutMs() {
-		return Math.min(120, Math.max(1, ~~kernel.getProp('cpTimeout', 6))) * 1000;
+		return Math.min(120, Math.max(0, ~~kernel.getProp('cpTimeout', 6))) * 1000;
 	}
 
 	function driftMoves() {
@@ -325,6 +326,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		hintSig = null;
 		hintCursor = 0;
 		hintMismatch = 0;
+		hintLastSig = null;
 		hintSpan.empty();
 		if (toolHintSpan) {
 			toolHintSpan.empty();
@@ -365,7 +367,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (hintInfo && hintSig) {
 			var sig = null;
 			try {
-				sig = cubeCopilot.normalizeFacelet(facelet);
+				sig = cubeCopilot.canonicalSig(facelet);
 			} catch (e) {}
 			var idx = -1;
 			if (sig) {
@@ -379,6 +381,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			if (idx >= 0) {
 				hintCursor = idx + 1;
 				hintMismatch = 0;
+				hintLastSig = sig;
 				if (hintCursor >= hintSig.length) {
 					finishHint();
 					updateStage(facelet, true);
@@ -387,6 +390,12 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 					renderCurrent();
 					updateStage(facelet, false);
 				}
+				return;
+			}
+			// a whole-cube rotation (x/y/z) is pushed as a new facelet but does
+			// not change the position, so it must not count as a wrong move
+			if (sig && sig == hintLastSig) {
+				updateStage(facelet, false);
 				return;
 			}
 			hintMismatch++;
@@ -569,6 +578,12 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		hintCursor = 0;
 		hintMismatch = 0;
 		hintSig = null;
+		hintLastSig = null;
+		if (facelet) {
+			try {
+				hintLastSig = cubeCopilot.canonicalSig(facelet);
+			} catch (e) {}
+		}
 		if (hintInfo.moves && hintInfo.moves.length) {
 			try {
 				hintSig = cubeCopilot.algSteps(facelet, hintInfo.moves);
@@ -798,7 +813,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	function initProps() {
 		kernel.regProp('copilot', 'cpEnabled', 0, L('COPILOT_ENABLED', 'Enable Copilot'), [false], 1);
-		kernel.regProp('copilot', 'cpTimeout', 2, L('COPILOT_TIMEOUT', 'Hint after no progress (s)'), [6, 1, 120], 1);
+		kernel.regProp('copilot', 'cpTimeout', 2, L('COPILOT_TIMEOUT', 'Hint after no progress (s)'), [6, 0, 120], 1);
 		kernel.regProp('copilot', 'cpDrift', 2, L('COPILOT_DRIFT', 'Hide hint after non-matching moves'), [2, 1, 20], 1);
 		kernel.regProp('copilot', 'cpF2LDepth', 2, L('COPILOT_F2LDEPTH', 'F2L max search depth'), [8, 4, 12], 1);
 		kernel.regProp('copilot', 'cpLlmode', 1, L('COPILOT_LLMODE', 'Last-layer method'), ['op', ['op', 'alll', 'off'], [

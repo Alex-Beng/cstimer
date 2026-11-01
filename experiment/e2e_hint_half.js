@@ -98,11 +98,11 @@ function overlay(page) {
 				q.init(cc.ca.slice(), cc.ea.slice());
 				q.ori = cc.ori;
 				q.selfMoveStr(t.slice(0, -1));
-				pushes.push({facelet: q.toFaceCube(), label: t + ' half', index: i});
+				pushes.push({facelet: q.toFaceCube(null, null, null, true), label: t + ' half', index: i});
 				if (halfIndex < 0) halfIndex = pushes.length - 1;
 			}
 			cc.selfMoveStr(t);
-			pushes.push({facelet: cc.toFaceCube(), label: t, index: i});
+			pushes.push({facelet: cc.toFaceCube(null, null, null, true), label: t, index: i});
 		}
 		window.__start = start;
 		window.__pushes = pushes;
