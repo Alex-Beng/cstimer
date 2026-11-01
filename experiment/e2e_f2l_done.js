@@ -122,6 +122,44 @@ var MULTI = 'FUULUUULRUFFURUBRFLFBBFBFFRDDDDDDDDDLBBRLRLLLRRULBFRBB';
 		fail('hint was not re-expressed in the rotated frame: ' + afterRot.text);
 	}
 
+	// a pair completed without following the hint (state diverged) must re-plan
+	// to the new stage (here: last pair done -> last-layer hint), not show undo
+	var ll = await page.evaluate(function() {
+		kernel.setProp('cpF2LCount', 1);
+		kernel.pushSignal('timerStatus', -1);
+		kernel.pushSignal('timerStatus', 1);
+		var cc = new mathlib.CubieCube();
+		['R', 'U', "R'"].forEach(function(t) { cc.selfMoveStr(t); });
+		var start = cc.toFaceCube();
+		var h = cubeCopilot.getHint(start, {maxDepth: 8, timeLimit: 4000, llMode: 'op', f2lCount: 1});
+		var c2 = new mathlib.CubieCube();
+		c2.fromFacelet(start);
+		h.moves.forEach(function(t) { c2.selfMoveStr(t); });
+		c2.selfMoveStr('U'); // pair solved, but not the hinted final position
+		var off = c2.toFaceCube();
+		var exp = cubeCopilot.getHint(off, {maxDepth: 8, timeLimit: 1500, llMode: 'op', f2lCount: 1});
+		window.__off = off;
+		kernel.pushSignal('virtualState', [start]);
+		return {hint: h.alg, stage: cubeCopilot.getStage(off), expectAlg: exp && exp.moves ? exp.moves.join(' ') : ''};
+	});
+	console.log('off-hint completion', JSON.stringify(ll));
+	if (ll.stage != 'll') fail('test state is not a last-layer state');
+
+	await page.waitForTimeout(6000);
+	await page.evaluate(function() {
+		kernel.pushSignal('virtualState', [window.__off]);
+	});
+	await page.waitForTimeout(1600);
+	var afterOff = await overlay(page);
+	console.log('after off-hint pair', JSON.stringify(afterOff));
+	if (!afterOff.visible) fail('no hint after completing the pair off the hint');
+	if (ll.expectAlg && afterOff.text.indexOf(ll.expectAlg) < 0) {
+		fail('did not re-plan to the last-layer hint: ' + afterOff.text);
+	}
+	if (/Next F2L pair/i.test(afterOff.text)) {
+		fail('still showing an F2L hint after the last pair: ' + afterOff.text);
+	}
+
 	await browser.close();
 	server.close();
 	console.log(failures == 0 ? 'ALL OK' : ('FAILURES: ' + failures));

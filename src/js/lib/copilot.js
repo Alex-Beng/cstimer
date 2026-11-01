@@ -318,14 +318,18 @@ function makeCubeCopilot() {
 		return null;
 	}
 
-	/**
-	 * Shortest next pair: complete any unsolved pair while keeping the cross and
-	 * every already solved pair intact.  R2 counts as one move (HTM).
-	 *
-	 * options.timeLimit (ms) bounds the work.  When the budget is exhausted the
-	 * best solution found so far is returned with optimal=false; otherwise the
-	 * result is proven minimal (every shallower depth was exhausted).
-	 */
+	/** number of solved F2L pairs (0..4) */
+	function pairCountOf(facelet) {
+		var mask = solvedPairMask(cubieFromFacelet(facelet));
+		var n = 0;
+		for (var i = 0; i < 4; i++) {
+			if (mask & (1 << i)) {
+				n++;
+			}
+		}
+		return n;
+	}
+
 	/**
 	 * Every unsolved pair that fits in maxDepth, shortest first.  `count`
 	 * limits the list (the UI can show several F2L hints at once).
@@ -1234,6 +1238,7 @@ function makeCubeCopilot() {
 		solveNextPair: solveNextPair,
 		solveCross: solveCross,
 		solvePairs: solvePairs,
+		pairCount: pairCountOf,
 		solveLastLayer: solveLastLayer,
 		getHint: getHint,
 		warmUp: warmUp,

@@ -47,6 +47,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var offTrack = false;
 	var prevRaw = null;
 	var curRawFacelet = null;
+	var onTrackPairs = 0;
 
 	var customRows = [];
 
@@ -401,6 +402,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		hintUndo = [];
 		offTrack = false;
 		prevRaw = null;
+		onTrackPairs = 0;
 		hintSpan.empty();
 		if (toolHintSpan) {
 			toolHintSpan.empty();
@@ -442,6 +444,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (hintInfo && hintTracks && hintTracks.length) {
 			// off the algorithm: show the inverse moves that lead back to it
 			if (offTrack) {
+				// a pair was completed by another route: the hint is stale
+				if (pairProgress(facelet) > onTrackPairs) {
+					finishHint();
+					updateStage(facelet, true);
+					requestNext(facelet);
+					return;
+				}
 				var utok = inferFromPrev(raw);
 				if (utok) {
 					if (hintUndo.length && utok == hintUndo[hintUndo.length - 1]) {
@@ -476,6 +485,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				sig = cubeCopilot.canonicalSig(facelet);
 			} catch (e) {}
 			var matched = false;
+			var exact = false;
 			var allDone = true;
 			for (var t = 0; t < hintTracks.length; t++) {
 				var track = hintTracks[t];
@@ -493,6 +503,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				}
 				if (idx >= 0) {
 					matched = true;
+					if (idx == track.cursor) {
+						exact = true;
+					}
 					track.cursor = idx + 1;
 					if (track.cursor >= track.steps.length) {
 						track.done = true;
@@ -507,8 +520,16 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				}
 			}
 			if (matched) {
+				// a jump that completed a pair means the position moved on
+				if (!exact && pairProgress(facelet) > onTrackPairs) {
+					finishHint();
+					updateStage(facelet, true);
+					requestNext(facelet);
+					return;
+				}
 				hintLastSig = sig;
 				prevRaw = raw || prevRaw;
+				onTrackPairs = pairProgress(facelet);
 				if (allDone) {
 					finishHint();
 					updateStage(facelet, true);
@@ -536,6 +557,12 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				return;
 			}
 			// the user left the algorithm: say which moves undo the deviation
+			if (pairProgress(facelet) > onTrackPairs) {
+				finishHint();
+				updateStage(facelet, true);
+				requestNext(facelet);
+				return;
+			}
 			var bad = inferFromPrev(raw);
 			if (bad) {
 				offTrack = true;
@@ -556,6 +583,18 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		prevRaw = raw || prevRaw;
 		updateStage(facelet, false);
 		checkTimeout();
+	}
+
+	/** number of F2L pairs solved in this position */
+	function pairProgress(facelet) {
+		if (!facelet) {
+			return 0;
+		}
+		try {
+			return cubeCopilot.pairCount(facelet);
+		} catch (e) {
+			return 0;
+		}
 	}
 
 	function inferFromPrev(raw) {
@@ -880,6 +919,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		offTrack = false;
 		hintInfo.undo = [];
 		prevRaw = raw || null;
+		onTrackPairs = pairProgress(facelet);
 		if (facelet) {
 			try {
 				hintLastSig = cubeCopilot.canonicalSig(facelet);
@@ -972,6 +1012,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		hintLastSig = null;
 		hintUndo = [];
 		offTrack = false;
+		onTrackPairs = pairProgress(hintFacelet);
 		if (hintFacelet) {
 			try {
 				hintLastSig = cubeCopilot.canonicalSig(hintFacelet);
