@@ -3,7 +3,7 @@
 // Hint lifetime + custom algorithm overrides.
 //
 // 1. a shown hint must survive moves that follow it (showing the remaining alg)
-// 2. it must survive a few unrelated moves and only vanish after cpDrift of them
+// 2. wrong moves are answered with the inverse moves back to the algorithm
 // 3. cpTimeout must accept 1s
 // 4. the custom-alg editor must save a valid alg and reject an invalid one
 var http = require('http');
@@ -66,7 +66,6 @@ function overlay(page) {
 	var setup = await page.evaluate(function() {
 		kernel.setProp('cpEnabled', true);
 		kernel.setProp('cpTimeout', 1);
-		kernel.setProp('cpDrift', 2);
 		kernel.setProp('cpLlmode', 'op');
 		kernel.setProp('cpCustom', '');
 		cubeCopilot.warmUp();
@@ -99,7 +98,9 @@ function overlay(page) {
 		var cc = new mathlib.CubieCube();
 		cc.fromFacelet(window.__S);
 		cc.selfMoveStr(window.__hint.moves[0]);
-		kernel.pushSignal('virtualState', [cc.toFaceCube()]);
+		var next = cc.toFaceCube();
+		kernel.pushSignal('virtualState', [next]);
+		window.__cur = next;
 		return {remaining: window.__hint.moves.slice(1).join(' ')};
 	});
 	var following = await overlay(page);
@@ -114,7 +115,7 @@ function overlay(page) {
 	// ------------------------------------------- unrelated moves + drift
 	var drift = await page.evaluate(function() {
 		var sigs = cubeCopilot.algStates(window.__S, window.__hint.moves);
-		var cur = window.__S;
+		var cur = window.__cur || window.__S;
 		var pushed = [];
 		['F', 'D', 'L', 'B', 'U2'].forEach(function(m) {
 			if (pushed.length >= 2) return;
@@ -129,30 +130,23 @@ function overlay(page) {
 			}
 		});
 		var last = pushed[pushed.length - 1];
-		var expect = cubeCopilot.getHint(last, {
-			maxDepth: 8,
-			timeLimit: 1500,
-			llMode: 'op',
-			f2lCount: ~~kernel.getProp('cpF2LCount', 2)
-		});
 		return {
 			pushed: pushed.length,
-			drift: kernel.getProp('cpDrift'),
-			expectAlg: expect && expect.moves ? expect.moves.join(' ') : ''
+			last: last
 		};
 	});
 	console.log('drift pushes', JSON.stringify(drift));
 	if (drift.pushed < 2) {
 		fail('could not build two non-matching states');
 	}
-	// after cpDrift wrong moves the hint re-plans from the current position
-	await page.waitForTimeout(1600);
+	// wrong moves are answered with the inverse sequence that leads back
+	await page.waitForTimeout(400);
 	var afterDrift = await overlay(page);
 	console.log('after drift', JSON.stringify(afterDrift));
 	if (!afterDrift.visible) {
-		fail('hint disappeared instead of re-planning after cpDrift moves');
-	} else if (drift.expectAlg && afterDrift.text.indexOf(drift.expectAlg) < 0) {
-		fail('re-planned hint does not match the current position: ' + afterDrift.text);
+		fail('hint disappeared instead of showing the undo moves');
+	} else if (!/undo|回退/i.test(afterDrift.text)) {
+		fail('no undo move offered after a wrong move: ' + afterDrift.text);
 	}
 
 	// ------------------------------------------- custom algorithm editor

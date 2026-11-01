@@ -42,8 +42,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var hintInfo = null;
 	var hintFacelet = null;
 	var hintTracks = null;
-	var hintMismatch = 0;
 	var hintLastSig = null;
+	var hintUndo = [];
+	var offTrack = false;
+	var prevRaw = null;
+	var curRawFacelet = null;
 
 	var customRows = [];
 
@@ -75,9 +78,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return Math.min(120, Math.max(0, ~~kernel.getProp('cpTimeout', 6))) * 1000;
 	}
 
-	function driftMoves() {
-		return Math.min(20, Math.max(1, ~~kernel.getProp('cpDrift', 2)));
-	}
 
 	function llMode() {
 		return kernel.getProp('cpLlmode', 'op');
@@ -248,7 +248,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		showStatus(L('COPILOT_COMPUTING', 'Computing hint...'));
 		setTimeout(function() {
 			var hint = computeHintInline(req.facelet, req.manual);
-			showHint(hint, req.facelet);
+			showHint(hint, req.facelet, req.raw);
 		}, 0);
 	}
 
@@ -292,7 +292,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			if (hint == null) {
 				inlineRequest(req);
 			} else if (req.id == lastSentId) {
-				showHint(hint, req.facelet);
+				showHint(hint, req.facelet, req.raw);
 			}
 			if (queuedReq) {
 				var next = queuedReq;
@@ -310,6 +310,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		postRequest({
 			id: ++reqId,
 			facelet: facelet,
+			raw: curRawFacelet,
 			manual: !!manual,
 			maxDepth: ~~kernel.getProp('cpF2LDepth', 8),
 			timeLimit: manual ? 4000 : 1500,
@@ -391,8 +392,10 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		baseHint = null;
 		hintInfo = null;
 		hintTracks = null;
-		hintMismatch = 0;
 		hintLastSig = null;
+		hintUndo = [];
+		offTrack = false;
+		prevRaw = null;
 		hintSpan.empty();
 		if (toolHintSpan) {
 			toolHintSpan.empty();
@@ -418,11 +421,12 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 	}
 
-	function onFacelet(facelet) {
+	function onFacelet(facelet, raw) {
 		if (!facelet || facelet == curFacelet) {
 			return;
 		}
 		curFacelet = facelet;
+		curRawFacelet = raw || facelet;
 		if (!canRun()) {
 			curStage = null;
 			finishHint();
@@ -431,6 +435,30 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 		// keep an active hint alive while the user follows it
 		if (hintInfo && hintTracks && hintTracks.length) {
+			// off the algorithm: show the inverse moves that lead back to it
+			if (offTrack) {
+				var utok = inferFromPrev(raw);
+				if (utok) {
+					if (hintUndo.length && utok == hintUndo[hintUndo.length - 1]) {
+						hintUndo.pop();
+					} else {
+						hintUndo.push(cubeCopilot.invertToken(utok));
+					}
+					prevRaw = raw;
+					hintInfo.undo = hintUndo.slice(0);
+					if (!hintUndo.length) {
+						offTrack = false;
+					}
+					renderCurrent();
+					updateStage(facelet, false);
+					return;
+				}
+				finishHint();
+				updateStage(facelet, true);
+				requestNext(facelet);
+				return;
+			}
+
 			var sig = null;
 			try {
 				sig = cubeCopilot.canonicalSig(facelet);
@@ -465,8 +493,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				}
 			}
 			if (matched) {
-				hintMismatch = 0;
-				hintLastSig = sig;
+						hintLastSig = sig;
+				prevRaw = raw || prevRaw;
 				if (allDone) {
 					finishHint();
 					updateStage(facelet, true);
@@ -480,24 +508,42 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			// a whole-cube rotation (x/y/z) is pushed as a new facelet but does
 			// not change the position, so it must not count as a wrong move
 			if (sig && sig == hintLastSig) {
+				prevRaw = raw || prevRaw;
 				updateStage(facelet, false);
 				return;
 			}
-			hintMismatch++;
-			if (hintMismatch < driftMoves()) {
+			// the user left the algorithm: say which moves undo the deviation
+			var bad = inferFromPrev(raw);
+			if (bad) {
+				offTrack = true;
+				hintUndo = [cubeCopilot.invertToken(bad)];
+				hintInfo.undo = hintUndo.slice(0);
+				prevRaw = raw;
+				renderCurrent();
 				updateStage(facelet, false);
 				return;
 			}
-			// the user left the hinted line: re-plan from the current position
-			// instead of just dropping the hint (this is what guides them back)
+			// the move cannot be identified: fall back to a fresh hint
 			finishHint();
 			updateStage(facelet, true);
 			requestNext(facelet);
 			return;
 		}
 
+		prevRaw = raw || prevRaw;
 		updateStage(facelet, false);
 		checkTimeout();
+	}
+
+	function inferFromPrev(raw) {
+		if (!raw || !prevRaw) {
+			return null;
+		}
+		try {
+			return cubeCopilot.inferMove(prevRaw, raw);
+		} catch (e) {
+			return null;
+		}
 	}
 
 	/** ask for a fresh hint for the current position right away */
@@ -511,7 +557,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		} catch (e) {
 			return;
 		}
-		if (stage != 'cross' && stage != 'f2l' && stage != 'll') {
+		if (stage != 'f2l' && stage != 'll') {
 			return;
 		}
 		if (stage == 'll' && llMode() == 'off') {
@@ -604,9 +650,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (hint.kind == 'auf') {
 			return L('COPILOT_AUF', 'Adjust the top layer');
 		}
-		if (hint.kind == 'cross') {
-			return L('COPILOT_CROSS', 'Finish the cross');
-		}
 		return L('COPILOT_ALLL', 'One-look last layer: %s').replace('%s', hint.name);
 	}
 
@@ -624,8 +667,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			return L('COPILOT_NO_F2L', 'No F2L hint found');
 		}
 		if (hint.name == 'no-alg') {
-			return hint.kind == 'cross' ? L('COPILOT_NO_CROSS', 'No cross hint found') :
-				L('COPILOT_NO_ALLL', 'No algorithm for this last-layer case');
+			return L('COPILOT_NO_ALLL', 'No algorithm for this last-layer case');
 		}
 		return null;
 	}
@@ -661,6 +703,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return ret;
 	}
 
+	function undoLine(hint) {
+		if (!hint || !hint.undo || !hint.undo.length) {
+			return null;
+		}
+		return hint.undo.slice().reverse().join(' ');
+	}
+
 	function renderHint(hint, target) {
 		target.empty();
 		var msg = hintMessage(hint);
@@ -671,6 +720,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		var ori = orientationLine();
 		if (ori) {
 			target.append($('<div/>').css({'font-size': '0.85em', 'opacity': 0.85}).text(ori));
+		}
+		var undo = undoLine(hint);
+		if (undo) {
+			target.append(
+				$('<div/>').html(L('COPILOT_UNDO', 'Off the algorithm, undo: %s').replace('%s', undo))
+			);
+			return;
 		}
 		var active = activePairs(hint);
 		if (!active.length) {
@@ -718,6 +774,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		var ori = orientationLine();
 		if (ori) {
 			hintOverlay.append($('<div class="cp-ori"/>').text(ori));
+		}
+		var undo = undoLine(hint);
+		if (undo) {
+			hintOverlay.append($('<div class="cp-cat"/>').html(L('COPILOT_UNDO', 'Off the algorithm, undo: %s').replace('%s', '')));
+			hintOverlay.append($('<div class="cp-alg"/>').text(undo));
+			hintOverlay.show();
+			return;
 		}
 		var total = hint.pairs ? hint.pairs.length : 1;
 		if (hint.stage == 'f2l' && total > 1) {
@@ -793,15 +856,18 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 	}
 
-	function showHint(hint, facelet) {
+	function showHint(hint, facelet, raw) {
 		if (!hint) {
 			return;
 		}
 		baseHint = hint;
 		hintInfo = composeHint(hint);
 		hintFacelet = facelet;
-		hintMismatch = 0;
 		hintLastSig = null;
+		hintUndo = [];
+		offTrack = false;
+		hintInfo.undo = [];
+		prevRaw = raw || null;
 		if (facelet) {
 			try {
 				hintLastSig = cubeCopilot.canonicalSig(facelet);
@@ -890,8 +956,10 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			return;
 		}
 		hintInfo = composeHint(baseHint);
-		hintMismatch = 0;
+		hintInfo.undo = [];
 		hintLastSig = null;
+		hintUndo = [];
+		offTrack = false;
 		if (hintFacelet) {
 			try {
 				hintLastSig = cubeCopilot.canonicalSig(hintFacelet);
@@ -1003,15 +1071,15 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (signal == 'giikerState') {
 			isSmart = true;
 			lastGiikerFacelet = value[0];
-			onFacelet(smartFacelet(value[0]));
+			onFacelet(smartFacelet(value[0]), value[0]);
 		} else if (signal == 'virtualState') {
 			isSmart = false;
 			smartOri = null;
-			onFacelet(value[0]);
+			onFacelet(value[0], value[0]);
 		} else if (signal == 'timerStatus') {
 			onTimerStatus(value);
 		} else if (signal == 'property') {
-			if (/^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpDrift|cpF2LCount)$/.exec(value[0])) {
+			if (/^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpF2LCount)$/.exec(value[0])) {
 				clearAll();
 				refreshStatus();
 				if (isEnabled()) {
@@ -1030,7 +1098,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	function initProps() {
 		kernel.regProp('copilot', 'cpEnabled', 0, L('COPILOT_ENABLED', 'Enable Copilot'), [false], 1);
 		kernel.regProp('copilot', 'cpTimeout', 2, L('COPILOT_TIMEOUT', 'Hint after no progress (s)'), [6, 0, 120], 1);
-		kernel.regProp('copilot', 'cpDrift', 2, L('COPILOT_DRIFT', 'Hide hint after non-matching moves'), [2, 1, 20], 1);
 		kernel.regProp('copilot', 'cpF2LDepth', 2, L('COPILOT_F2LDEPTH', 'F2L max search depth'), [8, 4, 12], 1);
 		kernel.regProp('copilot', 'cpF2LCount', 2, L('COPILOT_F2LCOUNT', 'Number of F2L hints'), [2, 1, 4], 1);
 		kernel.regProp('copilot', 'cpLlmode', 1, L('COPILOT_LLMODE', 'Last-layer method'), ['op', ['op', 'alll', 'off'], [
@@ -1063,7 +1130,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regListener('copilot', 'giikerState', procSignal);
 		kernel.regListener('copilot', 'virtualState', procSignal);
 		kernel.regListener('copilot', 'timerStatus', procSignal);
-		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpDrift|cpF2LCount|cpCustom)$/);
+		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpF2LCount|cpCustom)$/);
 		kernel.regListener('copilot', 'scramble', procSignal);
 		kernel.regListener('copilot', 'time', procSignal);
 

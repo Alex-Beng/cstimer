@@ -1,9 +1,8 @@
 "use strict";
 
-// After a wrong move the hint must re-plan from the current position right
-// away (like the smart-cube scramble tracking), instead of disappearing until
-// the timeout.  When the wrong move broke the cross, the new hint is a cross
-// hint.
+// Tracking the hinted algorithm: a wrong move must be answered with the
+// inverse move(s) that return to the correct point of the algorithm (like the
+// smart-cube scramble tracking re-syncing after a wrong move).
 var http = require('http');
 var fs = require('fs');
 var path = require('path');
@@ -59,9 +58,7 @@ function overlay(page) {
 
 	var setup = await page.evaluate(function() {
 		kernel.setProp('cpEnabled', true);
-		// long timeout: an immediate re-plan proves it does not wait for it
 		kernel.setProp('cpTimeout', 3);
-		kernel.setProp('cpDrift', 1);
 		kernel.setProp('cpLlmode', 'op');
 		kernel.setProp('cpCustom', '');
 		kernel.setProp('cpF2LCount', 1);
@@ -71,57 +68,98 @@ function overlay(page) {
 		['R', 'U', "R'"].forEach(function(t) { cc.selfMoveStr(t); });
 		var start = cc.toFaceCube();
 		var h = cubeCopilot.getHint(start, {maxDepth: 8, timeLimit: 4000, llMode: 'op', f2lCount: 1});
-
-		// a move that is not one of the hinted steps and breaks the cross
 		var sigs = cubeCopilot.algStates(start, h.moves);
-		var wrong = null;
-		['F', 'D', 'L', 'B'].forEach(function(m) {
-			if (wrong) return;
-			var w = new mathlib.CubieCube();
-			w.fromFacelet(start);
-			w.selfMoveStr(m);
-			var f = w.toFaceCube();
-			if (sigs.indexOf(cubeCopilot.normalizeFacelet(f)) < 0) {
-				wrong = {move: m, facelet: f};
-			}
-		});
-		if (!wrong) return {error: 'no wrong move found'};
 
-		var rehint = cubeCopilot.getHint(wrong.facelet, {maxDepth: 8, timeLimit: 4000, llMode: 'op', f2lCount: 1});
-		window.__wrong = wrong.facelet;
-		window.__expectAlg = rehint.moves ? rehint.moves.join(' ') : '';
+		function step(facelet, token) {
+			var c = new mathlib.CubieCube();
+			c.fromFacelet(facelet);
+			c.selfMoveStr(token);
+			return c.toFaceCube();
+		}
+		function pick(facelet, list) {
+			for (var i = 0; i < list.length; i++) {
+				var f = step(facelet, list[i]);
+				if (sigs.indexOf(cubeCopilot.normalizeFacelet(f)) < 0) {
+					return {move: list[i], facelet: f};
+				}
+			}
+			return null;
+		}
+		var w1 = pick(start, ['F', 'D', 'L', 'B', 'U', 'R']);
+		var w2 = w1 && pick(w1.facelet, ['R', 'U', 'L', 'B', 'F', 'D']);
+		if (!w1 || !w2) return {error: 'could not build two wrong moves'};
+
+		window.__start = start;
+		window.__w1 = w1.facelet;
+		window.__w2 = w2.facelet;
+		window.__u1 = cubeCopilot.invertToken(w1.move);
+		window.__u2 = cubeCopilot.invertToken(w2.move);
 		kernel.pushSignal('timerStatus', 1);
 		kernel.pushSignal('virtualState', [start]);
 		return {
 			hint: h.alg,
-			wrongMove: wrong.move,
-			wrongStage: cubeCopilot.getStage(wrong.facelet),
-			expectStage: rehint.stage,
-			expectAlg: rehint.moves ? rehint.moves.join(' ') : ''
+			m1: w1.move,
+			m2: w2.move,
+			u1: window.__u1,
+			u2: window.__u2
 		};
 	});
 	console.log('setup', JSON.stringify(setup));
 	if (setup.error) fail(setup.error);
-	if (setup.wrongStage != 'cross') fail('wrong move did not break the cross (test invalid)');
-	if (setup.expectStage != 'cross') fail('engine did not produce a cross hint');
 
 	await page.waitForTimeout(6000);
 	var first = await overlay(page);
-	console.log('first hint', JSON.stringify(first));
-	if (!first.visible) fail('no initial hint');
+	console.log('first', JSON.stringify(first));
+	if (!first.visible || first.text.indexOf(setup.hint) < 0) fail('no initial hint');
 
-	// wrong move: the hint must re-plan immediately
+	// one wrong move -> its inverse
 	await page.evaluate(function() {
-		kernel.pushSignal('virtualState', [window.__wrong]);
+		kernel.pushSignal('virtualState', [window.__w1]);
 	});
-	await page.waitForTimeout(1500);
-	var after = await overlay(page);
-	console.log('after wrong move', JSON.stringify(after));
-	if (!after.visible) fail('hint disappeared instead of re-planning');
-	if (after.text.indexOf(setup.expectAlg) < 0) {
-		fail('re-planned hint is not for the current position: ' + after.text);
-	}
-	if (!/cross/i.test(after.text)) fail('recovery hint is not a cross hint: ' + after.text);
+	await page.waitForTimeout(300);
+	var one = await overlay(page);
+	console.log('one wrong', JSON.stringify(one));
+	if (!one.visible) fail('hint disappeared on a wrong move');
+	if (one.text.indexOf(setup.u1) < 0) fail('undo move missing: ' + one.text);
+	if (!/undo|回退/i.test(one.text)) fail('no undo label: ' + one.text);
+
+	// a second wrong move -> newest undo first
+	await page.evaluate(function() {
+		kernel.pushSignal('virtualState', [window.__w2]);
+	});
+	await page.waitForTimeout(300);
+	var two = await overlay(page);
+	console.log('two wrong', JSON.stringify(two));
+	if (!two.visible) fail('hint disappeared on the second wrong move');
+	if (two.text.indexOf(setup.u2 + ' ' + setup.u1) < 0) fail('undo stack out of order: ' + two.text);
+
+	// following the first undo removes it from the list
+	await page.evaluate(function() {
+		var c = new mathlib.CubieCube();
+		c.fromFacelet(window.__w2);
+		c.selfMoveStr(window.__u2);
+		kernel.pushSignal('virtualState', [c.toFaceCube()]);
+	});
+	await page.waitForTimeout(300);
+	var pop = await overlay(page);
+	console.log('after first undo', JSON.stringify(pop));
+	if (!pop.visible) fail('hint disappeared while undoing');
+	if (pop.text.indexOf(setup.u1) < 0) fail('remaining undo missing: ' + pop.text);
+	if (setup.u1 != setup.u2 && pop.text.indexOf(setup.u2) >= 0) fail('undo move was not consumed');
+
+	// following the second undo returns to the algorithm
+	await page.evaluate(function() {
+		var c = new mathlib.CubieCube();
+		c.fromFacelet(window.__w1);
+		c.selfMoveStr(window.__u1);
+		kernel.pushSignal('virtualState', [c.toFaceCube()]);
+	});
+	await page.waitForTimeout(500);
+	var back = await overlay(page);
+	console.log('back on track', JSON.stringify(back));
+	if (!back.visible) fail('hint disappeared after undoing the deviation');
+	if (back.text.indexOf(setup.hint) < 0) fail('hint did not resume: ' + back.text);
+	if (/undo|回退/i.test(back.text)) fail('still showing the undo after returning');
 
 	await browser.close();
 	server.close();

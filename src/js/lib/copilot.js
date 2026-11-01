@@ -656,6 +656,75 @@ function makeCubeCopilot() {
 		return out;
 	}
 
+	var MOVE_CANDIDATES = null;
+
+	function moveCandidates() {
+		if (MOVE_CANDIDATES) {
+			return MOVE_CANDIDATES;
+		}
+		var ret = [];
+		// plain face turns first: a wide turn has the same piece layout as a
+		// face turn plus a whole-cube rotation, and deviations are normally
+		// plain face turns
+		for (var f = 0; f < 6; f++) {
+			var face = 'URFDLB'.charAt(f);
+			ret.push(face, face + '2', face + "'");
+		}
+		for (var g = 0; g < 6; g++) {
+			var wide = 'URFDLB'.charAt(g) + 'w';
+			ret.push(wide, wide + '2', wide + "'");
+		}
+		var slices = ['M', 'E', 'S'];
+		for (var s = 0; s < slices.length; s++) {
+			ret.push(slices[s], slices[s] + '2', slices[s] + "'");
+		}
+		MOVE_CANDIDATES = ret;
+		return ret;
+	}
+
+	function cubieSig(cc) {
+		return cc.ca.join(',') + '|' + cc.ea.join(',');
+	}
+
+	/**
+	 * Which single turn turns `from` into `to`?  Used to build the inverse
+	 * sequence when the user leaves the hinted algorithm (like the smart-cube
+	 * scramble tracking re-syncing after a wrong move).
+	 */
+	function inferMove(fromFacelet, toFacelet) {
+		if (!fromFacelet || !toFacelet) {
+			return null;
+		}
+		var from = cubieFromFacelet(fromFacelet);
+		var to = cubieFromFacelet(toFacelet);
+		var target = cubieSig(to);
+		var cands = moveCandidates();
+		for (var i = 0; i < cands.length; i++) {
+			var c = cloneCube(from);
+			c.selfMoveStr(cands[i]);
+			if (cubieSig(c) == target) {
+				return cands[i];
+			}
+		}
+		return null;
+	}
+
+	/** inverse of one move token (2 is self-inverse) */
+	function invertToken(token) {
+		var m = /^([URFDLB]w?|2-2[URFDLB]w|[EMSxyz])(2|'|2')?$/.exec(token);
+		if (!m) {
+			return token;
+		}
+		var mod = m[2] || '';
+		if (mod == '2' || mod == "2'") {
+			return m[1] + '2';
+		}
+		if (mod == "'") {
+			return m[1];
+		}
+		return m[1] + "'";
+	}
+
 	function parseEntry(entry) {
 		var sep = entry.indexOf('|');
 		if (sep < 0) {
@@ -908,23 +977,6 @@ function makeCubeCopilot() {
 		options = options || {};
 		var cc = cubieFromFacelet(facelet);
 		var stage = getStage(cc);
-		if (stage == 'cross') {
-			var cross = solveCross(facelet, options);
-			if (!cross || !cross.length) {
-				return {stage: 'cross', name: 'no-alg'};
-			}
-			return {
-				stage: 'cross',
-				kind: 'cross',
-				name: 'cross',
-				key: '',
-				base: cross.slice(),
-				pre: '',
-				post: '',
-				moves: cross,
-				alg: cross.join(' ')
-			};
-		}
 		if (stage == 'f2l') {
 			var pairs = solvePairs(facelet, options, options.f2lCount);
 			if (!pairs.length) {
@@ -1180,6 +1232,8 @@ function makeCubeCopilot() {
 		canonicalSig: canonicalSig,
 		orientFacelet: orientFacelet,
 		simplifySeq: simplifySeq,
+		inferMove: inferMove,
+		invertToken: invertToken,
 		pickSmartOrientation: pickSmartOrientation,
 		algStates: algStates,
 		algSteps: algSteps,

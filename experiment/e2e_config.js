@@ -61,8 +61,7 @@ var server = http.createServer(function(req, res) {
 			hasTimeoutProp: kernel.getProp('cpTimeout', null),
 			hasDepthProp: kernel.getProp('cpF2LDepth', null),
 			llMode: kernel.getProp('cpLlmode', null),
-			f2lCount: kernel.getProp('cpF2LCount', null),
-			drift: kernel.getProp('cpDrift', null)
+			f2lCount: kernel.getProp('cpF2LCount', null)
 		};
 	});
 	console.log('config info', JSON.stringify(info));
@@ -75,7 +74,6 @@ var server = http.createServer(function(req, res) {
 	if (info.hasTimeoutProp !== 6) fail('cpTimeout default should be 6, got ' + info.hasTimeoutProp);
 	if (info.hasDepthProp !== 8) fail('cpF2LDepth default should be 8, got ' + info.hasDepthProp);
 	if (info.llMode !== 'op') fail('cpLlmode should default to op, got ' + info.llMode);
-	if (info.drift !== 2) fail('cpDrift default should be 2, got ' + info.drift);
 	if (info.f2lCount !== 2) fail('cpF2LCount default should be 2, got ' + info.f2lCount);
 
 	// toggling the checkbox must flip the property and the status text
@@ -112,7 +110,6 @@ var server = http.createServer(function(req, res) {
 	if (opts.inputs.indexOf('cpTimeout') == -1) fail('cpTimeout not rendered in Options');
 	if (opts.inputs.indexOf('cpF2LDepth') == -1) fail('cpF2LDepth not rendered in Options');
 	if (opts.inputs.indexOf('cpLlmode') == -1) fail('cpLlmode not rendered in Options');
-	if (opts.inputs.indexOf('cpDrift') == -1) fail('cpDrift not rendered in Options');
 	if (opts.inputs.indexOf('cpF2LCount') == -1) fail('cpF2LCount not rendered in Options');
 
 	await browser.close();
