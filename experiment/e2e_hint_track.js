@@ -145,9 +145,10 @@ function overlay(page) {
 	console.log('after drift', JSON.stringify(afterDrift));
 	if (!afterDrift.visible) {
 		fail('hint disappeared instead of showing the undo moves');
-	} else if (!/undo|回退/i.test(afterDrift.text)) {
-		fail('no undo move offered after a wrong move: ' + afterDrift.text);
+	} else if (afterDrift.text.indexOf("U' R'") < 0) {
+		fail('undo is not part of the formula: ' + afterDrift.text);
 	}
+	if (/undo|回退/i.test(afterDrift.text)) fail('separate undo prompt still shown');
 
 	// ------------------------------------------- custom algorithm editor
 	var editor = await page.evaluate(function() {

@@ -730,11 +730,10 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return ret;
 	}
 
-	function undoLine(hint) {
-		if (!hint || !hint.undo || !hint.undo.length) {
-			return null;
-		}
-		return hint.undo.slice().reverse().join(' ');
+	/** undo moves first, then the rest of the algorithm (one sequence) */
+	function displayMoves(hint, pair) {
+		var undo = (hint && hint.undo && hint.undo.length) ? hint.undo.slice().reverse() : [];
+		return undo.concat(pair.remain || []);
 	}
 
 	function renderHint(hint, target) {
@@ -748,13 +747,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (ori) {
 			target.append($('<div/>').css({'font-size': '0.85em', 'opacity': 0.85}).text(ori));
 		}
-		var undo = undoLine(hint);
-		if (undo) {
-			target.append(
-				$('<div/>').html(L('COPILOT_UNDO', 'Off the algorithm, undo: %s').replace('%s', undo))
-			);
-			return;
-		}
 		var active = activePairs(hint);
 		if (!active.length) {
 			target.append(L('COPILOT_SOLVED', 'Solved'));
@@ -767,7 +759,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				target.append(
 					$('<div/>').append(
 						$('<span/>').text(active[i].name + ': '),
-						$('<span/>').css({'font-size': '1.15em'}).text(active[i].remain.join(' '))
+						$('<span/>').css({'font-size': '1.15em'}).text(displayMoves(hint, active[i]).join(' '))
 					)
 				);
 			}
@@ -777,7 +769,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		var cat = hint.stage == 'f2l' ? L('COPILOT_F2L', 'Next F2L pair: %s').replace('%s', pair.name) : hintCategory(hint);
 		target.append(
 			$('<div/>').html(cat),
-			$('<div/>').css({'font-size': '1.3em'}).text(pair.remain.join(' '))
+			$('<div/>').css({'font-size': '1.3em'}).text(displayMoves(hint, pair).join(' '))
 		);
 	}
 
@@ -802,13 +794,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (ori) {
 			hintOverlay.append($('<div class="cp-ori"/>').text(ori));
 		}
-		var undo = undoLine(hint);
-		if (undo) {
-			hintOverlay.append($('<div class="cp-cat"/>').html(L('COPILOT_UNDO', 'Off the algorithm, undo: %s').replace('%s', '')));
-			hintOverlay.append($('<div class="cp-alg"/>').text(undo));
-			hintOverlay.show();
-			return;
-		}
 		var total = hint.pairs ? hint.pairs.length : 1;
 		if (hint.stage == 'f2l' && total > 1) {
 			hintOverlay.append($('<div class="cp-cat"/>').html(L('COPILOT_F2L_PAIRS', 'Next F2L pairs:')));
@@ -816,7 +801,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				hintOverlay.append(
 					$('<div class="cp-pair"/>').append(
 						$('<span class="cp-name"/>').text(active[i].name + ': '),
-						$('<span class="cp-alg2"/>').text(active[i].remain.join(' '))
+						$('<span class="cp-alg2"/>').text(displayMoves(hint, active[i]).join(' '))
 					)
 				);
 			}
@@ -824,7 +809,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			hintOverlay.append(
 				$('<div class="cp-cat"/>').html(hint.stage == 'f2l' ?
 					L('COPILOT_F2L', 'Next F2L pair: %s').replace('%s', active[0].name) : hintCategory(hint)),
-				$('<div class="cp-alg"/>').text(active[0].remain.join(' '))
+				$('<div class="cp-alg"/>').text(displayMoves(hint, active[0]).join(' '))
 			);
 		}
 		hintOverlay.show();

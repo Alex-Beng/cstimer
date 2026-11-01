@@ -120,8 +120,8 @@ function overlay(page) {
 	var one = await overlay(page);
 	console.log('one wrong', JSON.stringify(one));
 	if (!one.visible) fail('hint disappeared on a wrong move');
-	if (one.text.indexOf(setup.u1) < 0) fail('undo move missing: ' + one.text);
-	if (!/undo|回退/i.test(one.text)) fail('no undo label: ' + one.text);
+	if (one.text.indexOf(setup.u1 + ' ' + setup.hint) < 0) fail('undo is not part of the formula: ' + one.text);
+	if (/undo|回退/i.test(one.text)) fail('undo is still a separate prompt: ' + one.text);
 
 	// a second wrong move -> newest undo first
 	await page.evaluate(function() {
@@ -131,7 +131,7 @@ function overlay(page) {
 	var two = await overlay(page);
 	console.log('two wrong', JSON.stringify(two));
 	if (!two.visible) fail('hint disappeared on the second wrong move');
-	if (two.text.indexOf(setup.u2 + ' ' + setup.u1) < 0) fail('undo stack out of order: ' + two.text);
+	if (two.text.indexOf(setup.u2 + ' ' + setup.u1 + ' ' + setup.hint) < 0) fail('undo stack out of order: ' + two.text);
 
 	// following the first undo removes it from the list
 	await page.evaluate(function() {
@@ -144,8 +144,8 @@ function overlay(page) {
 	var pop = await overlay(page);
 	console.log('after first undo', JSON.stringify(pop));
 	if (!pop.visible) fail('hint disappeared while undoing');
-	if (pop.text.indexOf(setup.u1) < 0) fail('remaining undo missing: ' + pop.text);
-	if (setup.u1 != setup.u2 && pop.text.indexOf(setup.u2) >= 0) fail('undo move was not consumed');
+	if (pop.text.indexOf(setup.u1 + ' ' + setup.hint) < 0) fail('remaining undo missing: ' + pop.text);
+	if (setup.u1 != setup.u2 && pop.text.indexOf(setup.hint) < 0) fail('algorithm missing after undoing');
 
 	// following the second undo returns to the algorithm
 	await page.evaluate(function() {
@@ -189,7 +189,7 @@ function overlay(page) {
 	});
 	console.log('over undo limit', JSON.stringify(exceed), 'expected', JSON.stringify(rePlan));
 	if (!exceed.visible) fail('hint disappeared after exceeding cpUndoMax');
-	if (/undo|回退/i.test(exceed.text)) fail('still showing undo beyond cpUndoMax');
+	if (/Next F2L pair/i.test(exceed.text)) fail('old formula kept after exceeding cpUndoMax: ' + exceed.text);
 	if (rePlan.alg && exceed.text.indexOf(rePlan.alg) < 0) {
 		fail('hint was not re-planned for the current state: ' + exceed.text);
 	}
