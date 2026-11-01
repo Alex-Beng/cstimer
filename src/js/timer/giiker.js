@@ -155,9 +155,12 @@ execMain(function(timer) {
 		}
 
 		function setOri(ori) {
+			if (ori != -1 && !puzzleObj) {
+				return false;
+			}
 			curOri = ori;
 			if (curOri == -1 || curVRCCubie.ori == curOri) {
-				return;
+				return true;
 			}
 			var todoRot = mathlib.CubieCube.rotMulI[curOri][curVRCCubie.ori];
 			var todoMoves = mathlib.CubieCube.rot2str[todoRot].split(/\s+/);
@@ -165,6 +168,7 @@ execMain(function(timer) {
 				curVRCCubie.selfMoveStr(todoMoves[i]);
 			}
 			puzzleObj.applyMoves(puzzleObj.parseScramble(todoMoves.join(' ')));
+			return true;
 		}
 
 		return {
@@ -404,6 +408,13 @@ execMain(function(timer) {
 			}
 		},
 		setVRC: setVRC,
+		/** rotate the smart-cube VRC view to an absolute orientation (0..23) */
+		setVrcOri: function(ori) {
+			if (!enableVRC) {
+				return false;
+			}
+			return giikerVRC.setOri(ori);
+		},
 		setSize: giikerVRC.setSize
 	};
 }, [timer]);

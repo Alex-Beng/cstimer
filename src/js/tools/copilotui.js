@@ -90,6 +90,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	function smartFacelet(raw) {
 		var ori = cubeCopilot.pickSmartOrientation(raw);
 		smartOri = {d: ori.d, f: ori.f};
+		// keep the smart-cube VRC view in the same frame as the hint; setOri is
+		// a no-op when the view already is at that orientation
+		if (ori.cross && timer.giiker && timer.giiker.setVrcOri) {
+			try {
+				timer.giiker.setVrcOri(ori.ori);
+			} catch (e) {}
+		}
 		return ori.facelet;
 	}
 

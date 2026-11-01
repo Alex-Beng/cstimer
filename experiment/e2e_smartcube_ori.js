@@ -82,11 +82,17 @@ var MULTI = 'FUULUUULRUFFURUBRFLFBBFBFFRDDDDDDDDDLBBRLRLLLRRULBFRBB';
 
 		window.__raw = raw;
 		window.__multiAlg = hm.pairs ? hm.pairs[0].alg : '';
+		window.__saOri = sa.ori;
+		window.__vrcCalls = [];
+		timer.giiker.setVrcOri = function(r) {
+			window.__vrcCalls.push(r);
+			return true;
+		};
 		var C = {U: 'White', R: 'Red', F: 'Green', D: 'Yellow', L: 'Orange', B: 'Blue'};
 		kernel.pushSignal('timerStatus', 1);
 		kernel.pushSignal('giikerState', [raw]);
 		return {
-			a: {d: sa.d, f: sa.f, alg: ha.alg},
+			a: {d: sa.d, f: sa.f, ori: sa.ori, alg: ha.alg},
 			oriText: C[sa.d] + ' bottom, ' + C[sa.f] + ' front',
 			multiPairs: hm.pairs ? hm.pairs.length : 0,
 			multiNames: hm.pairs ? hm.pairs.map(function(p) { return p.name; }) : []
@@ -137,6 +143,32 @@ var MULTI = 'FUULUUULRUFFURUBRFLFBBFBFFRDDDDDDDDDLBBRLRLLLRRULBFRBB';
 	var afterFollow = await overlay(page);
 	console.log('after following', follow, JSON.stringify(afterFollow));
 	if (!afterFollow.visible) fail('hint disappeared when following one of the pairs');
+
+	// the smart-cube VRC view must be rotated to the hint frame once the cross
+	// is solved, and not before
+	var vrc = await page.evaluate(function() {
+		return {calls: window.__vrcCalls || [], expect: window.__saOri};
+	});
+	console.log('vrc calls', JSON.stringify(vrc));
+	if (!vrc.calls.length) {
+		fail('VRC orientation was not updated after the cross');
+	} else if (vrc.calls[0] != vrc.expect) {
+		fail('VRC orientation does not match the hint frame');
+	}
+
+	var noCross = await page.evaluate(function() {
+		window.__vrcCalls = [];
+		kernel.pushSignal('scramble', ['333', "R U F D L' B2", 0]);
+		var cc = new mathlib.CubieCube();
+		["R", 'U', 'F', 'D', "L'", 'B2'].forEach(function(t) { cc.selfMoveStr(t); });
+		var f = cc.toFaceCube();
+		kernel.pushSignal('giikerState', [f]);
+		return {stage: cubeCopilot.getStage(f), calls: window.__vrcCalls.slice()};
+	});
+	console.log('no-cross', JSON.stringify(noCross));
+	if (noCross.stage == 'cross' && noCross.calls.length) {
+		fail('VRC orientation changed before the cross was solved');
+	}
 
 	await browser.close();
 	server.close();

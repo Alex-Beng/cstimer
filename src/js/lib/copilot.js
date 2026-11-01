@@ -970,7 +970,7 @@ function makeCubeCopilot() {
 			}
 			var score = (4 - pairCount) * 10000 + frontScore * 100 + r;
 			if (!best || score < best.score) {
-				best = {facelet: f, ori: r, d: f.charAt(31), f: f.charAt(22), score: score};
+				best = {facelet: f, ori: r, d: f.charAt(31), f: f.charAt(22), score: score, cross: true};
 			}
 		}
 		if (best) {
@@ -979,10 +979,10 @@ function makeCubeCopilot() {
 		for (var r2 = 0; r2 < 24; r2++) {
 			var f2 = orientFacelet(facelet, r2);
 			if (f2.charAt(31) == 'U' && f2.charAt(22) == 'F') {
-				return {facelet: f2, ori: r2, d: 'U', f: 'F'};
+				return {facelet: f2, ori: r2, d: 'U', f: 'F', cross: false};
 			}
 		}
-		return {facelet: facelet, ori: 0, d: 'U', f: 'F'};
+		return {facelet: facelet, ori: 0, d: 'U', f: 'F', cross: false};
 	}
 
 	/**
