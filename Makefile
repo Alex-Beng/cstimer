@@ -27,6 +27,7 @@ lib/cubeutil.js \
 lib/puzzlefactory.js \
 lib/scrambleready.js \
 lib/alll.js \
+lib/ollpll.js \
 lib/copilot.js \
 kernel.js \
 export.js \
@@ -131,6 +132,7 @@ lib/min2phase.js \
 lib/cubeutil.js \
 lib/scrambleready.js \
 lib/alll.js \
+lib/ollpll.js \
 lib/copilot.js \
 solver/ftocta.js \
 solver/megaminx.js \

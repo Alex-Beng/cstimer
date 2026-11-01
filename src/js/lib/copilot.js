@@ -378,6 +378,8 @@ function makeCubeCopilot() {
 			pruneTable(i);
 		}
 		crossPrunTable();
+		buildOllLut();
+		buildPllLut();
 		return $.now() - t;
 	}
 
@@ -524,7 +526,10 @@ function makeCubeCopilot() {
 	}
 
 	function ensureAlllLut() {
-		return ALLL_READY ? ALLL : buildAlllLut();
+		if (!ALLL_READY) {
+			buildAlllLut();
+		}
+		return ALLL;
 	}
 
 	function alllReady() {
@@ -533,6 +538,199 @@ function makeCubeCopilot() {
 
 	function alllLutSize() {
 		return ALLL ? Object.keys(ALLL).length : 0;
+	}
+
+	// ------------------------------------------------------------ OLL / PLL
+
+	var OLL_LUT = null;
+	var PLL_LUT = null;
+	var U_CUBE = null;
+
+	function tokensOf(str) {
+		return str ? str.split(/\s+/).filter(function(t) {
+			return !!t;
+		}) : [];
+	}
+
+	function parseEntry(entry) {
+		var sep = entry.indexOf('|');
+		if (sep < 0) {
+			return null;
+		}
+		var tokens = tokensOf(entry.slice(sep + 1));
+		if (!tokens.length) {
+			return null;
+		}
+		return {name: entry.slice(0, sep), tokens: tokens};
+	}
+
+	/** which way each of the four U corners and four U edges is twisted */
+	function ollPattern(cc) {
+		var ret = [];
+		for (var i = 0; i < 4; i++) {
+			ret.push(cc.ca[i] >> 3);
+		}
+		for (var i = 0; i < 4; i++) {
+			ret.push(cc.ea[i] & 1);
+		}
+		return ret.join(',');
+	}
+
+	function isOriented(cc) {
+		for (var i = 0; i < 4; i++) {
+			if ((cc.ca[i] >> 3) != 0 || (cc.ea[i] & 1) != 0) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	function buildOllLut() {
+		OLL_LUT = {};
+		var list = (typeof OLL_DATA == 'undefined') ? [] : OLL_DATA;
+		for (var i = 0; i < list.length; i++) {
+			var e = parseEntry(list[i]);
+			if (!e) {
+				continue;
+			}
+			var key = ollPattern(inverseState(e.tokens));
+			if (!(key in OLL_LUT)) {
+				OLL_LUT[key] = {name: e.name, tokens: e.tokens};
+			}
+		}
+		return OLL_LUT;
+	}
+
+	function buildPllLut() {
+		PLL_LUT = {};
+		var list = (typeof PLL_DATA == 'undefined') ? [] : PLL_DATA;
+		for (var i = 0; i < list.length; i++) {
+			var e = parseEntry(list[i]);
+			if (!e) {
+				continue;
+			}
+			for (var pre = 0; pre < 4; pre++) {
+				for (var post = 0; post < 4; post++) {
+					var seq = tokensOf(AUF_STR[pre]).concat(e.tokens, tokensOf(AUF_STR[post]));
+					var key = llKey(inverseState(seq));
+					if (!isLegalKey(key)) {
+						continue;
+					}
+					var disp = seq.join(' ');
+					if (!(key in PLL_LUT) || disp.length < PLL_LUT[key].alg.length) {
+						PLL_LUT[key] = {
+							name: e.name,
+							tokens: e.tokens,
+							pre: AUF_STR[pre],
+							post: AUF_STR[post],
+							alg: disp
+						};
+					}
+				}
+			}
+		}
+		return PLL_LUT;
+	}
+
+	function ensureOllLut() {
+		return OLL_LUT || buildOllLut();
+	}
+
+	function ensurePllLut() {
+		return PLL_LUT || buildPllLut();
+	}
+
+	function uCube() {
+		if (!U_CUBE) {
+			U_CUBE = new mathlib.CubieCube();
+			U_CUBE.selfMoveStr('U');
+		}
+		return U_CUBE;
+	}
+
+	/** OLL: orientation-only LUT, so the four AUFs must be tried at lookup */
+	function ollHint(cc) {
+		var lut = ensureOllLut();
+		var test = new mathlib.CubieCube();
+		test.init(cc.ca.slice(), cc.ea.slice());
+		for (var auf = 0; auf < 4; auf++) {
+			if (auf) {
+				test = mul(test, uCube());
+			}
+			var hit = lut[ollPattern(test)];
+			if (hit) {
+				var moves = tokensOf(AUF_STR[auf]).concat(hit.tokens);
+				return {
+					kind: 'oll',
+					name: hit.name,
+					key: 'OLL/' + hit.name,
+					base: hit.tokens.slice(),
+					pre: AUF_STR[auf],
+					post: '',
+					moves: moves,
+					alg: moves.join(' ')
+				};
+			}
+		}
+		return null;
+	}
+
+	function pllHint(cc) {
+		var lut = ensurePllLut();
+		var hit = lut[llKey(cc)];
+		if (hit) {
+			var moves = tokensOf(hit.pre).concat(hit.tokens, tokensOf(hit.post));
+			return {
+				kind: 'pll',
+				name: hit.name,
+				key: 'PLL/' + hit.name,
+				base: hit.tokens.slice(),
+				pre: hit.pre,
+				post: hit.post,
+				moves: moves,
+				alg: moves.join(' ')
+			};
+		}
+		// the table stores every pre/post AUF, but a rotated lookup is still
+		// used as a safety net for states that only the rotation reaches
+		var test = new mathlib.CubieCube();
+		test.init(cc.ca.slice(), cc.ea.slice());
+		for (var auf = 1; auf < 4; auf++) {
+			test = mul(test, uCube());
+			hit = lut[llKey(test)];
+			if (hit) {
+				var pre = tokensOf(AUF_STR[auf]).concat(tokensOf(hit.pre));
+				var moves2 = pre.concat(hit.tokens, tokensOf(hit.post));
+				return {
+					kind: 'pll',
+					name: hit.name,
+					key: 'PLL/' + hit.name,
+					base: hit.tokens.slice(),
+					pre: pre.join(' '),
+					post: hit.post,
+					moves: moves2,
+					alg: moves2.join(' ')
+				};
+			}
+		}
+		return null;
+	}
+
+	function aufHint(cc) {
+		var auf = solveByAuf(cc);
+		if (!auf) {
+			return null;
+		}
+		return {
+			kind: 'auf',
+			name: 'AUF',
+			key: '',
+			base: [auf],
+			pre: '',
+			post: '',
+			moves: [auf],
+			alg: auf
+		};
 	}
 
 	/** If a single U turn solves the layer, return that turn. */
@@ -551,38 +749,59 @@ function makeCubeCopilot() {
 		return null;
 	}
 
-	function solveLastLayer(facelet) {
+	/**
+	 * Solve the last layer with the requested method:
+	 *   'alll' (default): one algorithm from the 1LLL table
+	 *   'op': two-look OLL then PLL, falling back to the 1LLL table
+	 *   'off': no last-layer hint
+	 */
+	function solveLastLayer(facelet, mode) {
 		var cc = cubieFromFacelet(facelet);
 		if (!isF2LDone(cc)) {
 			return null;
 		}
 		if (isLastLayerSolved(cc)) {
-			return {name: 'skip', alg: '', moves: []};
+			return {kind: 'skip', name: 'skip', alg: '', moves: []};
+		}
+		mode = mode || 'alll';
+		if (mode == 'off') {
+			return {kind: 'off', name: 'off', alg: '', moves: []};
+		}
+		if (mode == 'op') {
+			var ll;
+			if (!isOriented(cc)) {
+				ll = ollHint(cc);
+			} else {
+				ll = pllHint(cc) || aufHint(cc);
+			}
+			if (ll) {
+				return ll;
+			}
+			// positions missing from the two-look sets still get a 1LLL alg
 		}
 		var hit = ensureAlllLut()[llKey(cc)];
 		if (!hit) {
-			// A solved layer rotated by a U turn is not stored in the LUT (the
-			// algs there solve a scrambled layer), so handle it directly.
-			var auf = solveByAuf(cc);
+			var auf = aufHint(cc);
 			if (auf) {
-				return {
-					name: 'AUF',
-					alg: auf,
-					moves: [auf]
-				};
+				return auf;
 			}
 			return null;
 		}
+		var tokens = tokensOf(hit.alg);
 		return {
+			kind: 'alll',
 			name: hit.name,
-			alg: hit.alg,
-			moves: hit.alg.split(/\s+/).filter(function(t) {
-				return !!t;
-			})
+			key: 'ALLL/' + llKey(cc),
+			base: tokens.slice(),
+			pre: '',
+			post: '',
+			moves: tokens,
+			alg: hit.alg
 		};
 	}
 
 	function getHint(facelet, options) {
+		options = options || {};
 		var cc = cubieFromFacelet(facelet);
 		var stage = getStage(cc);
 		if (stage == 'f2l') {
@@ -592,8 +811,13 @@ function makeCubeCopilot() {
 			}
 			return {
 				stage: 'f2l',
+				kind: 'f2l',
 				pair: pair.pair,
 				name: pair.name,
+				key: 'F2L/' + pair.name + '/' + pairKey(cc, pair.pair),
+				base: pair.moves.slice(),
+				pre: '',
+				post: '',
 				moves: pair.moves,
 				alg: pair.moves.join(' '),
 				slot: pair.slot,
@@ -602,13 +826,69 @@ function makeCubeCopilot() {
 			};
 		}
 		if (stage == 'll') {
-			var ll = solveLastLayer(facelet);
+			var ll = solveLastLayer(facelet, options.llMode);
 			if (!ll) {
 				return {stage: 'll', name: 'no-alg'};
 			}
-			return {stage: 'll', name: ll.name, moves: ll.moves, alg: ll.alg};
+			return {
+				stage: 'll',
+				kind: ll.kind,
+				name: ll.name,
+				key: ll.key,
+				base: ll.base,
+				pre: ll.pre,
+				post: ll.post,
+				moves: ll.moves,
+				alg: ll.alg
+			};
 		}
 		return {stage: stage};
+	}
+
+	// -------------------------------------------------------------- utilities
+
+	/** facelet string normalised against whole-cube orientation */
+	function normalizeFacelet(facelet) {
+		return cubieFromFacelet(facelet).toFaceCube();
+	}
+
+	/** normalised facelet after each token of the algorithm */
+	function algStates(facelet, tokens) {
+		var cc = cubieFromFacelet(facelet);
+		var ret = [];
+		for (var i = 0; i < tokens.length; i++) {
+			cc.selfMoveStr(tokens[i]);
+			ret.push(cc.toFaceCube());
+		}
+		return ret;
+	}
+
+	/** does `tokens` really solve the case described by `hint`? */
+	function validateAlg(facelet, tokens, hint) {
+		if (!tokens || !tokens.length || !hint) {
+			return false;
+		}
+		var before = cubieFromFacelet(facelet);
+		var cc = cubieFromFacelet(facelet);
+		for (var i = 0; i < tokens.length; i++) {
+			cc.selfMoveStr(tokens[i]);
+		}
+		if (hint.stage == 'f2l') {
+			if (!isCrossSolved(cc) || typeof hint.pair != 'number' || !isPairSolved(cc, hint.pair)) {
+				return false;
+			}
+			var mask = solvedPairMask(before);
+			for (var p = 0; p < 4; p++) {
+				if ((mask & (1 << p)) && !isPairSolved(cc, p)) {
+					return false;
+				}
+			}
+			return true;
+		}
+		if (hint.kind == 'oll') {
+			return isOriented(cc);
+		}
+		return cc.isEqual(mathlib.CubieCube.SOLVED);
 	}
 
 	return {
@@ -623,6 +903,13 @@ function makeCubeCopilot() {
 		ensureAlllLut: ensureAlllLut,
 		alllReady: alllReady,
 		alllLutSize: alllLutSize,
+		buildOllLut: buildOllLut,
+		buildPllLut: buildPllLut,
+		ensureOllLut: ensureOllLut,
+		ensurePllLut: ensurePllLut,
+		normalizeFacelet: normalizeFacelet,
+		algStates: algStates,
+		validateAlg: validateAlg,
 		slotFacelets: slotFacelets,
 		F2L_PAIRS: F2L_PAIRS
 	};
