@@ -1,7 +1,13 @@
 "use strict";
 
-// Smart-cube frame: csTimer's "Cube orientation" setting must also orient the
-// hint, so the algorithm uses the face names the user sees in their grip.
+// Smart-cube hint frame and multi-pair F2L hints.
+//
+//  - once the cross is solved the hint must be written with that cross at the
+//    bottom and a fixed front colour (the "Cube orientation" setting is not
+//    used any more)
+//  - the same frame must be found whatever whole-cube orientation the cube
+//    reports
+//  - several unsolved F2L pairs can be hinted at once
 var http = require('http');
 var fs = require('fs');
 var path = require('path');
@@ -46,6 +52,8 @@ function overlay(page) {
 	});
 }
 
+var MULTI = 'FUULUUULRUFFURUBRFLFBBFBFFRDDDDDDDDDLBBRLRLLLRRULBFRBB';
+
 (async function() {
 	await new Promise(function(r) {
 		server.listen(port, '0.0.0.0', r);
@@ -55,56 +63,80 @@ function overlay(page) {
 	await page.goto('http://localhost:' + port + '/', {waitUntil: 'load'});
 	await page.waitForTimeout(2500);
 
-	var setup = await page.evaluate(function() {
+	var setup = await page.evaluate(function(multi) {
 		kernel.setProp('cpEnabled', true);
 		kernel.setProp('cpTimeout', 0);
 		kernel.setProp('cpLlmode', 'op');
 		kernel.setProp('cpCustom', '');
+		kernel.setProp('cpF2LCount', 1);
 		cubeCopilot.warmUp();
+
 		var cc = new mathlib.CubieCube();
 		['R', 'U', "R'"].forEach(function(t) { cc.selfMoveStr(t); });
-		var raw = cc.toFaceCube();
+		var raw = cc.toFaceCube();             // cross solved, white on top
+
+		var sa = cubeCopilot.pickSmartOrientation(raw);
+		var ha = cubeCopilot.getHint(sa.facelet, {maxDepth: 8, timeLimit: 4000, llMode: 'op', f2lCount: 1});
+		var hm = cubeCopilot.getHint(cubeCopilot.pickSmartOrientation(multi).facelet,
+			{maxDepth: 8, timeLimit: 4000, llMode: 'op', f2lCount: 4});
+
 		window.__raw = raw;
-
-		var ori = 3; // "(UR) y" in the Cube orientation list
-		kernel.setProp('giiOri', String(ori));
-		var plain = cubeCopilot.getHint(raw, {maxDepth: 8, timeLimit: 1500, llMode: 'op'});
-		var orientedFacelet = cubeCopilot.orientFacelet(raw, ori);
-		var oriented = cubeCopilot.getHint(orientedFacelet, {maxDepth: 8, timeLimit: 1500, llMode: 'op'});
-		window.__plainAlg = plain.alg;
-		window.__oriAlg = oriented.alg;
-
+		window.__multiAlg = hm.pairs ? hm.pairs[0].alg : '';
+		var C = {U: 'White', R: 'Red', F: 'Green', D: 'Yellow', L: 'Orange', B: 'Blue'};
 		kernel.pushSignal('timerStatus', 1);
 		kernel.pushSignal('giikerState', [raw]);
-		return {plain: plain.alg, oriented: oriented.alg, raw: raw};
-	});
+		return {
+			a: {d: sa.d, f: sa.f, alg: ha.alg},
+			oriText: C[sa.d] + ' bottom, ' + C[sa.f] + ' front',
+			multiPairs: hm.pairs ? hm.pairs.length : 0,
+			multiNames: hm.pairs ? hm.pairs.map(function(p) { return p.name; }) : []
+		};
+	}, MULTI);
 	console.log('setup', JSON.stringify(setup));
-	if (!setup.plain || !setup.oriented) fail('no hint for the test state');
-	if (setup.plain == setup.oriented) fail('orientation did not change the hint (test invalid)');
+
+	if (setup.a.f != 'F') {
+		fail('front colour should follow the fixed order (green): ' + JSON.stringify(setup.a));
+	}
+	if (setup.multiPairs < 2) {
+		fail('multi-pair hint returned only ' + setup.multiPairs + ' pair(s)');
+	}
 
 	await page.waitForTimeout(1500);
 	var shown = await overlay(page);
-	console.log('giiOri=3 overlay', JSON.stringify(shown));
+	console.log('overlay', JSON.stringify(shown));
 	if (!shown.visible) fail('no hint for a smart-cube state');
-	if (shown.text.indexOf(setup.oriented) < 0) {
-		fail('hint is not expressed in the chosen cube orientation');
-	}
-	if (shown.text.indexOf(setup.plain) >= 0) {
-		fail('hint still uses the raw frame');
-	}
+	if (shown.text.indexOf(setup.a.alg) < 0) fail('hint algorithm is not in the stage frame');
+	if (shown.text.indexOf(setup.oriText) < 0) fail('hint does not display the frame: ' + shown.text);
 
-	// auto must fall back to the raw frame
-	await page.evaluate(function() {
-		kernel.setProp('giiOri', 'auto');
-		kernel.pushSignal('giikerState', [window.__raw]);
-	});
+	// several F2L pairs at once
+	await page.evaluate(function(multi) {
+		kernel.setProp('cpF2LCount', 4);
+		kernel.pushSignal('giikerState', [multi]);
+	}, MULTI);
 	await page.waitForTimeout(1500);
-	var plainShown = await overlay(page);
-	console.log('giiOri=auto overlay', JSON.stringify(plainShown));
-	if (!plainShown.visible) fail('no hint after switching back to auto');
-	if (plainShown.text.indexOf(setup.plain) < 0) {
-		fail('auto orientation does not use the raw frame');
-	}
+	var multiShown = await overlay(page);
+	console.log('multi overlay', JSON.stringify(multiShown));
+	if (!multiShown.visible) fail('no multi-pair hint');
+	if (multiShown.text.indexOf('Next F2L pairs') < 0) fail('multi-pair header missing');
+	var named = setup.multiNames.filter(function(n) {
+		return multiShown.text.indexOf(n + ':') >= 0;
+	});
+	if (named.length < 2) fail('multi-pair overlay does not list pairs: ' + multiShown.text);
+
+	// following one of the pairs must not drop the hint
+	var follow = await page.evaluate(function(multi) {
+		var ori = cubeCopilot.pickSmartOrientation(multi);
+		var h = cubeCopilot.getHint(ori.facelet, {maxDepth: 8, timeLimit: 4000, llMode: 'op', f2lCount: 4});
+		var cc = new mathlib.CubieCube();
+		cc.fromFacelet(ori.facelet);
+		h.pairs[0].moves.forEach(function(t) { cc.selfMoveStr(t); });
+		kernel.pushSignal('giikerState', [cc.toFaceCube()]);
+		return h.pairs[0].alg;
+	}, MULTI);
+	await page.waitForTimeout(300);
+	var afterFollow = await overlay(page);
+	console.log('after following', follow, JSON.stringify(afterFollow));
+	if (!afterFollow.visible) fail('hint disappeared when following one of the pairs');
 
 	await browser.close();
 	server.close();

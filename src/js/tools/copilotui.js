@@ -23,6 +23,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var tickTid = 0;
 	var hintedFacelet = null;
 	var lastGiikerFacelet = null;
+	var isSmart = false;
+	var smartOri = null;
 
 	var btnHint = $('<input type="button">').val(L('COPILOT_HINT', 'Hint'));
 	var btnClear = $('<input type="button">').val(L('COPILOT_CLEAR', 'Clear'));
@@ -38,8 +40,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var baseHint = null;
 	var hintInfo = null;
 	var hintFacelet = null;
-	var hintSig = null;
-	var hintCursor = 0;
+	var hintTracks = null;
 	var hintMismatch = 0;
 	var hintLastSig = null;
 
@@ -81,14 +82,15 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return kernel.getProp('cpLlmode', 'op');
 	}
 
-	/** csTimer's "Cube orientation" setting for smart cubes ("auto" or 0..23) */
-	function giikerOri() {
-		var v = kernel.getProp('giiOri', 'auto');
-		if (v == 'auto' || v == null) {
-			return -1;
-		}
-		var n = ~~v;
-		return (n >= 0 && n < 24) ? n : -1;
+	function f2lCount() {
+		return Math.min(4, Math.max(1, ~~kernel.getProp('cpF2LCount', 2)));
+	}
+
+	/** smart-cube frame: cross at D, front from a fixed colour order */
+	function smartFacelet(raw) {
+		var ori = cubeCopilot.pickSmartOrientation(raw);
+		smartOri = {d: ori.d, f: ori.f};
+		return ori.facelet;
 	}
 
 	function isCube3() {
@@ -287,6 +289,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			manual: !!manual,
 			maxDepth: ~~kernel.getProp('cpF2LDepth', 8),
 			timeLimit: manual ? 4000 : 1500,
+			f2lCount: f2lCount(),
 			llMode: llMode()
 		});
 	}
@@ -297,6 +300,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			return cubeCopilot.getHint(facelet, {
 				maxDepth: ~~kernel.getProp('cpF2LDepth', 8),
 				timeLimit: manual ? 4000 : 1500,
+				f2lCount: f2lCount(),
 				llMode: llMode()
 			});
 		} catch (e) {
@@ -316,26 +320,50 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		for (var k in hint) {
 			ret[k] = hint[k];
 		}
-		ret.remain = hint.moves ? hint.moves.slice(0) : [];
-		ret.isCustom = false;
-		var custom = getCustom(hint.key);
-		if (custom && hint.stage != 'solved' && hint.kind != 'skip' && hint.kind != 'off') {
-			var moves = tokensOf(hint.pre).concat(tokensOf(custom), tokensOf(hint.post));
-			if (moves.length) {
-				ret.moves = moves;
-				ret.alg = moves.join(' ');
-				ret.remain = moves.slice(0);
-				ret.isCustom = true;
+		var src = (hint.pairs && hint.pairs.length) ? hint.pairs : [{
+			name: hint.name,
+			key: hint.key,
+			slot: hint.slot,
+			pair: hint.pair,
+			pre: hint.pre,
+			post: hint.post,
+			base: hint.base,
+			moves: hint.moves
+		}];
+		var pairs = [];
+		var canUseCustom = hint.stage != 'solved' && hint.kind != 'skip' && hint.kind != 'off';
+		for (var i = 0; i < src.length; i++) {
+			var p = src[i];
+			var moves = (p.moves || []).slice(0);
+			var custom = canUseCustom ? getCustom(p.key) : null;
+			if (custom) {
+				var alt = tokensOf(p.pre).concat(tokensOf(custom), tokensOf(p.post));
+				if (alt.length) {
+					moves = alt;
+				}
 			}
+			pairs.push({
+				name: p.name,
+				key: p.key,
+				slot: p.slot,
+				pair: p.pair,
+				moves: moves,
+				remain: moves.slice(0),
+				base: (p.base && p.base.join) ? p.base : moves
+			});
 		}
+		ret.pairs = pairs;
+		ret.moves = pairs.length ? pairs[0].moves : (hint.moves || []);
+		ret.alg = ret.moves.join(' ');
+		ret.remain = pairs.length ? pairs[0].remain : [];
+		ret.isCustom = !!(pairs.length && pairs[0].moves.join(' ') != ((src[0] && src[0].moves) || []).join(' '));
 		return ret;
 	}
 
 	function finishHint() {
 		baseHint = null;
 		hintInfo = null;
-		hintSig = null;
-		hintCursor = 0;
+		hintTracks = null;
 		hintMismatch = 0;
 		hintLastSig = null;
 		hintSpan.empty();
@@ -375,29 +403,47 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 
 		// keep an active hint alive while the user follows it
-		if (hintInfo && hintSig) {
+		if (hintInfo && hintTracks && hintTracks.length) {
 			var sig = null;
 			try {
 				sig = cubeCopilot.canonicalSig(facelet);
 			} catch (e) {}
-			var idx = -1;
-			if (sig) {
-				for (var i = hintCursor; i < hintSig.length; i++) {
-					if (hintSig[i].sig == sig) {
-						idx = i;
-						break;
+			var matched = false;
+			var allDone = true;
+			for (var t = 0; t < hintTracks.length; t++) {
+				var track = hintTracks[t];
+				if (track.done) {
+					continue;
+				}
+				var idx = -1;
+				if (sig) {
+					for (var i = track.cursor; i < track.steps.length; i++) {
+						if (track.steps[i].sig == sig) {
+							idx = i;
+							break;
+						}
 					}
 				}
+				if (idx >= 0) {
+					matched = true;
+					track.cursor = idx + 1;
+					if (track.cursor >= track.steps.length) {
+						track.done = true;
+					} else {
+						track.pair.remain = track.steps[idx].remain.slice(0);
+					}
+				}
+				if (!track.done) {
+					allDone = false;
+				}
 			}
-			if (idx >= 0) {
-				hintCursor = idx + 1;
+			if (matched) {
 				hintMismatch = 0;
 				hintLastSig = sig;
-				if (hintCursor >= hintSig.length) {
+				if (allDone) {
 					finishHint();
 					updateStage(facelet, true);
 				} else {
-					hintInfo.remain = hintSig[idx].remain.slice(0);
 					renderCurrent();
 					updateStage(facelet, false);
 				}
@@ -523,6 +569,37 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return null;
 	}
 
+	function colorNames() {
+		var fallback = 'White|Red|Green|Yellow|Orange|Blue';
+		var arr = L('COPILOT_COLORS', fallback).split('|');
+		if (arr.length != 6) {
+			arr = fallback.split('|');
+		}
+		return arr;
+	}
+
+	/** the frame the hint is written in (smart cubes only) */
+	function orientationLine() {
+		if (!isSmart || !smartOri) {
+			return null;
+		}
+		var names = colorNames();
+		var d = names['URFDLB'.indexOf(smartOri.d)] || smartOri.d;
+		var f = names['URFDLB'.indexOf(smartOri.f)] || smartOri.f;
+		return L('COPILOT_ORI', '%s bottom, %s front').replace('%s', d).replace('%s', f);
+	}
+
+	function activePairs(hint) {
+		var ret = [];
+		var pairs = hint.pairs || [];
+		for (var i = 0; i < pairs.length; i++) {
+			if (!pairs[i].done && pairs[i].remain && pairs[i].remain.length) {
+				ret.push(pairs[i]);
+			}
+		}
+		return ret;
+	}
+
 	function renderHint(hint, target) {
 		target.empty();
 		var msg = hintMessage(hint);
@@ -530,10 +607,33 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			target.append(msg);
 			return;
 		}
-		var alg = hint.remain && hint.remain.length ? hint.remain.join(' ') : hint.alg;
+		var ori = orientationLine();
+		if (ori) {
+			target.append($('<div/>').css({'font-size': '0.85em', 'opacity': 0.85}).text(ori));
+		}
+		var active = activePairs(hint);
+		if (!active.length) {
+			target.append(L('COPILOT_SOLVED', 'Solved'));
+			return;
+		}
+		var total = hint.pairs ? hint.pairs.length : 1;
+		if (hint.stage == 'f2l' && total > 1) {
+			target.append($('<div/>').html(L('COPILOT_F2L_PAIRS', 'Next F2L pairs:')));
+			for (var i = 0; i < active.length; i++) {
+				target.append(
+					$('<div/>').append(
+						$('<span/>').text(active[i].name + ': '),
+						$('<span/>').css({'font-size': '1.15em'}).text(active[i].remain.join(' '))
+					)
+				);
+			}
+			return;
+		}
+		var pair = active[0];
+		var cat = hint.stage == 'f2l' ? L('COPILOT_F2L', 'Next F2L pair: %s').replace('%s', pair.name) : hintCategory(hint);
 		target.append(
-			$('<div/>').html(hintCategory(hint)),
-			$('<div/>').css({'font-size': '1.3em'}).text(alg)
+			$('<div/>').html(cat),
+			$('<div/>').css({'font-size': '1.3em'}).text(pair.remain.join(' '))
 		);
 	}
 
@@ -548,19 +648,47 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			hintOverlay.hide().empty();
 			return;
 		}
-		var alg = hint.remain && hint.remain.length ? hint.remain.join(' ') : hint.alg;
-		if (!alg) {
+		var active = activePairs(hint);
+		if (!active.length) {
 			hintOverlay.hide().empty();
 			return;
 		}
-		hintOverlay.empty().append(
-			$('<div class="cp-cat"/>').html(hintCategory(hint)),
-			$('<div class="cp-alg"/>').text(alg)
-		).show();
+		hintOverlay.empty();
+		var ori = orientationLine();
+		if (ori) {
+			hintOverlay.append($('<div class="cp-ori"/>').text(ori));
+		}
+		var total = hint.pairs ? hint.pairs.length : 1;
+		if (hint.stage == 'f2l' && total > 1) {
+			hintOverlay.append($('<div class="cp-cat"/>').html(L('COPILOT_F2L_PAIRS', 'Next F2L pairs:')));
+			for (var i = 0; i < active.length; i++) {
+				hintOverlay.append(
+					$('<div class="cp-pair"/>').append(
+						$('<span class="cp-name"/>').text(active[i].name + ': '),
+						$('<span class="cp-alg2"/>').text(active[i].remain.join(' '))
+					)
+				);
+			}
+		} else {
+			hintOverlay.append(
+				$('<div class="cp-cat"/>').html(hint.stage == 'f2l' ?
+					L('COPILOT_F2L', 'Next F2L pair: %s').replace('%s', active[0].name) : hintCategory(hint)),
+				$('<div class="cp-alg"/>').text(active[0].remain.join(' '))
+			);
+		}
+		hintOverlay.show();
 	}
 
 	function hideOverlay() {
 		hintOverlay.hide().empty();
+	}
+
+	function highlightSlots(slots) {
+		try {
+			if (timer.virtual && timer.virtual.highlight) {
+				timer.virtual.highlight(slots && slots.length ? slots : null);
+			}
+		} catch (e) {}
 	}
 
 	function renderCurrent() {
@@ -571,12 +699,37 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (toolHintSpan) {
 			renderHint(hintInfo, toolHintSpan);
 		}
-		if (hintInfo.stage == 'f2l' && hintInfo.slot) {
-			highlightSlot(hintInfo.slot);
-		} else {
-			clearHighlight();
+		var slots = [];
+		if (hintInfo.stage == 'f2l' && hintInfo.pairs) {
+			for (var i = 0; i < hintInfo.pairs.length; i++) {
+				var p = hintInfo.pairs[i];
+				if (!p.done && p.slot) {
+					slots = slots.concat(p.slot);
+				}
+			}
 		}
+		highlightSlots(slots);
 		showOverlay(hintInfo);
+	}
+
+	function buildTracks(facelet, info) {
+		hintTracks = [];
+		if (!info || !info.pairs) {
+			return;
+		}
+		for (var i = 0; i < info.pairs.length; i++) {
+			var p = info.pairs[i];
+			if (!p || !p.moves || !p.moves.length) {
+				continue;
+			}
+			var steps = null;
+			try {
+				steps = cubeCopilot.algSteps(facelet, p.moves);
+			} catch (e) {}
+			if (steps) {
+				hintTracks.push({steps: steps, cursor: 0, done: false, pair: p});
+			}
+		}
 	}
 
 	function showHint(hint, facelet) {
@@ -586,20 +739,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		baseHint = hint;
 		hintInfo = composeHint(hint);
 		hintFacelet = facelet;
-		hintCursor = 0;
 		hintMismatch = 0;
-		hintSig = null;
 		hintLastSig = null;
 		if (facelet) {
 			try {
 				hintLastSig = cubeCopilot.canonicalSig(facelet);
 			} catch (e) {}
 		}
-		if (hintInfo.moves && hintInfo.moves.length) {
-			try {
-				hintSig = cubeCopilot.algSteps(facelet, hintInfo.moves);
-			} catch (e) {}
-		}
+		buildTracks(facelet, hintInfo);
 		// remember this position so the poller does not ask again for it
 		if (facelet) {
 			hintedFacelet = facelet;
@@ -614,14 +761,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		try {
 			if (timer.virtual && timer.virtual.highlight) {
 				timer.virtual.highlight(null);
-			}
-		} catch (e) {}
-	}
-
-	function highlightSlot(slot) {
-		try {
-			if (timer.virtual && timer.virtual.highlight) {
-				timer.virtual.highlight(slot);
 			}
 		} catch (e) {}
 	}
@@ -689,14 +828,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			return;
 		}
 		hintInfo = composeHint(baseHint);
-		hintCursor = 0;
 		hintMismatch = 0;
-		hintSig = null;
-		if (hintFacelet && hintInfo.moves && hintInfo.moves.length) {
+		hintLastSig = null;
+		if (hintFacelet) {
 			try {
-				hintSig = cubeCopilot.algSteps(hintFacelet, hintInfo.moves);
+				hintLastSig = cubeCopilot.canonicalSig(hintFacelet);
 			} catch (e) {}
 		}
+		buildTracks(hintFacelet, hintInfo);
 		renderCurrent();
 		syncCustomRows();
 	}
@@ -800,25 +939,23 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	function procSignal(signal, value) {
 		if (signal == 'giikerState') {
+			isSmart = true;
 			lastGiikerFacelet = value[0];
-			onFacelet(cubeCopilot.orientFacelet(value[0], giikerOri()));
+			onFacelet(smartFacelet(value[0]));
 		} else if (signal == 'virtualState') {
+			isSmart = false;
+			smartOri = null;
 			onFacelet(value[0]);
 		} else if (signal == 'timerStatus') {
 			onTimerStatus(value);
 		} else if (signal == 'property') {
-			if (/^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpDrift)$/.exec(value[0])) {
+			if (/^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpDrift|cpF2LCount)$/.exec(value[0])) {
 				clearAll();
 				refreshStatus();
 				if (isEnabled()) {
 					startPolling();
 				} else {
 					stopPolling();
-				}
-			} else if (value[0] == 'giiOri') {
-				clearAll();
-				if (lastGiikerFacelet) {
-					onFacelet(cubeCopilot.orientFacelet(lastGiikerFacelet, giikerOri()));
 				}
 			} else if (value[0] == 'cpCustom') {
 				rebuildHintFromDefault();
@@ -833,6 +970,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regProp('copilot', 'cpTimeout', 2, L('COPILOT_TIMEOUT', 'Hint after no progress (s)'), [6, 0, 120], 1);
 		kernel.regProp('copilot', 'cpDrift', 2, L('COPILOT_DRIFT', 'Hide hint after non-matching moves'), [2, 1, 20], 1);
 		kernel.regProp('copilot', 'cpF2LDepth', 2, L('COPILOT_F2LDEPTH', 'F2L max search depth'), [8, 4, 12], 1);
+		kernel.regProp('copilot', 'cpF2LCount', 2, L('COPILOT_F2LCOUNT', 'Number of F2L hints'), [2, 1, 4], 1);
 		kernel.regProp('copilot', 'cpLlmode', 1, L('COPILOT_LLMODE', 'Last-layer method'), ['op', ['op', 'alll', 'off'], [
 			L('COPILOT_LL_OP', 'OLL + PLL'),
 			L('COPILOT_LL_ALLL', '1LLL (ALLL)'),
@@ -863,7 +1001,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regListener('copilot', 'giikerState', procSignal);
 		kernel.regListener('copilot', 'virtualState', procSignal);
 		kernel.regListener('copilot', 'timerStatus', procSignal);
-		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpDrift|cpCustom|giiOri)$/);
+		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpDrift|cpF2LCount|cpCustom)$/);
 		kernel.regListener('copilot', 'scramble', procSignal);
 		kernel.regListener('copilot', 'time', procSignal);
 

@@ -326,22 +326,26 @@ function makeCubeCopilot() {
 	 * best solution found so far is returned with optimal=false; otherwise the
 	 * result is proven minimal (every shallower depth was exhausted).
 	 */
-	function solveNextPair(facelet, options) {
+	/**
+	 * Every unsolved pair that fits in maxDepth, shortest first.  `count`
+	 * limits the list (the UI can show several F2L hints at once).
+	 */
+	function solvePairs(facelet, options, count) {
 		options = options || {};
 		var maxDepth = options.maxDepth || 8;
 		var deadline = options.timeLimit ? $.now() + options.timeLimit : 0;
 		var cc = cubieFromFacelet(facelet);
 		var solved = solvedPairMask(cc);
 		if (!isCrossSolved(cc) || solved == 0xf) {
-			return null;
+			return [];
 		}
-		// cheap lower bound: skip pairs that provably need more than maxDepth
-		var best = null;
+		var found = [];
 		var timedOut = false;
 		for (var i = 0; i < 4; i++) {
 			if (solved & (1 << i)) {
 				continue;
 			}
+			// cheap lower bound: skip pairs that provably need more than maxDepth
 			if (lowerBound(cc, i, solved) > maxDepth) {
 				continue;
 			}
@@ -349,23 +353,35 @@ function makeCubeCopilot() {
 			if (!path && deadline && $.now() > deadline) {
 				timedOut = true;
 			}
-			if (path && (best == null || path.length < best.moves.length)) {
-				best = {
+			if (path) {
+				found.push({
 					pair: i,
 					name: F2L_PAIRS[i].name,
+					key: 'F2L/' + F2L_PAIRS[i].name + '/' + pairKey(cc, i),
+					base: path.slice(),
+					pre: '',
+					post: '',
 					moves: path,
 					alg: path.join(' '),
 					slot: slotFacelets(i),
 					corner: F2L_PAIRS[i].corner,
 					edge: F2L_PAIRS[i].edge,
 					optimal: !timedOut
-				};
+				});
 			}
 		}
-		if (best) {
-			best.optimal = !timedOut;
+		found.sort(function(a, b) {
+			return a.moves.length - b.moves.length || a.pair - b.pair;
+		});
+		for (var f = 0; f < found.length; f++) {
+			found[f].optimal = !timedOut;
 		}
-		return best;
+		return found.slice(0, Math.max(1, count || 1));
+	}
+
+	function solveNextPair(facelet, options) {
+		var pairs = solvePairs(facelet, options, 1);
+		return pairs.length ? pairs[0] : null;
 	}
 
 	/**
@@ -805,16 +821,17 @@ function makeCubeCopilot() {
 		var cc = cubieFromFacelet(facelet);
 		var stage = getStage(cc);
 		if (stage == 'f2l') {
-			var pair = solveNextPair(facelet, options);
-			if (!pair) {
+			var pairs = solvePairs(facelet, options, options.f2lCount);
+			if (!pairs.length) {
 				return {stage: 'f2l', name: 'no-solution'};
 			}
+			var pair = pairs[0];
 			return {
 				stage: 'f2l',
 				kind: 'f2l',
 				pair: pair.pair,
 				name: pair.name,
-				key: 'F2L/' + pair.name + '/' + pairKey(cc, pair.pair),
+				key: pair.key,
 				base: pair.moves.slice(),
 				pre: '',
 				post: '',
@@ -822,7 +839,8 @@ function makeCubeCopilot() {
 				alg: pair.moves.join(' '),
 				slot: pair.slot,
 				corner: pair.corner,
-				edge: pair.edge
+				edge: pair.edge,
+				pairs: pairs
 			};
 		}
 		if (stage == 'll') {
@@ -921,6 +939,52 @@ function makeCubeCopilot() {
 		return cc.toFaceCube(null, null, null, true);
 	}
 
+	/** preferred front colour (raw face letters) after the cross is at D */
+	var FRONT_PRIORITY = 'FRBLUD';
+
+	/**
+	 * Smart-cube frame for hints: once the cross is solved, put it at the
+	 * bottom (this is what the CFOP stage timing is counting), then pick the
+	 * front from a fixed colour order.  Before that, use the fixed order
+	 * (raw U at D, raw F at F).
+	 */
+	function pickSmartOrientation(facelet) {
+		var best = null;
+		for (var r = 0; r < 24; r++) {
+			var f = orientFacelet(facelet, r);
+			var cc = cubieFromFacelet(f);
+			if (!isCrossSolved(cc)) {
+				continue;
+			}
+			// mirror the CFOP stage result: prefer the axis with more F2L done
+			var mask = solvedPairMask(cc);
+			var pairCount = 0;
+			for (var p = 0; p < 4; p++) {
+				if (mask & (1 << p)) {
+					pairCount++;
+				}
+			}
+			var frontScore = FRONT_PRIORITY.indexOf(f.charAt(22));
+			if (frontScore < 0) {
+				frontScore = 99;
+			}
+			var score = (4 - pairCount) * 10000 + frontScore * 100 + r;
+			if (!best || score < best.score) {
+				best = {facelet: f, ori: r, d: f.charAt(31), f: f.charAt(22), score: score};
+			}
+		}
+		if (best) {
+			return best;
+		}
+		for (var r2 = 0; r2 < 24; r2++) {
+			var f2 = orientFacelet(facelet, r2);
+			if (f2.charAt(31) == 'U' && f2.charAt(22) == 'F') {
+				return {facelet: f2, ori: r2, d: 'U', f: 'F'};
+			}
+		}
+		return {facelet: facelet, ori: 0, d: 'U', f: 'F'};
+	}
+
 	/**
 	 * Steps of an algorithm, one entry per intermediate position.  A half turn
 	 * (`R2`) gets an extra entry after each quarter turn (`R` and `R'`), so a
@@ -986,6 +1050,7 @@ function makeCubeCopilot() {
 			return getStage(cubieFromFacelet(facelet));
 		},
 		solveNextPair: solveNextPair,
+		solvePairs: solvePairs,
 		solveLastLayer: solveLastLayer,
 		getHint: getHint,
 		warmUp: warmUp,
@@ -1000,6 +1065,7 @@ function makeCubeCopilot() {
 		normalizeFacelet: normalizeFacelet,
 		canonicalSig: canonicalSig,
 		orientFacelet: orientFacelet,
+		pickSmartOrientation: pickSmartOrientation,
 		algStates: algStates,
 		algSteps: algSteps,
 		validateAlg: validateAlg,

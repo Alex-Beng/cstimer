@@ -1513,3 +1513,23 @@ html.cspt:not(.m) .mywindow:hover, html.cspt:not(.m) #leftbar:hover {
     color: #ffd54a;
     margin-top: 0.1em;
 }
+
+#copilotHint .cp-ori {
+    font-size: 0.75em;
+    opacity: 0.8;
+    margin-bottom: 0.15em;
+}
+
+#copilotHint .cp-pair {
+    margin-top: 0.15em;
+}
+
+#copilotHint .cp-name {
+    opacity: 0.8;
+    margin-right: 0.3em;
+}
+
+#copilotHint .cp-alg2 {
+    font-size: 1.6em;
+    color: #ffd54a;
+}

@@ -107,6 +107,10 @@ var COPILOT_SAVE = 'Save';
 var COPILOT_RESET = 'Reset';
 var COPILOT_BAD_ALG = 'Invalid algorithm';
 var COPILOT_CUSTOM_BAD = 'That algorithm does not solve this case';
+var COPILOT_F2LCOUNT = 'Number of F2L hints';
+var COPILOT_F2L_PAIRS = 'Next F2L pairs:';
+var COPILOT_COLORS = 'White|Red|Green|Yellow|Orange|Blue';
+var COPILOT_ORI = '%s bottom, %s front';
 
 var TOOLS_RECONS = 'Reconstruct';
 var TOOLS_RECONS_NODATA = 'No solution found.';
