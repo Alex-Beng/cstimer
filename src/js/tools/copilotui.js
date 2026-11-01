@@ -7,10 +7,22 @@
  * - tracks "no progress within the current stage" and offers a hint
  * - renders the hint, and highlights the target slot on the 3D cube
  */
-var copilotUI = execMain(function(kernel, timer, tools, cubeutil) {
+var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var div = $('<div id="copilotDiv"/>');
 	var statusSpan = $('<span class="click"/>');
 	var hintSpan = $('<div/>').css({'font-family': 'Monospace', 'white-space': 'pre-wrap'});
+	var toolHintSpan = null;
+	var toolStatusSpan = null;
+	var toolChkEnable = null;
+	var toolBtnHint = null;
+	var toolBtnClear = null;
+
+	var COPILOT_TOOL_HELP_FALLBACK = 'Shows a hint when a stage of a virtual or bluetooth cube solve makes no progress.';
+
+	/** language strings fall back to a placeholder when a locale misses them */
+	function l10n(value, fallback) {
+		return (typeof value == 'string' && value.indexOf('|||') == -1) ? value : fallback;
+	}
 	var btnHint = $('<input type="button">').val(COPILOT_HINT);
 	var btnClear = $('<input type="button">').val(COPILOT_CLEAR);
 	var chkEnable = $('<input type="checkbox">');
@@ -172,33 +184,42 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil) {
 
 	// ---------------------------------------------------------------- display
 
+	function renderHint(hint, target) {
+		target.empty();
+		if (hint.stage == 'f2l') {
+			if (hint.name == 'no-solution') {
+				target.append(COPILOT_NO_F2L);
+				return;
+			}
+			target.append(
+				$('<div/>').html(COPILOT_F2L.replace('%s', hint.name)),
+				$('<div/>').css({'font-size': '1.3em'}).text(hint.alg)
+			);
+		} else if (hint.stage == 'll') {
+			if (hint.name == 'no-alg') {
+				target.append(COPILOT_NO_ALLL);
+				return;
+			}
+			target.append(
+				$('<div/>').html(COPILOT_ALLL.replace('%s', hint.name)),
+				$('<div/>').css({'font-size': '1.3em'}).text(hint.alg)
+			);
+		} else if (hint.stage == 'solved') {
+			target.append(COPILOT_SOLVED);
+		}
+	}
+
 	function showHint(hint) {
 		if (!hint) {
 			return;
 		}
 		lastHint = hint;
-		hintSpan.empty();
-		if (hint.stage == 'f2l') {
-			if (hint.name == 'no-solution') {
-				hintSpan.append(COPILOT_NO_F2L);
-				return;
-			}
-			hintSpan.append(
-				$('<div/>').html(COPILOT_F2L.replace('%s', hint.name)),
-				$('<div/>').css({'font-size': '1.3em'}).text(hint.alg)
-			);
+		renderHint(hint, hintSpan);
+		if (toolHintSpan) {
+			renderHint(hint, toolHintSpan);
+		}
+		if (hint.stage == 'f2l' && hint.slot) {
 			highlightSlot(hint.slot);
-		} else if (hint.stage == 'll') {
-			if (hint.name == 'no-alg') {
-				hintSpan.append(COPILOT_NO_ALLL);
-				return;
-			}
-			hintSpan.append(
-				$('<div/>').html(COPILOT_ALLL.replace('%s', hint.name)),
-				$('<div/>').css({'font-size': '1.3em'}).text(hint.alg)
-			);
-		} else if (hint.stage == 'solved') {
-			hintSpan.append(COPILOT_SOLVED);
 		}
 	}
 
@@ -221,16 +242,35 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil) {
 	function refreshStatus() {
 		chkEnable.prop('checked', isEnabled());
 		statusSpan.empty();
-		if (!isEnabled()) {
-			statusSpan.append(COPILOT_DISABLED);
+		if (toolStatusSpan) {
+			toolStatusSpan.empty();
+		}
+		var text = isEnabled() ? COPILOT_WAITING : COPILOT_DISABLED;
+		statusSpan.append(text);
+		if (toolStatusSpan) {
+			toolStatusSpan.append(text);
+		}
+		chkEnable.prop('checked', isEnabled());
+		if (toolChkEnable) {
+			toolChkEnable.prop('checked', isEnabled());
+		}
+		if (isEnabled()) {
+			btnHint.show();
+			btnClear.show();
+			if (toolBtnHint) {
+				toolBtnHint.show();
+				toolBtnClear.show();
+			}
+		} else {
 			btnHint.hide();
 			btnClear.hide();
-			return;
+			if (toolBtnHint) {
+				toolBtnHint.hide();
+				toolBtnClear.hide();
+			}
 		}
-		btnHint.show();
-		btnClear.show();
-		statusSpan.append(COPILOT_WAITING);
 	}
+
 	function clearAll() {
 		curFacelet = null;
 		curStage = null;
@@ -238,7 +278,50 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil) {
 		stageSince = $.now();
 		lastWarnAt = 0;
 		hintSpan.empty();
+		if (toolHintSpan) {
+			toolHintSpan.empty();
+		}
 		clearHighlight();
+	}
+
+	/**
+	 * Tools menu entry: same state as the window, so the feature is also
+	 * reachable from Tools instead of only the left-bar window button.
+	 */
+	function toolExec(fdiv, signal) {
+		if (fdiv === undefined) {
+			toolHintSpan = toolStatusSpan = null;
+			toolChkEnable = toolBtnHint = toolBtnClear = null;
+			return;
+		}
+		fdiv.empty();
+		toolStatusSpan = $('<div/>');
+		toolChkEnable = $('<input type="checkbox">');
+		toolBtnHint = $('<input type="button">').val(COPILOT_HINT);
+		toolBtnClear = $('<input type="button">').val(COPILOT_CLEAR);
+		toolHintSpan = $('<div/>').css({'font-family': 'Monospace', 'white-space': 'pre-wrap'});
+		fdiv.append(
+			$('<div/>').css({'font-size': '0.85em', 'margin-bottom': '0.4em'}).html(l10n(COPILOT_TOOL_HELP, COPILOT_TOOL_HELP_FALLBACK)),
+			$('<div/>').append($('<label>').append(toolChkEnable, ' ' + COPILOT_ENABLED)),
+			toolStatusSpan,
+			$('<div/>').append(toolBtnHint, ' ', toolBtnClear),
+			toolHintSpan
+		);
+		toolChkEnable.change(function() {
+			kernel.setProp('cpEnabled', this.checked);
+		});
+		toolBtnHint.click(function() {
+			if (curFacelet) {
+				requestHint(curFacelet, true);
+			} else {
+				logohint.push(COPILOT_NO_STATE);
+			}
+		});
+		toolBtnClear.click(clearAll);
+		if (lastHint) {
+			renderHint(lastHint, toolHintSpan);
+		}
+		refreshStatus();
 	}
 
 	// ------------------------------------------------------------- signal glue
@@ -290,6 +373,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil) {
 		kernel.regProp('copilot', 'cpF2LDepth', 2, COPILOT_F2LDEPTH, [8, 4, 12], 1);
 
 		kernel.addWindow('copilot', COPILOT_BUTTON, div, false, true, 5);
+		tools.regTool('copilot', l10n(TOOLS_COPILOT, 'Copilot'), toolExec);
 		refreshStatus();
 	});
 
@@ -302,4 +386,4 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil) {
 		},
 		clear: clearAll
 	};
-}, [kernel, timer, tools, cubeutil]);
+}, [kernel, timer, tools, cubeutil, logohint]);

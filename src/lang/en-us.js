@@ -89,6 +89,9 @@ var COPILOT_ALLL = 'One-look last layer: %s';
 var COPILOT_NO_F2L = 'No F2L hint found';
 var COPILOT_NO_ALLL = 'No algorithm for this last-layer case';
 var COPILOT_SOLVED = 'Solved';
+var TOOLS_COPILOT = 'Copilot';
+var COPILOT_TOOL_HELP = 'While solving on a virtual or bluetooth cube, a hint is shown when a stage makes no progress (tune it in Options > Copilot).';
+var COPILOT_NO_STATE = 'No cube state yet: use the virtual cube or connect a bluetooth cube';
 
 var TOOLS_RECONS = 'Reconstruct';
 var TOOLS_RECONS_NODATA = 'No solution found.';
