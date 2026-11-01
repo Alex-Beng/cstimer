@@ -114,8 +114,30 @@ var MULTI = 'FUULUUULRUFFURUBRFLFBBFBFFRDDDDDDDDDLBBRLRLLLRRULBFRBB';
 	if (shown.text.indexOf(setup.a.alg) < 0) fail('hint algorithm is not in the stage frame');
 	if (shown.text.indexOf(setup.oriText) < 0) fail('hint does not display the frame: ' + shown.text);
 
-	// several F2L pairs at once
+	// after cross + one pair the frame is locked: an algorithm that temporarily
+	// breaks the cross must not rotate the hint or the VRC view again
+	var broken = await page.evaluate(function() {
+		window.__vrcCalls = [];
+		var cc = new mathlib.CubieCube();
+		cc.fromFacelet(window.__raw);
+		cc.selfMoveStr('R'); // breaks the cross
+		var f = cc.toFaceCube();
+		var det = cubeCopilot.pickSmartOrientation(f);
+		kernel.pushSignal('giikerState', [f]);
+		return {stage: cubeCopilot.getStage(f), detected: det.ori, cross: det.cross, calls: (window.__vrcCalls || []).slice()};
+	});
+	console.log('broken-cross', JSON.stringify(broken));
+	if (broken.cross) fail('test state did not break the cross (invalid)');
+	if (!broken.calls.length || broken.calls[0] != setup.a.ori) {
+		fail('locked frame was not kept after the cross was broken: ' + JSON.stringify(broken));
+	}
+	var still = await overlay(page);
+	if (!still.visible) fail('hint disappeared after one breaking move');
+
+	// several F2L pairs at once (a new solve, so the lock is cleared)
 	await page.evaluate(function(multi) {
+		kernel.pushSignal('timerStatus', -1);
+		kernel.pushSignal('timerStatus', 1);
 		kernel.setProp('cpF2LCount', 4);
 		kernel.pushSignal('giikerState', [multi]);
 	}, MULTI);

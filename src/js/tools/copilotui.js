@@ -25,6 +25,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var lastGiikerFacelet = null;
 	var isSmart = false;
 	var smartOri = null;
+	var lockedOri = null;
 
 	var btnHint = $('<input type="button">').val(L('COPILOT_HINT', 'Hint'));
 	var btnClear = $('<input type="button">').val(L('COPILOT_CLEAR', 'Clear'));
@@ -88,8 +89,24 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	/** smart-cube frame: cross at D, front from a fixed colour order */
 	function smartFacelet(raw) {
+		// once the cross plus one F2L pair are done the frame is fixed: later
+		// algorithms may break the cross temporarily, which must not rotate the
+		// hint (or the VRC view) again
+		if (lockedOri != null) {
+			var f = cubeCopilot.orientFacelet(raw, lockedOri);
+			smartOri = {d: f.charAt(31), f: f.charAt(22)};
+			if (timer.giiker && timer.giiker.setVrcOri) {
+				try {
+					timer.giiker.setVrcOri(lockedOri);
+				} catch (e) {}
+			}
+			return f;
+		}
 		var ori = cubeCopilot.pickSmartOrientation(raw);
 		smartOri = {d: ori.d, f: ori.f};
+		if (ori.cross && ori.pairCount >= 1) {
+			lockedOri = ori.ori;
+		}
 		// keep the smart-cube VRC view in the same frame as the hint; setOri is
 		// a no-op when the view already is at that orientation
 		if (ori.cross && timer.giiker && timer.giiker.setVrcOri) {
@@ -529,12 +546,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			isSolving = true;
 			stageSince = $.now();
 			lastWarnAt = 0;
+			lockedOri = null;
 			finishHint();
 		} else if (status == -1) {
 			isSolving = false;
 			stageSince = $.now();
 			lastWarnAt = 0;
 			hintedFacelet = null;
+			lockedOri = null;
 			finishHint();
 		}
 	}
@@ -801,6 +820,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		stageSince = $.now();
 		lastWarnAt = 0;
 		hintedFacelet = null;
+		lockedOri = null;
 		finishHint();
 	}
 
