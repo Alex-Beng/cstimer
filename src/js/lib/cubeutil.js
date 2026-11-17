@@ -21,6 +21,21 @@ var cubeutil = (function() {
 		return equs;
 	}
 
+	/** equality mask from sticker groups that must all share one colour */
+	function maskGroups(groups) {
+		var pattern = [];
+		for (var i = 0; i < 54; i++) {
+			pattern.push('-');
+		}
+		for (var g = 0; g < groups.length; g++) {
+			var label = String.fromCharCode(65 + g);
+			for (var j = 0; j < groups[g].length; j++) {
+				pattern[groups[g][j]] = label;
+			}
+		}
+		return toEqus(pattern.join(''));
+	}
+
 	var crossMask = toEqus("----U--------R--R-----F--F--D-DDD-D-----L--L-----B--B-");
 	var f2l1Mask = toEqus("----U-------RR-RR-----FF-FF-DDDDD-D-----L--L-----B--B-");
 	var f2l2Mask = toEqus("----U--------R--R----FF-FF-DD-DDD-D-----LL-LL----B--B-");
@@ -37,6 +52,26 @@ var cubeutil = (function() {
 	var c2LLPattern = "0-1---2-36-7---R-R4-5---F-FD-D---D-Da-b---L-L8-9---B-B";
 	var c2LLMask = toEqus("---------------R-R------F-FD-D---D-D------L-L------B-B");
 	var solvedMask = toEqus(mathlib.SOLVED_FACELET);
+
+	// every corner sticker matches its face centre => all 8 corners are solved
+	var cornerMask = maskGroups([
+		[8, 6, 0, 2, 4],      // U corners + U centre
+		[9, 11, 15, 17, 13],  // R
+		[20, 18, 26, 24, 22], // F
+		[29, 27, 33, 35, 31], // D
+		[38, 36, 44, 42, 40], // L
+		[47, 45, 53, 51, 49]  // B
+	]);
+
+	// every edge sticker matches its face centre => all 12 edges are solved
+	var edgeMask = maskGroups([
+		[5, 7, 3, 1, 4],      // U edges + U centre
+		[10, 16, 12, 14, 13], // R
+		[19, 25, 23, 21, 22], // F
+		[32, 28, 30, 34, 31], // D
+		[37, 43, 41, 39, 40], // L
+		[46, 52, 50, 48, 49]  // B
+	]);
 
 	var cubeRots = (function genRots() {
 
@@ -195,6 +230,26 @@ var cubeutil = (function() {
 	//return 2: nothing, 1: f2l solved, 0: solved
 	function getFPProgress(param) {
 		if (solvedProgress(param, f2lMask)) {
+			return 2;
+		} else if (solvedProgress(param)) {
+			return 1;
+		}
+		return 0;
+	}
+
+	//return 2: nothing, 1: all corners solved, 0: solved
+	function getCornerFirstProgress(param) {
+		if (solvedProgress(param, cornerMask)) {
+			return 2;
+		} else if (solvedProgress(param)) {
+			return 1;
+		}
+		return 0;
+	}
+
+	//return 2: nothing, 1: all edges solved, 0: solved
+	function getEdgeFirstProgress(param) {
+		if (solvedProgress(param, edgeMask)) {
 			return 2;
 		} else if (solvedProgress(param)) {
 			return 1;
@@ -471,6 +526,10 @@ var cubeutil = (function() {
 				return getProgressNAxis(facelet, getRouxProgress, 24);
 			case 'cf4o2p2':
 				return getProgressNAxis(facelet, getCF4O2P2Progress, 6);
+			case 'corner':
+				return getProgressNAxis(facelet, getCornerFirstProgress, 6);
+			case 'edge':
+				return getProgressNAxis(facelet, getEdgeFirstProgress, 6);
 			case 'cf3zb':
 				return getProgressNAxis(facelet, getCF3ZBProgress, 6);
 			case 'n':
@@ -490,6 +549,10 @@ var cubeutil = (function() {
 				return ['l6e', 'cmll', 'sb', 'fb'];
 			case 'cf4o2p2':
 				return ['pll', 'cpll', 'oll', 'eoll', 'f2l-4', 'f2l-3', 'f2l-2', 'f2l-1', 'cross'];
+			case 'corner':
+				return ['edges', 'corners'];
+			case 'edge':
+				return ['corners', 'edges'];
 			case 'cf3zb':
 				return ['zbll', 'zbf2l', 'f2l-3', 'f2l-2', 'f2l-1', 'cross'];
 			case 'n':
