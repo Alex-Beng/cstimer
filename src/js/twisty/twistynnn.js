@@ -546,18 +546,20 @@
 			if (highlightSaved) {
 				for (var i = 0; i < highlightSaved.length; i++) {
 					var item = highlightSaved[i];
-					item[0].material = item[1];
+					item[0].materials[0] = item[1];
 				}
 				highlightSaved = null;
 			}
 			if (!facelets || !facelets.length || twisty.options.dimension != 3) {
-				twisty.twistyScene.requestRender();
+				twistyScene.requestRender();
 				return;
 			}
 			var wanted = {};
 			for (var i = 0; i < facelets.length; i++) {
 				wanted[facelets[i]] = 1;
 			}
+			// stickers move, so the facelet index must follow the current position
+			twisty._faceletIndex = buildStickerFaceletIndex(twisty);
 			highlightSaved = [];
 			for (var f = 0; f < state.length; f++) {
 				var stickers = state[f];
@@ -566,12 +568,12 @@
 					var pos = findStickerFacelet(twisty, f, s);
 					if (pos >= 0 && wanted[pos]) {
 						var mesh = stickers[s][1].children[0];
-						highlightSaved.push([mesh, mesh.material]);
-						mesh.material = highlightMaterial;
+						highlightSaved.push([mesh, mesh.materials[0]]);
+						mesh.materials[0] = highlightMaterial;
 					}
 				}
 			}
-			twisty.twistyScene.requestRender();
+			twistyScene.requestRender();
 		}
 
 		function findStickerFacelet(twisty, faceIndex, stickerIndex) {
