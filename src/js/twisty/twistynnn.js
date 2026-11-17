@@ -548,7 +548,7 @@
 				highlightFlashTid = 0;
 			}
 			highlightBorderMaterial.color.setHex(0xffd700);
-			highlightBorderMaterial.opacity = cubeOptions.opacity;
+			highlightBorderMaterial.opacity = 1;
 			highlightBorderMaterial.wireframeLinewidth = 2;
 		}
 
@@ -558,8 +558,11 @@
 				return;
 			}
 			highlightFlashStep = 1 - highlightFlashStep;
-			highlightBorderMaterial.color.setHex(highlightFlashStep ? 0xffef9a : 0xffd700);
-			highlightBorderMaterial.opacity = highlightFlashStep ? 1 : 0.75;
+			highlightBorderMaterial.color.setHex(highlightFlashStep ? 0xffee58 : 0xffd700);
+			// MeshBasicMaterial ignores opacity unless it is transparent, so
+			// the flash has to fade the border instead of only changing its
+			// colour
+			highlightBorderMaterial.opacity = highlightFlashStep ? 1 : 0.15;
 			highlightBorderMaterial.wireframeLinewidth = highlightFlashStep ? 3 : 2;
 			twistyScene.requestRender();
 		}
@@ -658,7 +661,9 @@
 			color: 0xffd700,
 			wireframe: true,
 			wireframeLinewidth: 2,
-			opacity: cubeOptions.opacity
+			transparent: true,
+			opacity: 1,
+			depthWrite: false
 		});
 
 		function isInspectionLegalMove(twisty, move) {

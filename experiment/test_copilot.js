@@ -89,6 +89,12 @@ function crossSolved(cc) {
 	return true;
 }
 
+function stickerColors(facelet, idxs) {
+	return idxs.map(function(i) {
+		return facelet[i];
+	}).sort().join('');
+}
+
 // ---- cross-solved position generator -------------------------------------
 // BFS from the solved cube over the cross coordinate, storing a move path.
 // Any random state can then be mapped to a cross-solved state by appending the
@@ -289,6 +295,19 @@ while (f2lTests < CASES && attempts < 20000) {
 	}
 	if (hint.distance != REF_PAIR_DIST[hint.pair][pairCoord(pos, hint.pair)]) {
 		fail('distance disagrees with the reference BFS');
+	}
+	// turning the whole cube must not swap the highlighted pair
+	for (var r = 0; r < 24; r++) {
+		var turned = copilot.orientFacelet(facelet, r);
+		var same = copilot.locatePair(turned, hint.cornerColors, hint.edgeColors);
+		if (!same || same.solved !== hint.solved) {
+			fail('lost the hinted pair after rotation ' + r);
+			continue;
+		}
+		if (stickerColors(turned, mathlib.CubieCube.cFacelet[same.cornerAt]) != hint.cornerColors ||
+			stickerColors(turned, mathlib.CubieCube.eFacelet[same.edgeAt]) != hint.edgeColors) {
+			fail('rotation ' + r + ' changed the highlighted pieces');
+		}
 	}
 	f2lMoves += hint.distance;
 }

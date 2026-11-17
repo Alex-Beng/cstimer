@@ -294,6 +294,8 @@ function makeCubeCopilot() {
 			name: pair.name,
 			corner: pair.corner,
 			edge: pair.edge,
+			cornerAt: cornerAt,
+			edgeAt: edgeAt,
 			slot: slotFacelets(pairIdx),
 			pieces: pieces,
 			distance: pairDistance(pairIdx, cc),
@@ -301,8 +303,71 @@ function makeCubeCopilot() {
 		};
 	}
 
+	/** sticker colours of a corner/edge, independent of the cube orientation */
+	function stickerKey(facelet, facelets) {
+		var ret = [];
+		for (var i = 0; i < facelets.length; i++) {
+			ret.push(facelet[facelets[i]]);
+		}
+		return ret.sort().join('');
+	}
+
+	function annotateColors(facelet, info) {
+		if (info && info.cornerAt >= 0 && info.edgeAt >= 0) {
+			info.cornerColors = stickerKey(facelet, mathlib.CubieCube.cFacelet[info.cornerAt]);
+			info.edgeColors = stickerKey(facelet, mathlib.CubieCube.eFacelet[info.edgeAt]);
+		}
+		return info;
+	}
+
 	function pairInfo(facelet, pairIdx) {
-		return pairInfoOf(cubieFromFacelet(facelet), pairIdx);
+		return annotateColors(facelet, pairInfoOf(cubieFromFacelet(facelet), pairIdx));
+	}
+
+	function findPieceAt(facelet, facelets, key) {
+		for (var p = 0; p < facelets.length; p++) {
+			if (stickerKey(facelet, facelets[p]) == key) {
+				return p;
+			}
+		}
+		return -1;
+	}
+
+	function pieceMatchesCenters(facelet, facelets) {
+		for (var i = 0; i < facelets.length; i++) {
+			var idx = facelets[i];
+			if (facelet[idx] != facelet[(~~(idx / 9)) * 9 + 4]) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Find the same physical corner/edge again from their colour keys.  A
+	 * whole-cube rotation moves the stickers but keeps their colours, so the
+	 * hint stays on the same pair instead of the same slot.
+	 */
+	function locatePair(facelet, cornerColors, edgeColors) {
+		if (!facelet || !cornerColors || !edgeColors) {
+			return null;
+		}
+		var cFacelet = mathlib.CubieCube.cFacelet;
+		var eFacelet = mathlib.CubieCube.eFacelet;
+		var cornerAt = findPieceAt(facelet, cFacelet, cornerColors);
+		var edgeAt = findPieceAt(facelet, eFacelet, edgeColors);
+		if (cornerAt < 0 || edgeAt < 0) {
+			return null;
+		}
+		return {
+			cornerAt: cornerAt,
+			edgeAt: edgeAt,
+			cornerColors: cornerColors,
+			edgeColors: edgeColors,
+			pieces: cFacelet[cornerAt].concat(eFacelet[edgeAt]),
+			solved: pieceMatchesCenters(facelet, cFacelet[cornerAt]) &&
+				pieceMatchesCenters(facelet, eFacelet[edgeAt])
+		};
 	}
 
 	/**
@@ -324,7 +389,7 @@ function makeCubeCopilot() {
 				best = info;
 			}
 		}
-		return best;
+		return annotateColors(facelet, best);
 	}
 
 	/** shortest sequence that completes the D cross (used to guide back) */
@@ -1177,6 +1242,7 @@ function makeCubeCopilot() {
 		solveCross: solveCross,
 		minPair: minPair,
 		pairInfo: pairInfo,
+		locatePair: locatePair,
 		pairCount: pairCountOf,
 		solveLastLayer: solveLastLayer,
 		getHint: getHint,

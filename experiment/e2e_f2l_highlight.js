@@ -150,6 +150,35 @@ var server = http.createServer(function(req, res) {
 			fail('sticker fill colour was overwritten');
 		}
 
+		var turned = await page.evaluate(function(found) {
+			kernel.setProp('cpEnabled', true);
+			kernel.setProp('vrcMP', 'cfop');
+			var turned = cubeCopilot.orientFacelet(found.facelet, 3);
+			var calls = [];
+			var orig = timer.virtual.highlight;
+			timer.virtual.highlight = function(f) { calls.push(f); return orig(f); };
+			copilotUI.onFacelet(turned, turned);
+			timer.virtual.highlight = orig;
+			var after = null;
+			for (var i = calls.length - 1; i >= 0; i--) {
+				if (calls[i]) {
+					after = calls[i];
+					break;
+				}
+			}
+			function colors(fl, pieces) {
+				return pieces.map(function(idx) { return fl[idx]; }).sort().join('');
+			}
+			return {
+				before: colors(found.facelet, found.pieces),
+				after: after ? colors(turned, after) : null
+			};
+		}, setup.found);
+		console.log('rotation', JSON.stringify(turned));
+		if (turned.before != turned.after) {
+			fail('turning the cube changed the highlighted pair');
+		}
+
 		var gate = await page.evaluate(function(found) {
 			function probe(method) {
 				kernel.setProp('vrcMP', method);
@@ -184,7 +213,7 @@ var server = http.createServer(function(req, res) {
 						var m = state[f][s][1].children[0].materials[1];
 						var c = m && m.color;
 						if (m && m.wireframe && c && c.r === 1 && c.g > 0.6 && c.b < 0.8) {
-							return [c.r, c.g, c.b, m.opacity, m.wireframeLinewidth];
+							return [c.r, c.g, c.b, m.opacity, m.wireframeLinewidth, !!m.transparent];
 						}
 					}
 				}
@@ -196,6 +225,9 @@ var server = http.createServer(function(req, res) {
 		var flash2 = await sampleFlash();
 		if (!flash1 || !flash2 || flash1.join(',') == flash2.join(',')) {
 			fail('highlight does not flash');
+		}
+		if (!flash1 || !flash2 || !flash1[5] || !flash2[5]) {
+			fail('highlight border is not transparent, the flash cannot render');
 		}
 
 		var rect = await page.evaluate(function() {

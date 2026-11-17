@@ -949,22 +949,34 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		highlightFacelets(info.pieces);
 	}
 
-	/** keep the highlight on the same pieces while they are being moved */
+	/** keep the highlight on the same corner/edge while they are being moved */
 	function refreshF2lHint(facelet) {
 		if (!f2lPair) {
 			return;
 		}
 		var info = null;
 		try {
-			info = cubeCopilot.pairInfo(facelet, f2lPair.pair);
+			// colours rather than slots: turning the whole cube must not swap
+			// the highlighted pair for whichever pair now occupies that slot
+			info = cubeCopilot.locatePair(facelet, f2lPair.cornerColors, f2lPair.edgeColors);
 		} catch (e) {}
 		if (!info || info.solved) {
 			f2lPair = null;
 			clearHighlight();
 			updateStage(facelet, true);
+			var stage = null;
+			try {
+				stage = cubeCopilot.getStage(facelet);
+			} catch (e) {}
+			if (stage == 'f2l') {
+				showF2lHint(facelet);
+			}
 			return;
 		}
-		f2lPair = info;
+		f2lPair.pieces = info.pieces;
+		f2lPair.cornerAt = info.cornerAt;
+		f2lPair.edgeAt = info.edgeAt;
+		f2lPair.solved = false;
 		highlightFacelets(info.pieces);
 	}
 
