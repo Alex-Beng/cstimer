@@ -104,6 +104,7 @@ var server = http.createServer(function(req, res) {
 	if (setup.found) {
 		var hint = await page.evaluate(function(found) {
 			kernel.setProp('cpEnabled', true);
+			kernel.setProp('vrcMP', 'cfop');
 			tools.getCurPuzzle = function() { return '333'; };
 			tools.isCurTrainScramble = function() { return false; };
 			var calls = [];
@@ -111,8 +112,9 @@ var server = http.createServer(function(req, res) {
 			timer.virtual.highlight = function(f) { calls.push(f); return orig(f); };
 			copilotUI.onFacelet(found.facelet, found.facelet);
 			copilotUI.requestHint();
-			function magenta(color) {
-				return !!(color && color.r === 1 && color.g === 0 && color.b === 1);
+			function gold(mat) {
+				var c = mat && mat.color;
+				return !!(mat && mat.wireframe && c && c.r === 1 && c.g > 0.6 && c.b < 0.8);
 			}
 			var n = 0;
 			var fillOverwritten = 0;
@@ -120,15 +122,15 @@ var server = http.createServer(function(req, res) {
 			for (var f = 0; f < state.length; f++) {
 				for (var s = 0; s < state[f].length; s++) {
 					var mats = state[f][s][1].children[0].materials;
-					if (mats && mats[1] && magenta(mats[1].color)) {
+					if (mats && gold(mats[1])) {
 						n++;
-						if (mats[0] && magenta(mats[0].color)) {
+						if (mats[0] && mats[0].wireframe) {
 							fillOverwritten++;
 						}
 					}
 				}
 			}
-			return {calls: calls, magenta: n, fillOverwritten: fillOverwritten};
+			return {calls: calls, gold: n, fillOverwritten: fillOverwritten};
 		}, setup.found);
 		console.log('hint', JSON.stringify(hint));
 		var call = null;
@@ -141,11 +143,59 @@ var server = http.createServer(function(req, res) {
 		if (!call || call.join(',') != setup.found.pieces.join(',')) {
 			fail('highlighted ' + JSON.stringify(call) + ', expected ' + JSON.stringify(setup.found.pieces));
 		}
-		if (hint.magenta != 5) {
-			fail('expected 5 highlighted borders, got ' + hint.magenta);
+		if (hint.gold != 5) {
+			fail('expected 5 gold highlighted borders, got ' + hint.gold);
 		}
 		if (hint.fillOverwritten) {
 			fail('sticker fill colour was overwritten');
+		}
+
+		var gate = await page.evaluate(function(found) {
+			function probe(method) {
+				kernel.setProp('vrcMP', method);
+				kernel.pushSignal('virtualState', [found.facelet]);
+				var n = 0;
+				var orig = timer.virtual.highlight;
+				timer.virtual.highlight = function(f) { n++; return orig(f); };
+				copilotUI.requestHint();
+				timer.virtual.highlight = orig;
+				return n;
+			}
+			return {
+				edge: probe('edge'),
+				corner: probe('corner'),
+				roux: probe('roux'),
+				cfop: probe('cfop')
+			};
+		}, setup.found);
+		console.log('gating', JSON.stringify(gate));
+		if (gate.edge || gate.corner || gate.roux) {
+			fail('copilot hinted with a non-CFOP multi-phase method');
+		}
+		if (!gate.cfop) {
+			fail('copilot did not hint with a CFOP multi-phase method');
+		}
+
+		function sampleFlash() {
+			return page.evaluate(function() {
+				var state = __puzzle.twisty.cubePieces;
+				for (var f = 0; f < state.length; f++) {
+					for (var s = 0; s < state[f].length; s++) {
+						var m = state[f][s][1].children[0].materials[1];
+						var c = m && m.color;
+						if (m && m.wireframe && c && c.r === 1 && c.g > 0.6 && c.b < 0.8) {
+							return [c.r, c.g, c.b, m.opacity, m.wireframeLinewidth];
+						}
+					}
+				}
+				return null;
+			});
+		}
+		var flash1 = await sampleFlash();
+		await page.waitForTimeout(350);
+		var flash2 = await sampleFlash();
+		if (!flash1 || !flash2 || flash1.join(',') == flash2.join(',')) {
+			fail('highlight does not flash');
 		}
 
 		var rect = await page.evaluate(function() {

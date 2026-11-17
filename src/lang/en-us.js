@@ -84,6 +84,7 @@ var COPILOT_HINT = 'Hint';
 var COPILOT_CLEAR = 'Clear';
 var COPILOT_WAITING = 'Waiting for a solve...';
 var COPILOT_DISABLED = 'Copilot is off (enable above or in Options > Copilot)';
+var COPILOT_NEED_CFOP = 'Copilot hints need a CFOP multi-phase method';
 var COPILOT_F2L = 'Next F2L pair: %s';
 var COPILOT_ALLL = 'One-look last layer: %s';
 var COPILOT_NO_F2L = 'No F2L hint found';

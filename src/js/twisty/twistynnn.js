@@ -536,9 +536,42 @@
 			return ret.join("");
 		}
 
-		// Highlight stickers by facelet index (copilot hint).  The stickers are
-		// re-coloured, and the original colours are restored on the next clear.
+		// Highlight stickers by facelet index (copilot hint).  Only the sticker
+		// border is re-coloured; the original fill colours are always kept.
 		var highlightSaved = null;
+		var highlightFlashTid = 0;
+		var highlightFlashStep = 0;
+
+		function stopHighlightFlash() {
+			if (highlightFlashTid) {
+				clearInterval(highlightFlashTid);
+				highlightFlashTid = 0;
+			}
+			highlightBorderMaterial.color.setHex(0xffd700);
+			highlightBorderMaterial.opacity = cubeOptions.opacity;
+			highlightBorderMaterial.wireframeLinewidth = 2;
+		}
+
+		function flashHighlight() {
+			if (!highlightSaved || !highlightSaved.length) {
+				stopHighlightFlash();
+				return;
+			}
+			highlightFlashStep = 1 - highlightFlashStep;
+			highlightBorderMaterial.color.setHex(highlightFlashStep ? 0xffef9a : 0xffd700);
+			highlightBorderMaterial.opacity = highlightFlashStep ? 1 : 0.75;
+			highlightBorderMaterial.wireframeLinewidth = highlightFlashStep ? 3 : 2;
+			twistyScene.requestRender();
+		}
+
+		function startHighlightFlash() {
+			if (highlightFlashTid || !highlightSaved || !highlightSaved.length) {
+				return;
+			}
+			highlightFlashStep = 0;
+			flashHighlight();
+			highlightFlashTid = setInterval(flashHighlight, 280);
+		}
 
 		function highlight(twisty, facelets) {
 			twisty = twisty || this;
@@ -552,6 +585,7 @@
 						item[0].materials.pop();
 					}
 				}
+				stopHighlightFlash();
 				highlightSaved = null;
 			}
 			if (!facelets || !facelets.length || twisty.options.dimension != 3) {
@@ -582,6 +616,7 @@
 					}
 				}
 			}
+			startHighlightFlash();
 			twistyScene.requestRender();
 		}
 
@@ -620,7 +655,7 @@
 		}
 
 		var highlightBorderMaterial = new THREE.MeshBasicMaterial({
-			color: 0xff00ff,
+			color: 0xffd700,
 			wireframe: true,
 			wireframeLinewidth: 2,
 			opacity: cubeOptions.opacity

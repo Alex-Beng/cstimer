@@ -78,6 +78,20 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return kernel.getProp('cpEnabled', false);
 	}
 
+	// the copilot only knows the CFOP stages, so its hints only make sense
+	// when the multi-phase timer is set to CFOP or one of its variants
+	var CFOP_METHODS = {
+		cfop: 1,
+		fp: 1,
+		cf4op: 1,
+		cf4o2p2: 1,
+		cf3zb: 1
+	};
+
+	function methodAllowsHint() {
+		return !!CFOP_METHODS[kernel.getProp('vrcMP', 'n')];
+	}
+
 	function timeoutMs() {
 		return Math.min(120, Math.max(0, ~~kernel.getProp('cpTimeout', 6))) * 1000;
 	}
@@ -127,7 +141,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function canRun() {
-		if (!isEnabled() || !isCube3()) {
+		if (!isEnabled() || !isCube3() || !methodAllowsHint()) {
 			return false;
 		}
 		if (tools.isCurTrainScramble && tools.isCurTrainScramble()) {
@@ -1047,8 +1061,12 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (toolChkEnable) {
 			toolChkEnable.prop('checked', isEnabled());
 		}
-		showStatus(isEnabled() ? L('COPILOT_WAITING', 'Waiting for a solve...') :
-			L('COPILOT_DISABLED', 'Copilot is off'));
+		var status = L('COPILOT_DISABLED', 'Copilot is off');
+		if (isEnabled()) {
+			status = methodAllowsHint() ? L('COPILOT_WAITING', 'Waiting for a solve...') :
+				L('COPILOT_NEED_CFOP', 'Copilot hints need a CFOP multi-phase method');
+		}
+		showStatus(status);
 		var show = isEnabled();
 		btnHint.toggle(show);
 		btnClear.toggle(show);
@@ -1223,7 +1241,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		} else if (signal == 'timerStatus') {
 			onTimerStatus(value);
 		} else if (signal == 'property') {
-			if (/^(cpEnabled|cpTimeout|cpLlmode|cpUndoMax)$/.exec(value[0])) {
+			if (/^(cpEnabled|cpTimeout|cpLlmode|cpUndoMax|vrcMP)$/.exec(value[0])) {
 				clearAll();
 				refreshStatus();
 				if (isEnabled()) {
@@ -1273,7 +1291,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regListener('copilot', 'giikerState', procSignal);
 		kernel.regListener('copilot', 'virtualState', procSignal);
 		kernel.regListener('copilot', 'timerStatus', procSignal);
-		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpTimeout|cpLlmode|cpUndoMax|cpCustom)$/);
+		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpTimeout|cpLlmode|cpUndoMax|cpCustom|vrcMP)$/);
 		kernel.regListener('copilot', 'scramble', procSignal);
 		kernel.regListener('copilot', 'time', procSignal);
 

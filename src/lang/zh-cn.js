@@ -84,6 +84,7 @@ var COPILOT_HINT = '提示';
 var COPILOT_CLEAR = '清除';
 var COPILOT_WAITING = '等待还原中…';
 var COPILOT_DISABLED = 'Copilot 已关闭（勾选上方或在 设置 > Copilot 中开启）';
+var COPILOT_NEED_CFOP = 'Copilot 提示需要选择 CFOP 系列的多阶段计时';
 var COPILOT_F2L = '下一组 F2L：%s';
 var COPILOT_ALLL = '顶层一步公式：%s';
 var COPILOT_NO_F2L = '未找到可用的 F2L 提示';
