@@ -5,7 +5,7 @@
  *
  * Pure logic (no DOM) shared by the main thread and the scramble worker.
  * Input is a facelet string in csTimer order ("URFDLB").  Hints:
- *   - F2L: the shortest next pair (HTM, all 18 face turns allowed)
+ *   - F2L: the corner/edge pair that needs the fewest moves (no search)
  *   - last layer: ALLL (1LLL) recognition through a lazily built LUT
  */
 function makeCubeCopilot() {
@@ -249,75 +249,6 @@ function makeCubeCopilot() {
 		return v < 0 ? 99 : v;
 	}
 
-	/**
-	 * Lower bound for a position: the cross must end up solved and every
-	 * protected pair must end up solved, so the max of their distances is
-	 * admissible.
-	 */
-	function lowerBound(cc, pairIdx, protectMask) {
-		var h = pairDistance(pairIdx, cc);
-		var c = crossDistance(cc);
-		if (c > h) {
-			h = c;
-		}
-		for (var p = 0; p < 4; p++) {
-			if (!(protectMask & (1 << p)) || p == pairIdx) {
-				continue;
-			}
-			var d = pairDistance(p, cc);
-			if (d > h) {
-				h = d;
-			}
-		}
-		return h;
-	}
-
-	function searchPair(cc, pairIdx, maxDepth, protectMask, deadline) {
-		var moves = getMoveCubes();
-		var path = [];
-
-		function dfs(state, remaining, lastFace) {
-			if (deadline && $.now() > deadline) {
-				return false;
-			}
-			if (lowerBound(state, pairIdx, protectMask) > remaining) {
-				return false;
-			}
-			if (remaining == 0) {
-				if (!isPairSolved(state, pairIdx) || !isCrossSolved(state)) {
-					return false;
-				}
-				for (var p = 0; p < 4; p++) {
-					if ((protectMask & (1 << p)) && !isPairSolved(state, p)) {
-						return false;
-					}
-				}
-				return true;
-			}
-			for (var m = 0; m < moves.length; m++) {
-				var face = ~~(m / 3);
-				if (face == lastFace) {
-					continue;
-				}
-				var ns = mul(state, moves[m]);
-				path.push(MOVE_NAMES[m]);
-				if (dfs(ns, remaining - 1, face)) {
-					return true;
-				}
-				path.pop();
-			}
-			return false;
-		}
-
-		for (var depth = 1; depth <= maxDepth; depth++) {
-			path = [];
-			if (dfs(cc, depth, -1)) {
-				return path.slice();
-			}
-		}
-		return null;
-	}
-
 	/** number of solved F2L pairs (0..4) */
 	function pairCountOf(facelet) {
 		var mask = solvedPairMask(cubieFromFacelet(facelet));
@@ -331,61 +262,69 @@ function makeCubeCopilot() {
 	}
 
 	/**
-	 * Every unsolved pair that fits in maxDepth, shortest first.  `count`
-	 * limits the list (the UI can show several F2L hints at once).
+	 * Where the pair's corner and edge currently are, plus the pruning
+	 * distance (the minimum number of moves needed to insert the pair).
+	 * No search is performed: this is the live F2L hint.
 	 */
-	function solvePairs(facelet, options, count) {
-		options = options || {};
-		var maxDepth = options.maxDepth || 8;
-		var deadline = options.timeLimit ? $.now() + options.timeLimit : 0;
-		var cc = cubieFromFacelet(facelet);
-		var solved = solvedPairMask(cc);
-		if (!isCrossSolved(cc) || solved == 0xf) {
-			return [];
-		}
-		var found = [];
-		var timedOut = false;
-		for (var i = 0; i < 4; i++) {
-			if (solved & (1 << i)) {
-				continue;
-			}
-			// cheap lower bound: skip pairs that provably need more than maxDepth
-			if (lowerBound(cc, i, solved) > maxDepth) {
-				continue;
-			}
-			var path = searchPair(cc, i, maxDepth, solved, deadline);
-			if (!path && deadline && $.now() > deadline) {
-				timedOut = true;
-			}
-			if (path) {
-				found.push({
-					pair: i,
-					name: F2L_PAIRS[i].name,
-					key: 'F2L/' + F2L_PAIRS[i].name + '/' + pairKey(cc, i),
-					base: path.slice(),
-					pre: '',
-					post: '',
-					moves: path,
-					alg: path.join(' '),
-					slot: slotFacelets(i),
-					corner: F2L_PAIRS[i].corner,
-					edge: F2L_PAIRS[i].edge,
-					optimal: !timedOut
-				});
+	function pairInfoOf(cc, pairIdx) {
+		var pair = F2L_PAIRS[pairIdx];
+		var cornerAt = -1;
+		for (var p = 0; p < 8; p++) {
+			if ((cc.ca[p] & 7) == pair.corner) {
+				cornerAt = p;
+				break;
 			}
 		}
-		found.sort(function(a, b) {
-			return a.moves.length - b.moves.length || a.pair - b.pair;
-		});
-		for (var f = 0; f < found.length; f++) {
-			found[f].optimal = !timedOut;
+		var edgeAt = -1;
+		for (var q = 0; q < 12; q++) {
+			if ((cc.ea[q] >> 1) == pair.edge) {
+				edgeAt = q;
+				break;
+			}
 		}
-		return found.slice(0, Math.max(1, count || 1));
+		var pieces = [];
+		if (cornerAt >= 0) {
+			pieces = pieces.concat(mathlib.CubieCube.cFacelet[cornerAt]);
+		}
+		if (edgeAt >= 0) {
+			pieces = pieces.concat(mathlib.CubieCube.eFacelet[edgeAt]);
+		}
+		return {
+			pair: pairIdx,
+			name: pair.name,
+			corner: pair.corner,
+			edge: pair.edge,
+			slot: slotFacelets(pairIdx),
+			pieces: pieces,
+			distance: pairDistance(pairIdx, cc),
+			solved: isPairSolved(cc, pairIdx)
+		};
 	}
 
-	function solveNextPair(facelet, options) {
-		var pairs = solvePairs(facelet, options, 1);
-		return pairs.length ? pairs[0] : null;
+	function pairInfo(facelet, pairIdx) {
+		return pairInfoOf(cubieFromFacelet(facelet), pairIdx);
+	}
+
+	/**
+	 * The unsolved pair that needs the fewest moves to be inserted.  This is
+	 * the F2L hint: only the pieces to highlight, no algorithm.
+	 */
+	function minPair(facelet) {
+		var cc = cubieFromFacelet(facelet);
+		if (!isCrossSolved(cc)) {
+			return null;
+		}
+		var best = null;
+		for (var i = 0; i < 4; i++) {
+			var info = pairInfoOf(cc, i);
+			if (info.solved) {
+				continue;
+			}
+			if (!best || info.distance < best.distance) {
+				best = info;
+			}
+		}
+		return best;
 	}
 
 	/** shortest sequence that completes the D cross (used to guide back) */
@@ -999,26 +938,26 @@ function makeCubeCopilot() {
 			};
 		}
 		if (stage == 'f2l') {
-			var pairs = solvePairs(facelet, options, options.f2lCount);
-			if (!pairs.length) {
+			var pair = minPair(facelet);
+			if (!pair) {
 				return {stage: 'f2l', name: 'no-solution'};
 			}
-			var pair = pairs[0];
 			return {
 				stage: 'f2l',
 				kind: 'f2l',
 				pair: pair.pair,
 				name: pair.name,
-				key: pair.key,
-				base: pair.moves.slice(),
+				distance: pair.distance,
+				pieces: pair.pieces,
+				key: '',
+				base: [],
 				pre: '',
 				post: '',
-				moves: pair.moves,
-				alg: pair.moves.join(' '),
+				moves: [],
+				alg: '',
 				slot: pair.slot,
 				corner: pair.corner,
-				edge: pair.edge,
-				pairs: pairs
+				edge: pair.edge
 			};
 		}
 		if (stage == 'll') {
@@ -1235,9 +1174,9 @@ function makeCubeCopilot() {
 		getStage: function(facelet) {
 			return getStage(cubieFromFacelet(facelet));
 		},
-		solveNextPair: solveNextPair,
 		solveCross: solveCross,
-		solvePairs: solvePairs,
+		minPair: minPair,
+		pairInfo: pairInfo,
 		pairCount: pairCountOf,
 		solveLastLayer: solveLastLayer,
 		getHint: getHint,

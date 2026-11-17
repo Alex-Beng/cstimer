@@ -8,7 +8,8 @@
  * - keeps a shown hint alive while the moves follow it, and drops it after a
  *   configurable number of non-matching moves
  * - renders the hint in a fixed overlay (visible while solving), highlights the
- *   target slot, and lets every case carry a user-supplied algorithm
+ *   F2L corner/edge pieces that need the fewest moves, and lets every
+ *   last-layer case carry a user-supplied algorithm
  */
 var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var div = $('<div id="copilotDiv"/>');
@@ -48,6 +49,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var prevRaw = null;
 	var curRawFacelet = null;
 	var onTrackPairs = 0;
+	/* live F2L highlight: the pair with the fewest moves, no algorithm */
+	var f2lPair = null;
 
 	var customRows = [];
 
@@ -82,10 +85,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	function llMode() {
 		return kernel.getProp('cpLlmode', 'op');
-	}
-
-	function f2lCount() {
-		return Math.min(4, Math.max(1, ~~kernel.getProp('cpF2LCount', 2)));
 	}
 
 	/** how many off-track moves before the hint is re-planned */
@@ -285,7 +284,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			}
 		}, 9000);
 		csTimerWorker.getHint(req.facelet, {
-			maxDepth: req.maxDepth,
 			timeLimit: req.timeLimit,
 			llMode: req.llMode
 		}, function(hint) {
@@ -312,15 +310,22 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (!canRun() || !facelet) {
 			return;
 		}
+		var stage = null;
+		try {
+			stage = cubeCopilot.getStage(facelet);
+		} catch (e) {}
+		// the F2L hint is only a highlight: no search, no worker round-trip
+		if (stage == 'f2l') {
+			showF2lHint(facelet);
+			return;
+		}
 		initWorker();
 		postRequest({
 			id: ++reqId,
 			facelet: facelet,
 			raw: curRawFacelet,
 			manual: !!manual,
-			maxDepth: ~~kernel.getProp('cpF2LDepth', 8),
 			timeLimit: manual ? 4000 : 1500,
-			f2lCount: f2lCount(),
 			llMode: llMode()
 		});
 	}
@@ -329,9 +334,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		try {
 			cubeCopilot.warmUp();
 			return cubeCopilot.getHint(facelet, {
-				maxDepth: ~~kernel.getProp('cpF2LDepth', 8),
 				timeLimit: manual ? 4000 : 1500,
-				f2lCount: f2lCount(),
 				llMode: llMode()
 			});
 		} catch (e) {
@@ -403,6 +406,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		offTrack = false;
 		prevRaw = null;
 		onTrackPairs = 0;
+		f2lPair = null;
 		hintSpan.empty();
 		if (toolHintSpan) {
 			toolHintSpan.empty();
@@ -444,7 +448,21 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		try {
 			stageNow = cubeCopilot.getStage(facelet);
 		} catch (e) {}
-		// CF finished while an F2L hint was active: go straight to the LL hint
+		// F2L: keep the live highlight on the corner/edge with the fewest moves
+		if (stageNow == 'f2l') {
+			if (hintInfo && hintInfo.stage != 'f2l') {
+				finishHint();
+			}
+			if (f2lPair) {
+				refreshF2lHint(facelet);
+			}
+			prevRaw = raw || prevRaw;
+			updateStage(facelet, false);
+			checkTimeout();
+			return;
+		}
+		clearF2lHint();
+		// CF finished while a cross hint was active: go straight to the LL hint
 		if (stageNow == 'll' && hintInfo && hintInfo.stage != 'll') {
 			finishHint();
 			updateStage(facelet, true);
@@ -662,7 +680,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			return;
 		}
 		// never replace a hint the user is still following
-		if (hintInfo) {
+		if (hintInfo || f2lPair) {
 			return;
 		}
 		if (curStage == 'll' && llMode() == 'off') {
@@ -876,12 +894,72 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		hintOverlay.hide().empty();
 	}
 
-	function highlightSlots(slots) {
+	function highlightFacelets(slots) {
 		try {
 			if (timer.virtual && timer.virtual.highlight) {
 				timer.virtual.highlight(slots && slots.length ? slots : null);
 			}
 		} catch (e) {}
+	}
+
+	/**
+	 * F2L hint: only the corner and edge of the pair that needs the fewest
+	 * moves are highlighted.  No algorithm is computed or shown.
+	 */
+	function showF2lHint(facelet) {
+		var info = null;
+		try {
+			info = cubeCopilot.minPair(facelet);
+		} catch (e) {}
+		// drop any hint still in flight for an earlier position
+		lastSentId = ++reqId;
+		queuedReq = null;
+		if (hintInfo) {
+			finishHint();
+		}
+		if (!info) {
+			f2lPair = null;
+			clearHighlight();
+			return;
+		}
+		f2lPair = info;
+		hintedFacelet = facelet;
+		lastWarnAt = $.now();
+		stageSince = $.now();
+		onTrackPairs = pairProgress(facelet);
+		hintSpan.empty();
+		if (toolHintSpan) {
+			toolHintSpan.empty();
+		}
+		hideOverlay();
+		highlightFacelets(info.pieces);
+	}
+
+	/** keep the highlight on the same pieces while they are being moved */
+	function refreshF2lHint(facelet) {
+		if (!f2lPair) {
+			return;
+		}
+		var info = null;
+		try {
+			info = cubeCopilot.pairInfo(facelet, f2lPair.pair);
+		} catch (e) {}
+		if (!info || info.solved) {
+			f2lPair = null;
+			clearHighlight();
+			updateStage(facelet, true);
+			return;
+		}
+		f2lPair = info;
+		highlightFacelets(info.pieces);
+	}
+
+	function clearF2lHint() {
+		if (!f2lPair) {
+			return;
+		}
+		f2lPair = null;
+		clearHighlight();
 	}
 
 	function renderCurrent() {
@@ -892,16 +970,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (toolHintSpan) {
 			renderHint(hintInfo, toolHintSpan);
 		}
-		var slots = [];
-		if (hintInfo.stage == 'f2l' && hintInfo.pairs) {
-			for (var i = 0; i < hintInfo.pairs.length; i++) {
-				var p = hintInfo.pairs[i];
-				if (!p.done && p.slot) {
-					slots = slots.concat(p.slot);
-				}
-			}
-		}
-		highlightSlots(slots);
 		showOverlay(hintInfo);
 	}
 
@@ -929,6 +997,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (!hint) {
 			return;
 		}
+		// the position moved on while the hint was being computed
+		if (facelet && curFacelet && facelet != curFacelet) {
+			return;
+		}
+		f2lPair = null;
 		baseHint = hint;
 		hintInfo = composeHint(hint);
 		hintFacelet = facelet;
@@ -1150,7 +1223,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		} else if (signal == 'timerStatus') {
 			onTimerStatus(value);
 		} else if (signal == 'property') {
-			if (/^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpF2LCount|cpUndoMax)$/.exec(value[0])) {
+			if (/^(cpEnabled|cpTimeout|cpLlmode|cpUndoMax)$/.exec(value[0])) {
 				clearAll();
 				refreshStatus();
 				if (isEnabled()) {
@@ -1169,8 +1242,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	function initProps() {
 		kernel.regProp('copilot', 'cpEnabled', 0, L('COPILOT_ENABLED', 'Enable Copilot'), [false], 1);
 		kernel.regProp('copilot', 'cpTimeout', 2, L('COPILOT_TIMEOUT', 'Hint after no progress (s)'), [6, 0, 120], 1);
-		kernel.regProp('copilot', 'cpF2LDepth', 2, L('COPILOT_F2LDEPTH', 'F2L max search depth'), [8, 4, 12], 1);
-		kernel.regProp('copilot', 'cpF2LCount', 2, L('COPILOT_F2LCOUNT', 'Number of F2L hints'), [2, 1, 4], 1);
 		kernel.regProp('copilot', 'cpUndoMax', 2, L('COPILOT_UNDOMAX', 'Re-plan after this many wrong moves'), [3, 1, 10], 1);
 		kernel.regProp('copilot', 'cpLlmode', 1, L('COPILOT_LLMODE', 'Last-layer method'), ['op', ['op', 'alll', 'off'], [
 			L('COPILOT_LL_OP', 'OLL + PLL'),
@@ -1202,7 +1273,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regListener('copilot', 'giikerState', procSignal);
 		kernel.regListener('copilot', 'virtualState', procSignal);
 		kernel.regListener('copilot', 'timerStatus', procSignal);
-		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpTimeout|cpF2LDepth|cpLlmode|cpF2LCount|cpUndoMax|cpCustom)$/);
+		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpTimeout|cpLlmode|cpUndoMax|cpCustom)$/);
 		kernel.regListener('copilot', 'scramble', procSignal);
 		kernel.regListener('copilot', 'time', procSignal);
 

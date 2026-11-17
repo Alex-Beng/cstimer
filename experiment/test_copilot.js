@@ -1,8 +1,8 @@
 "use strict";
 
 // Verify the Copilot engine:
-//   1. F2L next-pair hints always complete the pair, keep the cross and the
-//      already solved pairs, and are truly minimal (brute force cross-check).
+//   1. The F2L hint highlights the corner and edge of the pair that needs the
+//      fewest moves, and that distance is minimal (independent BFS check).
 //   2. The ALLL LUT is complete (every entry solves its key) and we report how
 //      much of the 62208 last-layer states it covers.
 // Usage: node experiment/test_copilot.js [cases]
@@ -171,54 +171,73 @@ function fail(msg) {
 	console.log('FAIL ' + msg);
 }
 
-// ---- brute force reference for the next-pair definition ------------------
+// ---- minimal pair (no search) reference ----------------------------------
+// The engine ranks the four F2L pairs by the pruning distance of their
+// corner/edge coordinates.  Rebuild that distance here with an independent
+// BFS so the ranking can be cross-checked.
 
-function bruteShortestPair(base, maxDepth, solvedMask) {
-	function check(state) {
-		if (!crossSolved(state)) {
-			return false;
-		}
-		var solvedNow = 0;
-		for (var i = 0; i < 4; i++) {
-			if (isPairSolved(state, i)) {
-				solvedNow |= 1 << i;
-			}
-		}
-		for (var i = 0; i < 4; i++) {
-			if ((solvedMask & (1 << i)) && !(solvedNow & (1 << i))) {
-				return false;
-			}
-		}
-		return (solvedNow & ~solvedMask) != 0;
-	}
-	function dfs(state, depth, lastFace) {
-		if (depth == 0) {
-			return check(state);
-		}
-		for (var m = 0; m < 18; m++) {
-			var face = Math.floor(m / 3);
-			if (face == lastFace) {
-				continue;
-			}
-			if (dfs(mul(state, MOVE_CUBES[m]), depth - 1, face)) {
-				return true;
-			}
-		}
-		return false;
-	}
-	for (var d = 1; d <= maxDepth; d++) {
-		if (dfs(base, d, -1)) {
-			return d;
+function pairCoord(cc, pairIdx) {
+	var pair = copilot.F2L_PAIRS[pairIdx];
+	var cp = 0;
+	var co = 0;
+	for (var p = 0; p < 8; p++) {
+		if ((cc.ca[p] & 7) == pair.corner) {
+			cp = p;
+			co = cc.ca[p] >> 3;
+			break;
 		}
 	}
-	return 0;
+	var ep = 0;
+	var eo = 0;
+	for (var q = 0; q < 12; q++) {
+		if ((cc.ea[q] >> 1) == pair.edge) {
+			ep = q;
+			eo = cc.ea[q] & 1;
+			break;
+		}
+	}
+	return (cp * 3 + co) * 24 + ep * 2 + eo;
+}
+
+function refPairDistances(pairIdx) {
+	var table = new Int8Array(576);
+	table.fill(-1);
+	var solved = new mathlib.CubieCube();
+	table[pairCoord(solved, pairIdx)] = 0;
+	var frontier = [solved];
+	var depth = 0;
+	while (frontier.length && depth < 20) {
+		depth++;
+		var next = [];
+		for (var f = 0; f < frontier.length; f++) {
+			for (var m = 0; m < 18; m++) {
+				var ns = mul(frontier[f], MOVE_CUBES[m]);
+				var key = pairCoord(ns, pairIdx);
+				if (table[key] >= 0) {
+					continue;
+				}
+				table[key] = depth;
+				next.push(ns);
+			}
+		}
+		frontier = next;
+	}
+	return table;
+}
+
+var REF_PAIR_DIST = [refPairDistances(0), refPairDistances(1),
+	refPairDistances(2), refPairDistances(3)];
+
+var failures = 0;
+function fail(msg) {
+	failures++;
+	console.log('FAIL ' + msg);
 }
 
 // ---- 1. F2L --------------------------------------------------------------
 
 var f2lTests = 0;
 var f2lMoves = 0;
-var minimalChecks = 0;
 var attempts = 0;
 
 while (f2lTests < CASES && attempts < 20000) {
@@ -234,41 +253,56 @@ while (f2lTests < CASES && attempts < 20000) {
 		continue;
 	}
 	f2lTests++;
-	var solvedMask = 0;
-	for (var i = 0; i < 4; i++) {
-		if (isPairSolved(pos, i)) {
-			solvedMask |= 1 << i;
-		}
-	}
-	var hint = copilot.solveNextPair(facelet, {maxDepth: 8});
+	var hint = copilot.minPair(facelet);
 	if (!hint) {
 		fail('no F2L hint');
 		continue;
 	}
-	f2lMoves += hint.moves.length;
-	var after = applyAlg(pos, hint.alg);
-	if (!crossSolved(after)) {
-		fail('hint breaks cross: ' + hint.alg);
+	if (hint.pair < 0 || hint.pair > 3) {
+		fail('bad pair index ' + hint.pair);
+		continue;
 	}
-	if (!isPairSolved(after, hint.pair)) {
-		fail('hint does not solve its pair: ' + hint.alg);
+	if (hint.pieces.length != 5) {
+		fail('highlight should have 3 corner + 2 edge stickers, got ' + hint.pieces.length);
 	}
-	for (var i = 0; i < 4; i++) {
-		if ((solvedMask & (1 << i)) && !isPairSolved(after, i)) {
-			fail('hint breaks solved pair ' + i + ': ' + hint.alg);
+	var seen = {};
+	for (var i = 0; i < hint.pieces.length; i++) {
+		var idx = hint.pieces[i];
+		if (!(idx >= 0 && idx < 54) || seen[idx]) {
+			fail('bad highlighted facelet index ' + idx);
+		}
+		seen[idx] = 1;
+	}
+	var best = 99;
+	for (var p = 0; p < 4; p++) {
+		var info = copilot.pairInfo(facelet, p);
+		if (info.solved) {
+			continue;
+		}
+		var d = REF_PAIR_DIST[p][pairCoord(pos, p)];
+		if (d < best) {
+			best = d;
 		}
 	}
-	if (hint.moves.length <= 5) {
-		minimalChecks++;
-		var ref = bruteShortestPair(pos, hint.moves.length - 1, solvedMask);
-		if (ref) {
-			fail('not minimal: hint ' + hint.moves.length + ' vs ' + ref);
-		}
+	if (hint.distance != best) {
+		fail('picked a pair with ' + hint.distance + ' moves, minimum is ' + best);
 	}
+	if (hint.distance != REF_PAIR_DIST[hint.pair][pairCoord(pos, hint.pair)]) {
+		fail('distance disagrees with the reference BFS');
+	}
+	f2lMoves += hint.distance;
 }
 
-console.log('F2L cases', f2lTests, 'avg moves', (f2lMoves / Math.max(f2lTests, 1)).toFixed(2),
-	'minimality checks', minimalChecks);
+console.log('F2L cases', f2lTests, 'avg min moves', (f2lMoves / Math.max(f2lTests, 1)).toFixed(2));
+
+// a position without a solved cross has no F2L pair hint
+var loose = new mathlib.CubieCube();
+loose = applyMoves(loose, randomScramble(20));
+if (loose.toFaceCube() != mathlib.SOLVED_FACELET && !crossSolved(loose)) {
+	if (copilot.minPair(loose.toFaceCube())) {
+		fail('F2L hint returned before the cross is solved');
+	}
+}
 
 // ---- 2. ALLL -------------------------------------------------------------
 
