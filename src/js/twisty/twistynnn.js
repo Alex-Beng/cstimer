@@ -546,7 +546,11 @@
 			if (highlightSaved) {
 				for (var i = 0; i < highlightSaved.length; i++) {
 					var item = highlightSaved[i];
-					item[0].materials[0] = item[1];
+					if (item[2]) {
+						item[0].materials[1] = item[1];
+					} else {
+						item[0].materials.pop();
+					}
 				}
 				highlightSaved = null;
 			}
@@ -568,8 +572,13 @@
 					var pos = findStickerFacelet(twisty, f, s);
 					if (pos >= 0 && wanted[pos]) {
 						var mesh = stickers[s][1].children[0];
-						highlightSaved.push([mesh, mesh.materials[0]]);
-						mesh.materials[0] = highlightMaterial;
+						var hadBorder = mesh.materials.length > 1;
+						highlightSaved.push([mesh, hadBorder ? mesh.materials[1] : null, hadBorder]);
+						if (hadBorder) {
+							mesh.materials[1] = highlightBorderMaterial;
+						} else {
+							mesh.materials.push(highlightBorderMaterial);
+						}
 					}
 				}
 			}
@@ -610,8 +619,10 @@
 			return ret;
 		}
 
-		var highlightMaterial = new THREE.MeshBasicMaterial({
+		var highlightBorderMaterial = new THREE.MeshBasicMaterial({
 			color: 0xff00ff,
+			wireframe: true,
+			wireframeLinewidth: 2,
 			opacity: cubeOptions.opacity
 		});
 

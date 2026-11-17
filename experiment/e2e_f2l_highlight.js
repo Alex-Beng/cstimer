@@ -3,8 +3,8 @@
 // Regression test for the Copilot F2L highlight on the 3D virtual cube:
 //  - reaching a real F2L position and asking for a hint calls
 //    timer.virtual.highlight with the corner+edge stickers of the min pair
-//  - exactly those 5 stickers are recoloured (not a stale facelet mapping)
-//  - clearing the hint restores the original colours
+//  - exactly those 5 stickers get a highlighted border (not a stale mapping)
+//  - the sticker fill colour is kept
 // Usage: node experiment/e2e_f2l_highlight.js
 var http = require('http');
 var fs = require('fs');
@@ -111,20 +111,24 @@ var server = http.createServer(function(req, res) {
 			timer.virtual.highlight = function(f) { calls.push(f); return orig(f); };
 			copilotUI.onFacelet(found.facelet, found.facelet);
 			copilotUI.requestHint();
-			function magenta(mesh) {
-				var c = mesh && mesh.materials && mesh.materials[0] && mesh.materials[0].color;
-				return !!(c && c.r === 1 && c.g === 0 && c.b === 1);
+			function magenta(color) {
+				return !!(color && color.r === 1 && color.g === 0 && color.b === 1);
 			}
 			var n = 0;
+			var fillOverwritten = 0;
 			var state = __puzzle.twisty.cubePieces;
 			for (var f = 0; f < state.length; f++) {
 				for (var s = 0; s < state[f].length; s++) {
-					if (magenta(state[f][s][1].children[0])) {
+					var mats = state[f][s][1].children[0].materials;
+					if (mats && mats[1] && magenta(mats[1].color)) {
 						n++;
+						if (mats[0] && magenta(mats[0].color)) {
+							fillOverwritten++;
+						}
 					}
 				}
 			}
-			return {calls: calls, magenta: n};
+			return {calls: calls, magenta: n, fillOverwritten: fillOverwritten};
 		}, setup.found);
 		console.log('hint', JSON.stringify(hint));
 		var call = null;
@@ -138,7 +142,23 @@ var server = http.createServer(function(req, res) {
 			fail('highlighted ' + JSON.stringify(call) + ', expected ' + JSON.stringify(setup.found.pieces));
 		}
 		if (hint.magenta != 5) {
-			fail('expected 5 highlighted stickers, got ' + hint.magenta);
+			fail('expected 5 highlighted borders, got ' + hint.magenta);
+		}
+		if (hint.fillOverwritten) {
+			fail('sticker fill colour was overwritten');
+		}
+
+		var rect = await page.evaluate(function() {
+			var cv = document.querySelector('#container canvas');
+			var r = cv.getBoundingClientRect();
+			return {x: r.x, y: r.y, width: r.width, height: r.height};
+		});
+		var on = await page.screenshot({clip: rect});
+		await page.evaluate(function() { timer.virtual.highlight(null); });
+		await page.waitForTimeout(400);
+		var off = await page.screenshot({clip: rect});
+		if (Buffer.compare(on, off) === 0) {
+			fail('highlight did not change the rendered cube');
 		}
 	}
 
