@@ -68,9 +68,9 @@ var puzzleFactory = execMain(function() {
 		}
 	};
 
-	Puzzle.prototype.highlight = function(facelets) {
+	Puzzle.prototype.highlight = function(facelets, color) {
 		if (this.twisty.highlight) {
-			return this.twisty.highlight(this.twisty, facelets);
+			return this.twisty.highlight(this.twisty, facelets, color);
 		}
 	};
 

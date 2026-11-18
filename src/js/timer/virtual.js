@@ -136,11 +136,11 @@ execMain(function(timer) {
 		} catch (e) {}
 	}
 
-	function highlightFacelets(facelets) {
+	function highlightFacelets(facelets, color) {
 		if (!puzzleObj || !puzzleObj.highlight) {
 			return;
 		}
-		puzzleObj.highlight(facelets);
+		puzzleObj.highlight(facelets, color);
 	}
 
 	function scrambleIt() {

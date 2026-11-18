@@ -82,6 +82,7 @@ var COPILOT_METHOD = 'Hint method';
 var COPILOT_METHOD_CFOP = 'CFOP (Cross/F2L/LL)';
 var COPILOT_METHOD_OFF = 'Off';
 var COPILOT_METHOD_OFF_MSG = 'Hint method is off';
+var COPILOT_COLOR = 'Highlight color';
 var COPILOT_TIMEOUT = 'Hint after no progress (s)';
 var COPILOT_F2LDEPTH = 'F2L max search depth';
 var COPILOT_HINT = 'Hint';

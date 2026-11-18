@@ -150,6 +150,44 @@ var server = http.createServer(function(req, res) {
 			fail('sticker fill colour was overwritten');
 		}
 
+		var customColor = await page.evaluate(function(found) {
+			kernel.setProp('cpColor', '#ff00ff');
+			var passed = null;
+			var orig = timer.virtual.highlight;
+			timer.virtual.highlight = function(slots, color) {
+				passed = color;
+				return orig(slots, color);
+			};
+			copilotUI.onFacelet(found.facelet, found.facelet);
+			copilotUI.requestHint();
+			timer.virtual.highlight = orig;
+			__puzzle.highlight(found.pieces, 0xff00ff);
+			var magenta = 0;
+			var state = __puzzle.twisty.cubePieces;
+			for (var f = 0; f < state.length; f++) {
+				for (var s2 = 0; s2 < state[f].length; s2++) {
+					var m = state[f][s2][1].children[0].materials[1];
+					var c = m && m.color;
+					if (m && m.wireframe && c && c.r === 1 && c.g === 0 && c.b === 1) {
+						magenta++;
+					}
+				}
+			}
+			kernel.setProp('cpColor', '#ffd700');
+			__puzzle.highlight(found.pieces, 0xffd700);
+			return {passed: passed, magenta: magenta};
+		}, setup.found);
+		console.log('custom color', JSON.stringify(customColor));
+		if (customColor.passed !== 0xff00ff) {
+			fail('copilot did not pass the custom highlight color');
+		}
+		if (customColor.magenta != 5) {
+			fail('expected 5 magenta highlighted borders, got ' + customColor.magenta);
+		}
+
+
+
+
 		var turned = await page.evaluate(function(found) {
 			kernel.setProp('cpEnabled', true);
 			kernel.setProp('vrcMP', 'cfop');
@@ -205,6 +243,7 @@ var server = http.createServer(function(req, res) {
 		if (!gate.withN || !gate.withRoux || !gate.withEdge) {
 			fail('copilot hints still depend on the timer method');
 		}
+
 
 		function sampleFlash() {
 			return page.evaluate(function() {

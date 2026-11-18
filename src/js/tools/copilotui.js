@@ -101,6 +101,12 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return kernel.getProp('cpLlmode', 'op');
 	}
 
+	function highlightColor() {
+		var val = String(kernel.getProp('cpColor', '#ffd700'));
+		var m = /^#([0-9a-fA-F]{6})$/.exec(val);
+		return m ? parseInt(m[1], 16) : 0xffd700;
+	}
+
 	/** how many off-track moves before the hint is re-planned */
 	function maxUndo() {
 		return Math.min(10, Math.max(1, ~~kernel.getProp('cpUndoMax', 3)));
@@ -911,7 +917,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	function highlightFacelets(slots) {
 		try {
 			if (timer.virtual && timer.virtual.highlight) {
-				timer.virtual.highlight(slots && slots.length ? slots : null);
+				timer.virtual.highlight(slots && slots.length ? slots : null, highlightColor());
 			}
 		} catch (e) {}
 	}
@@ -1261,6 +1267,10 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				} else {
 					stopPolling();
 				}
+			} else if (value[0] == 'cpColor') {
+				if (f2lPair && curFacelet) {
+					highlightFacelets(f2lPair.pieces);
+				}
 			} else if (value[0] == 'cpCustom') {
 				rebuildHintFromDefault();
 			}
@@ -1275,6 +1285,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			L('COPILOT_METHOD_CFOP', 'CFOP (Cross/F2L/LL)'),
 			L('COPILOT_METHOD_OFF', 'Off')
 		]], 1);
+		kernel.regProp('copilot', 'cpColor', 3, L('COPILOT_COLOR', 'Highlight color'), ['#ffd700'], 1);
 		kernel.regProp('copilot', 'cpTimeout', 2, L('COPILOT_TIMEOUT', 'Hint after no progress (s)'), [6, 0, 120], 1);
 		kernel.regProp('copilot', 'cpUndoMax', 2, L('COPILOT_UNDOMAX', 'Re-plan after this many wrong moves'), [3, 1, 10], 1);
 		kernel.regProp('copilot', 'cpLlmode', 1, L('COPILOT_LLMODE', 'Last-layer method'), ['op', ['op', 'alll', 'off'], [
@@ -1307,7 +1318,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regListener('copilot', 'giikerState', procSignal);
 		kernel.regListener('copilot', 'virtualState', procSignal);
 		kernel.regListener('copilot', 'timerStatus', procSignal);
-		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpMethod|cpTimeout|cpLlmode|cpUndoMax|cpCustom)$/);
+		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpMethod|cpColor|cpTimeout|cpLlmode|cpUndoMax|cpCustom)$/);
 		kernel.regListener('copilot', 'scramble', procSignal);
 		kernel.regListener('copilot', 'time', procSignal);
 

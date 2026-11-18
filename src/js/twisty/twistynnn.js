@@ -546,13 +546,14 @@
 		var highlightSaved = null;
 		var highlightFlashTid = 0;
 		var highlightFlashStep = 0;
+		var highlightColor = 0xffd700;
 
 		function stopHighlightFlash() {
 			if (highlightFlashTid) {
 				clearInterval(highlightFlashTid);
 				highlightFlashTid = 0;
 			}
-			highlightBorderMaterial.color.setHex(0xffd700);
+			highlightBorderMaterial.color.setHex(highlightColor);
 			highlightBorderMaterial.opacity = 1;
 			highlightBorderMaterial.wireframeLinewidth = 2;
 		}
@@ -563,7 +564,7 @@
 				return;
 			}
 			highlightFlashStep = 1 - highlightFlashStep;
-			highlightBorderMaterial.color.setHex(highlightFlashStep ? 0xffee58 : 0xffd700);
+			highlightBorderMaterial.color.setHex(highlightColor);
 			// MeshBasicMaterial ignores opacity unless it is transparent, so
 			// the flash has to fade the border instead of only changing its
 			// colour
@@ -581,8 +582,11 @@
 			highlightFlashTid = setInterval(flashHighlight, 280);
 		}
 
-		function highlight(twisty, facelets) {
+		function highlight(twisty, facelets, color) {
 			twisty = twisty || this;
+			if (typeof color == 'number' && isFinite(color)) {
+				highlightColor = color & 0xffffff;
+			}
 			var state = twisty.cubePieces;
 			if (highlightSaved) {
 				for (var i = 0; i < highlightSaved.length; i++) {
@@ -624,6 +628,7 @@
 					}
 				}
 			}
+			highlightBorderMaterial.color.setHex(highlightColor);
 			startHighlightFlash();
 			twistyScene.requestRender();
 		}
