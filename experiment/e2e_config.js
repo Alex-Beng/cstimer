@@ -59,6 +59,7 @@ var server = http.createServer(function(req, res) {
 			defaultEnabled: kernel.getProp('cpEnabled', null),
 			checkedNow: checkbox.length ? checkbox[0].checked : null,
 			hasTimeoutProp: kernel.getProp('cpTimeout', null),
+			method: kernel.getProp('cpMethod', null),
 			hasDepthProp: kernel.getProp('cpF2LDepth', null),
 			hasCountProp: kernel.getProp('cpF2LCount', null),
 			llMode: kernel.getProp('cpLlmode', null),
@@ -73,9 +74,10 @@ var server = http.createServer(function(req, res) {
 	if (info.checkedNow !== false) fail('window checkbox should start unchecked');
 	if (info.windowCheckboxes < 1) fail('copilot window has no enable checkbox');
 	if (info.hasTimeoutProp !== 6) fail('cpTimeout default should be 6, got ' + info.hasTimeoutProp);
-	if (info.hasDepthProp !== null) fail('cpF2LDepth should be gone, got ' + info.hasDepthProp);
+	if (info.hasDepthProp != null) fail('cpF2LDepth should be gone, got ' + info.hasDepthProp);
+	if (info.method !== 'cfop') fail('cpMethod should default to cfop, got ' + info.method);
 	if (info.llMode !== 'op') fail('cpLlmode should default to op, got ' + info.llMode);
-	if (info.hasCountProp !== null) fail('cpF2LCount should be gone, got ' + info.hasCountProp);
+	if (info.hasCountProp != null) fail('cpF2LCount should be gone, got ' + info.hasCountProp);
 	if (info.undoMax !== 3) fail('cpUndoMax default should be 3, got ' + info.undoMax);
 
 	// toggling the checkbox must flip the property and the status text
@@ -110,6 +112,7 @@ var server = http.createServer(function(req, res) {
 	if (!hasCopilotTab) fail('Options panel has no Copilot tab');
 	if (opts.inputs.indexOf('cpEnabled') == -1) fail('cpEnabled not rendered in Options');
 	if (opts.inputs.indexOf('cpTimeout') == -1) fail('cpTimeout not rendered in Options');
+	if (opts.inputs.indexOf('cpMethod') == -1) fail('cpMethod not rendered in Options');
 	if (opts.inputs.indexOf('cpF2LDepth') != -1) fail('cpF2LDepth still rendered in Options');
 	if (opts.inputs.indexOf('cpLlmode') == -1) fail('cpLlmode not rendered in Options');
 	if (opts.inputs.indexOf('cpF2LCount') != -1) fail('cpF2LCount still rendered in Options');

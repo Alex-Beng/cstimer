@@ -180,8 +180,9 @@ var server = http.createServer(function(req, res) {
 		}
 
 		var gate = await page.evaluate(function(found) {
-			function probe(method) {
-				kernel.setProp('vrcMP', method);
+			function probe(timerMethod, hintMethod) {
+				kernel.setProp('cpMethod', hintMethod);
+				kernel.setProp('vrcMP', timerMethod);
 				kernel.pushSignal('virtualState', [found.facelet]);
 				var n = 0;
 				var orig = timer.virtual.highlight;
@@ -191,18 +192,18 @@ var server = http.createServer(function(req, res) {
 				return n;
 			}
 			return {
-				edge: probe('edge'),
-				corner: probe('corner'),
-				roux: probe('roux'),
-				cfop: probe('cfop')
+				off: probe('cfop', 'off'),
+				withN: probe('n', 'cfop'),
+				withRoux: probe('roux', 'cfop'),
+				withEdge: probe('edge', 'cfop')
 			};
 		}, setup.found);
 		console.log('gating', JSON.stringify(gate));
-		if (gate.edge || gate.corner || gate.roux) {
-			fail('copilot hinted with a non-CFOP multi-phase method');
+		if (gate.off) {
+			fail('copilot hinted while its hint method was off');
 		}
-		if (!gate.cfop) {
-			fail('copilot did not hint with a CFOP multi-phase method');
+		if (!gate.withN || !gate.withRoux || !gate.withEdge) {
+			fail('copilot hints still depend on the timer method');
 		}
 
 		function sampleFlash() {

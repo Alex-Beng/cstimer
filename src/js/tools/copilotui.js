@@ -78,18 +78,18 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return kernel.getProp('cpEnabled', false);
 	}
 
-	// the copilot only knows the CFOP stages, so its hints only make sense
-	// when the multi-phase timer is set to CFOP or one of its variants
-	var CFOP_METHODS = {
-		cfop: 1,
-		fp: 1,
-		cf4op: 1,
-		cf4o2p2: 1,
-		cf3zb: 1
+	// Copilot hint methods.  Timing is independent: a solve may be timed with
+	// any vrcMP, or not multi-phase at all, and still use the CFOP hints.
+	var HINT_METHODS = {
+		cfop: 1
 	};
 
-	function methodAllowsHint() {
-		return !!CFOP_METHODS[kernel.getProp('vrcMP', 'n')];
+	function hintMethod() {
+		return kernel.getProp('cpMethod', 'cfop');
+	}
+
+	function methodEnabled() {
+		return !!HINT_METHODS[hintMethod()];
 	}
 
 	function timeoutMs() {
@@ -141,7 +141,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function canRun() {
-		if (!isEnabled() || !isCube3() || !methodAllowsHint()) {
+		if (!isEnabled() || !isCube3() || !methodEnabled()) {
 			return false;
 		}
 		if (tools.isCurTrainScramble && tools.isCurTrainScramble()) {
@@ -1075,8 +1075,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		var status = L('COPILOT_DISABLED', 'Copilot is off');
 		if (isEnabled()) {
-			status = methodAllowsHint() ? L('COPILOT_WAITING', 'Waiting for a solve...') :
-				L('COPILOT_NEED_CFOP', 'Copilot hints need a CFOP multi-phase method');
+			status = methodEnabled() ? L('COPILOT_WAITING', 'Waiting for a solve...') :
+				L('COPILOT_METHOD_OFF_MSG', 'Hint method is off');
 		}
 		showStatus(status);
 		var show = isEnabled();
@@ -1253,10 +1253,10 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		} else if (signal == 'timerStatus') {
 			onTimerStatus(value);
 		} else if (signal == 'property') {
-			if (/^(cpEnabled|cpTimeout|cpLlmode|cpUndoMax|vrcMP)$/.exec(value[0])) {
+			if (/^(cpEnabled|cpMethod|cpTimeout|cpLlmode|cpUndoMax)$/.exec(value[0])) {
 				clearAll();
 				refreshStatus();
-				if (isEnabled()) {
+				if (isEnabled() && methodEnabled()) {
 					startPolling();
 				} else {
 					stopPolling();
@@ -1271,6 +1271,10 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	function initProps() {
 		kernel.regProp('copilot', 'cpEnabled', 0, L('COPILOT_ENABLED', 'Enable Copilot'), [false], 1);
+		kernel.regProp('copilot', 'cpMethod', 1, L('COPILOT_METHOD', 'Hint method'), ['cfop', ['cfop', 'off'], [
+			L('COPILOT_METHOD_CFOP', 'CFOP (Cross/F2L/LL)'),
+			L('COPILOT_METHOD_OFF', 'Off')
+		]], 1);
 		kernel.regProp('copilot', 'cpTimeout', 2, L('COPILOT_TIMEOUT', 'Hint after no progress (s)'), [6, 0, 120], 1);
 		kernel.regProp('copilot', 'cpUndoMax', 2, L('COPILOT_UNDOMAX', 'Re-plan after this many wrong moves'), [3, 1, 10], 1);
 		kernel.regProp('copilot', 'cpLlmode', 1, L('COPILOT_LLMODE', 'Last-layer method'), ['op', ['op', 'alll', 'off'], [
@@ -1303,7 +1307,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regListener('copilot', 'giikerState', procSignal);
 		kernel.regListener('copilot', 'virtualState', procSignal);
 		kernel.regListener('copilot', 'timerStatus', procSignal);
-		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpTimeout|cpLlmode|cpUndoMax|cpCustom|vrcMP)$/);
+		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpMethod|cpTimeout|cpLlmode|cpUndoMax|cpCustom)$/);
 		kernel.regListener('copilot', 'scramble', procSignal);
 		kernel.regListener('copilot', 'time', procSignal);
 
