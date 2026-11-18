@@ -2,7 +2,8 @@
 
 // Verify the Copilot engine:
 //   1. The F2L hint highlights the corner and edge of the pair that needs the
-//      fewest moves, and that distance is minimal (independent BFS check).
+//      fewest moves to insert without breaking the cross or a solved pair,
+//      cross-checked by an independent exact search.
 //   2. The ALLL LUT is complete (every entry solves its key) and we report how
 //      much of the 62208 last-layer states it covers.
 // Usage: node experiment/test_copilot.js [cases]
@@ -234,6 +235,135 @@ function refPairDistances(pairIdx) {
 var REF_PAIR_DIST = [refPairDistances(0), refPairDistances(1),
 	refPairDistances(2), refPairDistances(3)];
 
+// independent cross-distance table, used to prune the reference pair search
+var REF_CROSS = (function() {
+	function key(cc) {
+		var ret = 0;
+		for (var i = 0; i < 4; i++) {
+			var piece = 4 + i;
+			for (var p = 0; p < 12; p++) {
+				if ((cc.ea[p] >> 1) == piece) {
+					ret = ret * 24 + p * 2 + (cc.ea[p] & 1);
+					break;
+				}
+			}
+		}
+		return ret;
+	}
+	var table = new Int8Array(331776);
+	table.fill(-1);
+	var solved = new mathlib.CubieCube();
+	table[key(solved)] = 0;
+	var frontier = [solved];
+	var depth = 0;
+	while (frontier.length && depth < 16) {
+		depth++;
+		var next = [];
+		for (var f = 0; f < frontier.length; f++) {
+			for (var m = 0; m < 18; m++) {
+				var ns = mul(frontier[f], MOVE_CUBES[m]);
+				var k = key(ns);
+				if (table[k] >= 0) {
+					continue;
+				}
+				table[k] = depth;
+				next.push(ns);
+			}
+		}
+		frontier = next;
+	}
+	return {key: key, table: table};
+})();
+
+function refLowerBound(cc, pairIdx, protectMask) {
+	var h = REF_PAIR_DIST[pairIdx][pairCoord(cc, pairIdx)];
+	var c = REF_CROSS.table[REF_CROSS.key(cc)];
+	if (c < 0) {
+		c = 99;
+	}
+	if (c > h) {
+		h = c;
+	}
+	for (var p = 0; p < 4; p++) {
+		if (!(protectMask & (1 << p)) || p == pairIdx) {
+			continue;
+		}
+		var d = REF_PAIR_DIST[p][pairCoord(cc, p)];
+		if (d > h) {
+			h = d;
+		}
+	}
+	return h;
+}
+
+function refGoal(cc, pairIdx, protectMask) {
+	if (!isPairSolved(cc, pairIdx) || !crossSolved(cc)) {
+		return false;
+	}
+	for (var p = 0; p < 4; p++) {
+		if ((protectMask & (1 << p)) && !isPairSolved(cc, p)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+function refSearchPair(cc, pairIdx, depth, protectMask) {
+	var path = [];
+	function dfs(state, remaining, lastFace) {
+		if (refLowerBound(state, pairIdx, protectMask) > remaining) {
+			return null;
+		}
+		if (remaining == 0) {
+			return refGoal(state, pairIdx, protectMask) ? path.slice() : null;
+		}
+		for (var m = 0; m < 18; m++) {
+			var face = ~~(m / 3);
+			if (face == lastFace) {
+				continue;
+			}
+			var ns = mul(state, MOVE_CUBES[m]);
+			path.push(MOVE_NAMES[m]);
+			var found = dfs(ns, remaining - 1, face);
+			if (found) {
+				return found;
+			}
+			path.pop();
+		}
+		return null;
+	}
+	return dfs(cc, depth, -1);
+}
+
+// exact reference: shortest insertion while keeping the cross and every
+// already solved pair intact
+function refMinPair(cc, maxDepth) {
+	var protect = 0;
+	for (var p = 0; p < 4; p++) {
+		if (isPairSolved(cc, p)) {
+			protect |= 1 << p;
+		}
+	}
+	if (!crossSolved(cc) || protect == 0xf) {
+		return null;
+	}
+	for (var depth = 1; depth <= maxDepth; depth++) {
+		for (var p2 = 0; p2 < 4; p2++) {
+			if (protect & (1 << p2)) {
+				continue;
+			}
+			if (refLowerBound(cc, p2, protect) > depth) {
+				continue;
+			}
+			var path = refSearchPair(cc, p2, depth, protect);
+			if (path) {
+				return {pair: p2, distance: depth, moves: path};
+			}
+		}
+	}
+	return null;
+}
+
 var failures = 0;
 function fail(msg) {
 	failures++;
@@ -279,22 +409,26 @@ while (f2lTests < CASES && attempts < 20000) {
 		}
 		seen[idx] = 1;
 	}
-	var best = 99;
+	if (hint.exact !== true || !hint.moves) {
+		fail('F2L hint was not an exact search');
+		continue;
+	}
+	if (hint.distance != hint.moves.length) {
+		fail('F2L distance does not match its move sequence');
+	}
+	var after = applyAlg(pos, hint.moves.join(' '));
+	if (!isPairSolved(after, hint.pair) || !crossSolved(after)) {
+		fail('F2L hint does not insert the pair while keeping the cross');
+	}
 	for (var p = 0; p < 4; p++) {
-		var info = copilot.pairInfo(facelet, p);
-		if (info.solved) {
-			continue;
-		}
-		var d = REF_PAIR_DIST[p][pairCoord(pos, p)];
-		if (d < best) {
-			best = d;
+		if (isPairSolved(pos, p) && !isPairSolved(after, p)) {
+			fail('F2L hint broke an already solved pair');
 		}
 	}
-	if (hint.distance != best) {
-		fail('picked a pair with ' + hint.distance + ' moves, minimum is ' + best);
-	}
-	if (hint.distance != REF_PAIR_DIST[hint.pair][pairCoord(pos, hint.pair)]) {
-		fail('distance disagrees with the reference BFS');
+	var ref = refMinPair(pos, 11);
+	if (!ref || ref.pair != hint.pair || ref.distance != hint.distance) {
+		fail('cheapest pair is ' + (ref && ref.pair) + ' in ' +
+			(ref && ref.distance) + ' moves, got ' + hint.pair + ' in ' + hint.distance);
 	}
 	// turning the whole cube must not swap the highlighted pair
 	for (var r = 0; r < 24; r++) {

@@ -5,7 +5,8 @@
  *
  * Pure logic (no DOM) shared by the main thread and the scramble worker.
  * Input is a facelet string in csTimer order ("URFDLB").  Hints:
- *   - F2L: the corner/edge pair that needs the fewest moves (no search)
+ *   - F2L: the corner/edge pair needing the fewest moves while keeping the
+ *     cross and already solved pairs intact (no algorithm is shown)
  *   - last layer: ALLL (1LLL) recognition through a lazily built LUT
  */
 function makeCubeCopilot() {
@@ -217,25 +218,49 @@ function makeCubeCopilot() {
 		if (CROSS_PRUN) {
 			return CROSS_PRUN;
 		}
+		var cubes = getMoveCubes();
+		// transition of one (position, orientation) pair per move; this lets
+		// the BFS work on the 331776 integer keys instead of full cubes,
+		// which is ~25x faster than multiplying CubieCubes
+		var trans = new Uint8Array(24 * 18);
+		for (var pv = 0; pv < 24; pv++) {
+			var pos = ~~(pv / 2);
+			var ori = pv & 1;
+			for (var m = 0; m < 18; m++) {
+				var cube = cubes[m];
+				for (var ed = 0; ed < 12; ed++) {
+					if ((cube.ea[ed] >> 1) == pos) {
+						trans[pv * 18 + m] = (ed << 1) | (ori ^ (cube.ea[ed] & 1));
+						break;
+					}
+				}
+			}
+		}
 		var table = new Int8Array(CROSS_STATES);
 		table.fill(-1);
-		var solved = new mathlib.CubieCube();
-		table[crossKey(solved)] = 0;
-		var frontier = [solved];
-		var cubes = getMoveCubes();
+		var start = crossKey(new mathlib.CubieCube());
+		table[start] = 0;
+		var frontier = [start];
 		var depth = 0;
 		while (frontier.length && depth < 16) {
 			depth++;
 			var next = [];
 			for (var f = 0; f < frontier.length; f++) {
-				for (var m = 0; m < cubes.length; m++) {
-					var ns = mul(frontier[f], cubes[m]);
-					var key = crossKey(ns);
-					if (table[key] >= 0) {
+				var key = frontier[f];
+				var v3 = key % 24;
+				key = (key - v3) / 24;
+				var v2 = key % 24;
+				key = (key - v2) / 24;
+				var v1 = key % 24;
+				var v0 = (key - v1) / 24;
+				for (var m2 = 0; m2 < 18; m2++) {
+					var nk = (((trans[v0 * 18 + m2] * 24 + trans[v1 * 18 + m2]) * 24 +
+						trans[v2 * 18 + m2]) * 24 + trans[v3 * 18 + m2]);
+					if (table[nk] >= 0) {
 						continue;
 					}
-					table[key] = depth;
-					next.push(ns);
+					table[nk] = depth;
+					next.push(nk);
 				}
 			}
 			frontier = next;
@@ -370,11 +395,8 @@ function makeCubeCopilot() {
 		};
 	}
 
-	/**
-	 * The unsolved pair that needs the fewest moves to be inserted.  This is
-	 * the F2L hint: only the pieces to highlight, no algorithm.
-	 */
-	function minPair(facelet) {
+	/** cheapest pair by the pruning distance only (admissible but not exact) */
+	function approxMinPair(facelet) {
 		var cc = cubieFromFacelet(facelet);
 		if (!isCrossSolved(cc)) {
 			return null;
@@ -389,7 +411,136 @@ function makeCubeCopilot() {
 				best = info;
 			}
 		}
-		return annotateColors(facelet, best);
+		best = annotateColors(facelet, best);
+		if (best) {
+			best.exact = false;
+		}
+		return best;
+	}
+
+	/**
+	 * Admissible lower bound for inserting `pairIdx` without breaking the
+	 * cross or any protected pair, so it can prune the exact search.
+	 */
+	function pairLowerBound(cc, pairIdx, protectMask) {
+		var h = pairDistance(pairIdx, cc);
+		var c = crossDistance(cc);
+		if (c > h) {
+			h = c;
+		}
+		for (var p = 0; p < 4; p++) {
+			if (!(protectMask & (1 << p)) || p == pairIdx) {
+				continue;
+			}
+			var d = pairDistance(p, cc);
+			if (d > h) {
+				h = d;
+			}
+		}
+		return h;
+	}
+
+	function pairGoal(cc, pairIdx, protectMask) {
+		if (!isPairSolved(cc, pairIdx) || !isCrossSolved(cc)) {
+			return false;
+		}
+		for (var p = 0; p < 4; p++) {
+			if ((protectMask & (1 << p)) && !isPairSolved(cc, p)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	function searchPairDepth(cc, pairIdx, depth, protectMask, deadline) {
+		var moves = getMoveCubes();
+		var path = [];
+
+		function dfs(state, remaining, lastFace) {
+			if (deadline && $.now() > deadline) {
+				return null;
+			}
+			if (pairLowerBound(state, pairIdx, protectMask) > remaining) {
+				return null;
+			}
+			if (remaining == 0) {
+				return pairGoal(state, pairIdx, protectMask) ? path.slice() : null;
+			}
+			for (var m = 0; m < moves.length; m++) {
+				var face = ~~(m / 3);
+				if (face == lastFace) {
+					continue;
+				}
+				var ns = mul(state, moves[m]);
+				path.push(MOVE_NAMES[m]);
+				var found = dfs(ns, remaining - 1, face);
+				if (found) {
+					return found;
+				}
+				path.pop();
+			}
+			return null;
+		}
+		return dfs(cc, depth, -1);
+	}
+
+	/**
+	 * The unsolved pair that really needs the fewest moves to be inserted,
+	 * keeping the cross and the already solved pairs intact.  Depths are
+	 * tried in increasing order and the search stops at the first depth where
+	 * any pair fits, so the usual cost is only a few milliseconds.  If the
+	 * time limit is hit, fall back to the pruning-distance ranking.
+	 */
+	function minPair(facelet, options) {
+		options = options || {};
+		var cc = cubieFromFacelet(facelet);
+		var solved = solvedPairMask(cc);
+		if (!isCrossSolved(cc) || solved == 0xf) {
+			return null;
+		}
+		var maxDepth = options.maxDepth || 11;
+		var deadline = $.now() + (options.timeLimit || 1000);
+		var cand = [];
+		var minLb = 99;
+		for (var i = 0; i < 4; i++) {
+			if (solved & (1 << i)) {
+				continue;
+			}
+			var lb = pairLowerBound(cc, i, solved);
+			cand.push({i: i, lb: lb, found: null});
+			if (lb < minLb) {
+				minLb = lb;
+			}
+		}
+		for (var depth = minLb; depth <= maxDepth; depth++) {
+			for (var c = 0; c < cand.length; c++) {
+				var item = cand[c];
+				if (item.lb > depth || item.found) {
+					continue;
+				}
+				var path = searchPairDepth(cc, item.i, depth, solved, deadline);
+				if (path) {
+					item.found = path;
+					item.depth = depth;
+				}
+				if ($.now() > deadline) {
+					break;
+				}
+			}
+			for (var c2 = 0; c2 < cand.length; c2++) {
+				if (cand[c2].found) {
+					var info = annotateColors(facelet, pairInfoOf(cc, cand[c2].i));
+					info.distance = cand[c2].depth;
+					info.moves = cand[c2].found;
+					info.exact = true;
+					return info;
+				}
+			}
+			if ($.now() > deadline) {
+				break;
+			}
+		}
+		return approxMinPair(facelet);
 	}
 
 	/** shortest sequence that completes the D cross (used to guide back) */
