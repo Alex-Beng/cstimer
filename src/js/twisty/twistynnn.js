@@ -469,6 +469,11 @@
 			return ret;
 		}
 
+		function isMoveBatchFinished() {
+			return twistyScene.isMoveBatchFinished ?
+				twistyScene.isMoveBatchFinished() : twistyScene.isMoveFinished();
+		}
+
 		//return 0 if solved
 		//return n if n step remained
 		function isSolved(twisty) {
@@ -477,10 +482,10 @@
 			}
 			if (twisty.options.dimension == 3) {
 				var curProgress = cubeutil.getProgress(getFacelet(twisty), kernel.getProp('vrcMP', 'n'));
-				return twistyScene.isMoveFinished() ? curProgress : Math.max(1, curProgress);
+				return isMoveBatchFinished() ? curProgress : Math.max(1, curProgress);
 			}
 
-			if (!twistyScene.isMoveFinished()) {
+			if (!isMoveBatchFinished()) {
 				return 1;
 			}
 

@@ -460,7 +460,9 @@
 		}
 
 		function isSolved(twisty) {
-			if (!twistyScene.isMoveFinished()) {
+			var batchFinished = twistyScene.isMoveBatchFinished ?
+				twistyScene.isMoveBatchFinished() : twistyScene.isMoveFinished();
+			if (!batchFinished) {
 				return 1;
 			}
 			for (var i = 0; i < 18; i++) {

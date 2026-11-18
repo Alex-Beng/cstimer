@@ -10,10 +10,11 @@ execMain(function(timer) {
 	var startSeq = 0;
 	var scrSeq = 0;
 	var scrSettleTid = 0;
+	var isScrambling = false;
 
 	//mstep: 0 move start, 1 move doing, 2 move finish
 	function moveListener(move, mstep, ts) {
-		if (mstep == 1) {
+		if (mstep == 1 || isScrambling) {
 			return;
 		}
 		var now = ts || $.now();
@@ -152,7 +153,14 @@ execMain(function(timer) {
 		scramble = puzzleObj.parseScramble(scramble, true);
 		isReseted = false;
 
-		puzzleObj.applyMoves(scramble);
+		// scramble moves are not user moves: do not run the solve/phase logic
+		// for them (important for relay, where the timer is already running)
+		isScrambling = true;
+		try {
+			puzzleObj.applyMoves(scramble);
+		} finally {
+			isScrambling = false;
+		}
 		puzzleObj.moveCnt(true);
 		rawMoves = [
 			[]

@@ -480,6 +480,12 @@ window.twistyjs = (function() {
 			return moveQueue.length == 0 && currentMove.length == 0 && cachedFireMoves.length == 0;
 		}
 
+		// the current animation batch is applied, even if the user has already
+		// queued the next turn: solved detection must not wait for that turn
+		this.isMoveBatchFinished = function() {
+			return currentMove.length == 0 && cachedFireMoves.length == 0;
+		}
+
 		this.isAnimationFinished = function() {
 			return currentMove.length == 0;
 		}
