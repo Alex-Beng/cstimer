@@ -3,7 +3,8 @@
 // Exhaustive check of the two-look last layer (OLL then PLL) over every legal
 // last-layer state with F2L solved.  For every state the OLL hint must orient
 // the layer, and the following PLL hint must solve it.  Also checks the 1LLL
-// mode still solves everything.
+// mode still solves everything, and that ZBLL / COLL hints solve their cases
+// (or fall back to a valid two-look sequence).
 var fs = require('fs');
 var path = require('path');
 var vm = require('vm');
@@ -12,7 +13,7 @@ var root = path.resolve(__dirname, '..');
 var ctx = {console: console, process: {env: {}}, module: {exports: {}}, Date: Date, Math: Math, JSON: JSON, self: {}};
 vm.createContext(ctx);
 vm.runInContext('var $={now:function(){return Date.now();},noop:function(){}};', ctx);
-['isaac.js', 'utillib.js', 'mathlib.js', 'alll.js', 'ollpll.js', 'copilot.js'].forEach(function(f) {
+['isaac.js', 'utillib.js', 'mathlib.js', 'alll.js', 'ollpll.js', 'zbll.js', 'coll.js', 'copilot.js'].forEach(function(f) {
 	var c = fs.readFileSync(path.join(root, 'src/js/lib', f), 'utf8');
 	if (f == 'utillib.js') c = c.replace('const ISCSTIMER = true;', 'const ISCSTIMER = false;');
 	vm.runInContext(c, ctx);
@@ -72,11 +73,16 @@ for (var a = 0; a < 2; a++) for (var b = 0; b < 2; b++) for (var c = 0; c < 2; c
 }
 
 copilot.warmUp();
+copilot.ensureZbllLut();
+copilot.ensureCollLut();
 console.log('OLL table', Object.keys(copilot.ensureOllLut()).length,
-	'| PLL table', Object.keys(copilot.ensurePllLut()).length);
+	'| PLL table', Object.keys(copilot.ensurePllLut()).length,
+	'| ZBLL table', copilot.zbllLutSize(),
+	'| COLL table', Object.keys(copilot.ensureCollLut()).length);
 
 var total = 0;
 var kinds = {oll: 0, pll: 0, alll: 0, auf: 0};
+var zbllModes = {}, collModes = {}, eoStates = 0;
 var bad = 0;
 var samples = [];
 
@@ -138,12 +144,60 @@ for (var ci = 0; ci < PERMS.length; ci++) {
 					if (samples.length < 5) samples.push(['alll-fail', facelet, ha && ha.kind, ha && ha.alg,
 						ha && copilot.getStage(applyAlg(facelet, ha.moves))]);
 				}
+
+				var eoOk = (cube.ea[0] & 1) == 0 && (cube.ea[1] & 1) == 0 &&
+					(cube.ea[2] & 1) == 0 && (cube.ea[3] & 1) == 0;
+				var cornersOk = cube.ca[0] == 0 && cube.ca[1] == 1 && cube.ca[2] == 2 && cube.ca[3] == 3;
+				if (eoOk && !cornersOk) {
+					eoStates++;
+				}
+
+				function finish(mode) {
+					var fl = facelet;
+					var seq = [];
+					for (var step = 0; step < 6; step++) {
+						if (copilot.getStage(fl) == 'solved') {
+							return {ok: true, kinds: seq};
+						}
+						var h = copilot.solveLastLayer(fl, mode);
+						if (!h || h.kind == 'off' || h.kind == 'no-alg') {
+							return {ok: false, kinds: seq, hint: h};
+						}
+						seq.push(h.kind);
+						if (h.kind != 'off' && h.kind != 'no-alg' && h.kind != 'skip' &&
+							!copilot.validateAlg(fl, h.moves, h)) {
+							return {ok: false, kinds: seq, stage: 'invalid', alg: h.alg};
+						}
+						fl = applyAlg(fl, h.moves);
+					}
+					return {ok: false, kinds: seq, stage: copilot.getStage(fl)};
+				}
+
+				['zbll', 'coll'].forEach(function(mode) {
+					var r = finish(mode);
+					var stat = mode == 'zbll' ? zbllModes : collModes;
+					stat[r.kinds.join('>')] = (stat[r.kinds.join('>')] || 0) + 1;
+					if (!r.ok) {
+						bad++;
+						if (samples.length < 5) samples.push([mode + '-fail', facelet, JSON.stringify(r)]);
+					}
+				});
 			}
 		}
 	}
 }
 
+// the dedicated algorithms must actually be used, not silently skipped
+if (!zbllModes.zbll) {
+	bad++;
+	samples.push(['zbll never used']);
+}
+if (!collModes.coll) {
+	bad++;
+	samples.push(['coll never used']);
+}
 console.log('states', total, 'hint kinds', JSON.stringify(kinds));
+console.log('EO non-PLL states', eoStates, '| zbll chains', JSON.stringify(zbllModes), '| coll chains', JSON.stringify(collModes));
 console.log('samples', JSON.stringify(samples));
 console.log(bad == 0 ? 'ALL OK' : ('FAILURES: ' + bad));
 process.exitCode = bad == 0 ? 0 : 1;

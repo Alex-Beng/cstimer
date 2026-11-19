@@ -1,13 +1,15 @@
 "use strict";
 
 /**
- * Cube Copilot: stage-aware hints for 3x3 CFOP solves.
+ * Cube Copilot: stage-aware hints for 3x3 solves.
  *
  * Pure logic (no DOM) shared by the main thread and the scramble worker.
  * Input is a facelet string in csTimer order ("URFDLB").  Hints:
- *   - F2L: the corner/edge pair needing the fewest moves while keeping the
+ *   - CFOP: the corner/edge pair needing the fewest moves while keeping the
  *     cross and already solved pairs intact (no algorithm is shown)
- *   - last layer: ALLL (1LLL) recognition through a lazily built LUT
+ *   - CFOP last layer: OLL/PLL, COLL, ZBLL and ALLL (1LLL) recognition through
+ *     lazily built lookup tables
+ *   - Roux: CMLL algorithms once both blocks are complete
  */
 function makeCubeCopilot() {
 	var ALLL = null;
@@ -87,12 +89,33 @@ function makeCubeCopilot() {
 		return isCrossSolved(cc) && solvedPairMask(cc) == 0xf;
 	}
 
+	/** both Roux blocks (everything except the M slice and U layer) */
+	function isF2BDone(cc) {
+		for (var c = 4; c < 8; c++) {
+			if (cc.ca[c] != c) {
+				return false;
+			}
+		}
+		for (var e = 4; e < 12; e++) {
+			if (e == 5 || e == 7) {
+				continue;
+			}
+			if (cc.ea[e] != e * 2) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	function isLastLayerSolved(cc) {
 		return cc.isEqual(mathlib.CubieCube.SOLVED);
 	}
 
-	/** 'cross' | 'f2l' | 'll' | 'solved' */
-	function getStage(cc) {
+	/** 'cross' | 'f2l' | 'll' | 'solved' (CFOP) */
+	function getStage(cc, method) {
+		if (method == 'roux') {
+			return getRouxStage(cc);
+		}
 		if (isLastLayerSolved(cc)) {
 			return 'solved';
 		}
@@ -103,6 +126,17 @@ function makeCubeCopilot() {
 			return 'f2l';
 		}
 		return 'cross';
+	}
+
+	/** 'blocks' | 'cmll' | 'lse' | 'solved' (Roux) */
+	function getRouxStage(cc) {
+		if (isLastLayerSolved(cc)) {
+			return 'solved';
+		}
+		if (!isF2BDone(cc)) {
+			return 'blocks';
+		}
+		return cornersSolvedOnTop(cc) ? 'lse' : 'cmll';
 	}
 
 	/**
@@ -917,6 +951,34 @@ function makeCubeCopilot() {
 		return true;
 	}
 
+	/** the U-layer edges are flipped correctly (ZBLL/COLL precondition) */
+	function edgesOriented(cc) {
+		for (var i = 0; i < 4; i++) {
+			if (cc.ea[i] & 1) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	function cornersSolvedOnTop(cc) {
+		for (var i = 0; i < 4; i++) {
+			if (cc.ca[i] != i) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/** corner permutation/orientation only: COLL recognition ignores the edges */
+	function cornerKey(cc) {
+		var ret = [];
+		for (var i = 0; i < 4; i++) {
+			ret.push(cc.ca[i] & 7, cc.ca[i] >> 3);
+		}
+		return ret.join(',');
+	}
+
 	function buildOllLut() {
 		OLL_LUT = {};
 		var list = (typeof OLL_DATA == 'undefined') ? [] : OLL_DATA;
@@ -1081,6 +1143,236 @@ function makeCubeCopilot() {
 		return null;
 	}
 
+	// ------------------------------------------------------------ ZBLL / COLL
+
+	var ZBLL = null;
+	var ZBLL_READY = false;
+	var COLL_LUT = null;
+
+	function buildZbllLut() {
+		ZBLL = {};
+		var list = (typeof ZBLL_DATA == 'undefined') ? [] : ZBLL_DATA;
+		for (var i = 0; i < list.length; i++) {
+			var e = parseEntry(list[i]);
+			if (!e) {
+				continue;
+			}
+			for (var pre = 0; pre < 4; pre++) {
+				for (var post = 0; post < 4; post++) {
+					var seq = tokensOf(AUF_STR[pre]).concat(e.tokens, tokensOf(AUF_STR[post]));
+					var state = inverseState(seq);
+					if (!isF2LDone(state) || !edgesOriented(state)) {
+						continue;
+					}
+					var test = cloneCube(state);
+					for (var k = 0; k < seq.length; k++) {
+						test.selfMoveStr(seq[k]);
+					}
+					if (!isLastLayerSolved(test)) {
+						continue;
+					}
+					var key = llKey(state);
+					if (!isLegalKey(key)) {
+						continue;
+					}
+					var disp = seq.join(' ');
+					if (!(key in ZBLL) || disp.length < ZBLL[key].alg.length) {
+						ZBLL[key] = {name: e.name, alg: disp, len: disp.split(/\s+/).length};
+					}
+				}
+			}
+		}
+		ZBLL_READY = true;
+		return ZBLL;
+	}
+
+	function ensureZbllLut() {
+		return ZBLL || buildZbllLut();
+	}
+
+	function zbllReady() {
+		return ZBLL_READY;
+	}
+
+	function zbllLutSize() {
+		return ZBLL ? Object.keys(ZBLL).length : 0;
+	}
+
+	function zbllHint(cc) {
+		var hit = ensureZbllLut()[llKey(cc)];
+		if (!hit) {
+			return null;
+		}
+		var tokens = tokensOf(hit.alg);
+		return {
+			kind: 'zbll',
+			name: hit.name,
+			key: 'ZBLL/' + hit.name,
+			base: tokens.slice(),
+			pre: '',
+			post: '',
+			moves: tokens,
+			alg: hit.alg
+		};
+	}
+
+	function buildCollLut() {
+		COLL_LUT = {};
+		var list = (typeof COLL_DATA == 'undefined') ? [] : COLL_DATA;
+		for (var i = 0; i < list.length; i++) {
+			var e = parseEntry(list[i]);
+			if (!e) {
+				continue;
+			}
+			for (var pre = 0; pre < 4; pre++) {
+				for (var post = 0; post < 4; post++) {
+					var seq = tokensOf(AUF_STR[pre]).concat(e.tokens, tokensOf(AUF_STR[post]));
+					var state = inverseState(seq);
+					if (!isF2LDone(state) || !edgesOriented(state)) {
+						continue;
+					}
+					var test = cloneCube(state);
+					for (var k = 0; k < seq.length; k++) {
+						test.selfMoveStr(seq[k]);
+					}
+					if (!isF2LDone(test) || !edgesOriented(test) || !cornersSolvedOnTop(test)) {
+						continue;
+					}
+					var key = cornerKey(state);
+					var disp = seq.join(' ');
+					if (!(key in COLL_LUT) || disp.length < COLL_LUT[key].alg.length) {
+						COLL_LUT[key] = {name: e.name, alg: disp, len: disp.split(/\s+/).length};
+					}
+				}
+			}
+		}
+		return COLL_LUT;
+	}
+
+	function ensureCollLut() {
+		return COLL_LUT || buildCollLut();
+	}
+
+	function collHint(cc) {
+		var hit = ensureCollLut()[cornerKey(cc)];
+		if (!hit) {
+			return null;
+		}
+		var tokens = tokensOf(hit.alg);
+		return {
+			kind: 'coll',
+			name: hit.name,
+			key: 'COLL/' + hit.name,
+			base: tokens.slice(),
+			pre: '',
+			post: '',
+			moves: tokens,
+			alg: hit.alg
+		};
+	}
+
+	// ------------------------------------------------------------ Roux CMLL
+
+	var CMLL = null;
+
+	function buildCmllLut() {
+		CMLL = {};
+		var list = (typeof CMLL_DATA == 'undefined') ? [] : CMLL_DATA;
+		for (var i = 0; i < list.length; i++) {
+			var e = parseEntry(list[i]);
+			if (!e) {
+				continue;
+			}
+			for (var pre = 0; pre < 4; pre++) {
+				for (var post = 0; post < 4; post++) {
+					var seq = tokensOf(AUF_STR[pre]).concat(e.tokens, tokensOf(AUF_STR[post]));
+					var state = inverseState(seq);
+					if (!isF2BDone(state)) {
+						continue;
+					}
+					var test = cloneCube(state);
+					for (var k = 0; k < seq.length; k++) {
+						test.selfMoveStr(seq[k]);
+					}
+					if (!isF2BDone(test) || !cornersSolvedOnTop(test)) {
+						continue;
+					}
+					var key = cornerKey(state);
+					var disp = seq.join(' ');
+					if (!(key in CMLL) || disp.length < CMLL[key].alg.length) {
+						CMLL[key] = {name: e.name, alg: disp, len: disp.split(/\s+/).length};
+					}
+				}
+			}
+		}
+		return CMLL;
+	}
+
+	function ensureCmllLut() {
+		return CMLL || buildCmllLut();
+	}
+
+	function cmllLutSize() {
+		return CMLL ? Object.keys(CMLL).length : 0;
+	}
+
+	function cmllHint(cc) {
+		var hit = ensureCmllLut()[cornerKey(cc)];
+		if (!hit) {
+			return null;
+		}
+		var tokens = tokensOf(hit.alg);
+		return {
+			kind: 'cmll',
+			name: hit.name,
+			key: 'CMLL/' + hit.name,
+			base: tokens.slice(),
+			pre: '',
+			post: '',
+			moves: tokens,
+			alg: hit.alg
+		};
+	}
+
+	function solveCMLL(facelet) {
+		var cc = cubieFromFacelet(facelet);
+		if (!isF2BDone(cc) || cornersSolvedOnTop(cc)) {
+			return null;
+		}
+		var hit = cmllHint(cc);
+		if (hit) {
+			return hit;
+		}
+		// corners are solved up to an AUF, so only the top layer needs aligning
+		for (var k = 1; k < 4; k++) {
+			var test = cloneCube(cc);
+			for (var i = 0; i < k; i++) {
+				test.selfMoveStr('U');
+			}
+			if (cornersSolvedOnTop(test)) {
+				var alg = AUF_STR[k];
+				return {
+					kind: 'cmll',
+					name: 'AUF',
+					key: 'CMLL/AUF',
+					base: [alg],
+					pre: '',
+					post: '',
+					moves: [alg],
+					alg: alg
+				};
+			}
+		}
+		return null;
+	}
+
+	function twoLookHint(cc) {
+		if (!isOriented(cc)) {
+			return ollHint(cc);
+		}
+		return pllHint(cc) || aufHint(cc);
+	}
+
 	/**
 	 * Solve the last layer with the requested method:
 	 *   'alll' (default): one algorithm from the 1LLL table
@@ -1099,13 +1391,40 @@ function makeCubeCopilot() {
 		if (mode == 'off') {
 			return {kind: 'off', name: 'off', alg: '', moves: []};
 		}
-		if (mode == 'op') {
-			var ll;
-			if (!isOriented(cc)) {
-				ll = ollHint(cc);
-			} else {
-				ll = pllHint(cc) || aufHint(cc);
+		if (mode == 'zbll') {
+			if (edgesOriented(cc)) {
+				var z = zbllHint(cc);
+				if (z) {
+					return z;
+				}
 			}
+			// no ZBLL case (edges unoriented or unknown): standard two-look
+			var z2 = twoLookHint(cc);
+			if (z2) {
+				return z2;
+			}
+		}
+		if (mode == 'coll') {
+			if (edgesOriented(cc)) {
+				if (cornersSolvedOnTop(cc)) {
+					var ep = pllHint(cc) || aufHint(cc);
+					if (ep) {
+						return ep;
+					}
+				} else {
+					var c = collHint(cc);
+					if (c) {
+						return c;
+					}
+				}
+			}
+			var c2 = twoLookHint(cc);
+			if (c2) {
+				return c2;
+			}
+		}
+		if (mode == 'op') {
+			var ll = twoLookHint(cc);
 			if (ll) {
 				return ll;
 			}
@@ -1135,7 +1454,28 @@ function makeCubeCopilot() {
 	function getHint(facelet, options) {
 		options = options || {};
 		var cc = cubieFromFacelet(facelet);
-		var stage = getStage(cc);
+		var method = options.method || 'cfop';
+		var stage = getStage(cc, method);
+		if (method == 'roux') {
+			if (stage != 'cmll') {
+				return {stage: stage};
+			}
+			var cmll = solveCMLL(facelet);
+			if (!cmll) {
+				return {stage: 'cmll', kind: 'cmll', name: 'no-alg'};
+			}
+			return {
+				stage: 'cmll',
+				kind: cmll.kind,
+				name: cmll.name,
+				key: cmll.key,
+				base: cmll.base,
+				pre: cmll.pre,
+				post: cmll.post,
+				moves: cmll.moves,
+				alg: cmll.alg
+			};
+		}
 		if (stage == 'cross') {
 			var cross = solveCross(facelet, options);
 			if (!cross || !cross.length) {
@@ -1383,12 +1723,18 @@ function makeCubeCopilot() {
 		if (hint.kind == 'oll') {
 			return isOriented(cc);
 		}
+		if (hint.kind == 'coll') {
+			return isF2LDone(cc) && edgesOriented(cc) && cornersSolvedOnTop(cc);
+		}
+		if (hint.kind == 'cmll') {
+			return isF2BDone(cc) && cornersSolvedOnTop(cc);
+		}
 		return cc.isEqual(mathlib.CubieCube.SOLVED);
 	}
 
 	return {
-		getStage: function(facelet) {
-			return getStage(cubieFromFacelet(facelet));
+		getStage: function(facelet, method) {
+			return getStage(cubieFromFacelet(facelet), method);
 		},
 		solveCross: solveCross,
 		minPair: minPair,
@@ -1402,6 +1748,16 @@ function makeCubeCopilot() {
 		ensureAlllLut: ensureAlllLut,
 		alllReady: alllReady,
 		alllLutSize: alllLutSize,
+		buildZbllLut: buildZbllLut,
+		ensureZbllLut: ensureZbllLut,
+		zbllReady: zbllReady,
+		zbllLutSize: zbllLutSize,
+		buildCollLut: buildCollLut,
+		ensureCollLut: ensureCollLut,
+		buildCmllLut: buildCmllLut,
+		ensureCmllLut: ensureCmllLut,
+		cmllLutSize: cmllLutSize,
+		solveCMLL: solveCMLL,
 		buildOllLut: buildOllLut,
 		buildPllLut: buildPllLut,
 		ensureOllLut: ensureOllLut,

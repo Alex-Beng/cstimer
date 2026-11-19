@@ -103,7 +103,15 @@ var server = http.createServer(function(req, res) {
 		$('.opttable input, .opttable select').each(function() {
 			if (this.name) names.push(this.name);
 		});
-		return {tabs: tabs, inputs: names};
+		var llOptions = [];
+		$('select[name=cpLlmode] option').each(function() {
+			llOptions.push($(this).val());
+		});
+		var methodOptions = [];
+		$('select[name=cpMethod] option').each(function() {
+			methodOptions.push($(this).val());
+		});
+		return {tabs: tabs, inputs: names, llOptions: llOptions, methodOptions: methodOptions};
 	});
 	console.log('options tabs', JSON.stringify(opts.tabs));
 	var hasCopilotTab = opts.tabs.some(function(t) {
@@ -114,7 +122,13 @@ var server = http.createServer(function(req, res) {
 	if (opts.inputs.indexOf('cpTimeout') == -1) fail('cpTimeout not rendered in Options');
 	if (opts.inputs.indexOf('cpMethod') == -1) fail('cpMethod not rendered in Options');
 	if (opts.inputs.indexOf('cpF2LDepth') != -1) fail('cpF2LDepth still rendered in Options');
+	['cfop', 'roux', 'off'].forEach(function(m) {
+		if (opts.methodOptions.indexOf(m) == -1) fail('cpMethod missing option ' + m);
+	});
 	if (opts.inputs.indexOf('cpLlmode') == -1) fail('cpLlmode not rendered in Options');
+	['op', 'coll', 'zbll', 'alll', 'off'].forEach(function(m) {
+		if (opts.llOptions.indexOf(m) == -1) fail('cpLlmode missing option ' + m);
+	});
 	if (opts.inputs.indexOf('cpF2LCount') != -1) fail('cpF2LCount still rendered in Options');
 	if (opts.inputs.indexOf('cpUndoMax') == -1) fail('cpUndoMax not rendered in Options');
 

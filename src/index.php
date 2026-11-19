@@ -27,6 +27,9 @@
   <script type="text/javascript" src="js/lib/scrambleready.js"></script>
   <script type="text/javascript" src="js/lib/alll.js"></script>
   <script type="text/javascript" src="js/lib/ollpll.js"></script>
+  <script type="text/javascript" src="js/lib/zbll.js"></script>
+  <script type="text/javascript" src="js/lib/coll.js"></script>
+  <script type="text/javascript" src="js/lib/cmll.js"></script>
   <script type="text/javascript" src="js/lib/copilot.js"></script>
   <script type="text/javascript" src="js/kernel.js"></script>
   <script type="text/javascript" src="js/export.js"></script>

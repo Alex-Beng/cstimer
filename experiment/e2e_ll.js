@@ -1,7 +1,7 @@
 "use strict";
 
 // Two-look last layer through the UI: OLL hint, then (in the next position) a
-// PLL hint, plus the ALLL fallback and the "off" setting.
+// PLL hint, plus the ALLL fallback, ZBLL / COLL hints and the "off" setting.
 var http = require('http');
 var fs = require('fs');
 var path = require('path');
@@ -172,6 +172,61 @@ function overlay(page) {
 	console.log('pll overlay', JSON.stringify(pllShown));
 	if (!pllShown.visible) fail('PLL hint not shown after OLL');
 	if (!/PLL/.test(pllShown.text)) fail('overlay does not show a PLL hint: ' + pllShown.text);
+
+	// ZBLL / COLL hints use their own algorithm sets
+	var special = await page.evaluate(function() {
+		function inverseFacelet(alg) {
+			var cc = new mathlib.CubieCube();
+			alg.split(/\s+/).reverse().forEach(function(t) {
+				var m = /^([URFDLB]w?|[EMS])(2|')?$/.exec(t);
+				if (!m) return;
+				var mod = m[2] || '';
+				var inv = mod == '' ? "'" : (mod == "'" ? '' : '2');
+				cc.selfMoveStr(m[1] + inv);
+			});
+			return cc.toFaceCube();
+		}
+		function firstState(list, mode) {
+			for (var i = 0; i < list.length; i++) {
+				var alg = list[i].split('|')[1];
+				if (!alg || /[xyz]/.test(alg)) continue;
+				var f = inverseFacelet(alg);
+				var h = cubeCopilot.getHint(f, {timeLimit: 4000, llMode: mode});
+				if (h && h.kind == mode) {
+					return {facelet: f, kind: h.kind, name: h.name};
+				}
+			}
+			return null;
+		}
+		return {
+			zbll: firstState(ZBLL_DATA, 'zbll'),
+			coll: firstState(COLL_DATA, 'coll')
+		};
+	});
+	console.log('special', JSON.stringify(special));
+	if (!special.zbll || special.zbll.kind != 'zbll') fail('no ZBLL hint found');
+	if (!special.coll || special.coll.kind != 'coll') fail('no COLL hint found');
+
+	if (special.zbll) {
+		await page.evaluate(function(st) {
+			kernel.setProp('cpLlmode', 'zbll');
+			kernel.pushSignal('virtualState', [st.facelet]);
+		}, special.zbll);
+		await page.waitForTimeout(6000);
+		var zb = await overlay(page);
+		console.log('zbll overlay', JSON.stringify(zb));
+		if (!zb.visible || !/ZBLL/.test(zb.text)) fail('ZBLL hint not shown: ' + zb.text);
+	}
+	if (special.coll) {
+		await page.evaluate(function(st) {
+			kernel.setProp('cpLlmode', 'coll');
+			kernel.pushSignal('virtualState', [st.facelet]);
+		}, special.coll);
+		await page.waitForTimeout(6000);
+		var co = await overlay(page);
+		console.log('coll overlay', JSON.stringify(co));
+		if (!co.visible || !/COLL/.test(co.text)) fail('COLL hint not shown: ' + co.text);
+	}
 
 	// "off" suppresses the last-layer hint
 	await page.evaluate(function() {

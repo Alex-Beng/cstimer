@@ -28,6 +28,9 @@ lib/puzzlefactory.js \
 lib/scrambleready.js \
 lib/alll.js \
 lib/ollpll.js \
+lib/zbll.js \
+lib/coll.js \
+lib/cmll.js \
 lib/copilot.js \
 kernel.js \
 export.js \
@@ -133,6 +136,9 @@ lib/cubeutil.js \
 lib/scrambleready.js \
 lib/alll.js \
 lib/ollpll.js \
+lib/zbll.js \
+lib/coll.js \
+lib/cmll.js \
 lib/copilot.js \
 solver/ftocta.js \
 solver/megaminx.js \
