@@ -390,9 +390,6 @@ execMain(function(timer) {
 		setEnable: setEnable,
 		setSize: setSize,
 		reset: reset,
-		isRelay: function() {
-			return !!relayScrs;
-		},
 		highlight: highlightFacelets
 	};
 }, [timer]);

@@ -199,6 +199,19 @@ var server = http.createServer(function(req, res) {
 
 	console.log(JSON.stringify(relay, null, 2));
 
+	// The overlay must stay visible even when animations are disabled.
+	var glowWithoutAnimation = await page.evaluate(function() {
+		var style = document.createElement('style');
+		style.textContent = '#copilotRelayGlow { animation: none !important; }';
+		document.head.appendChild(style);
+		var opacity = parseFloat(getComputedStyle(document.getElementById('copilotRelayGlow')).opacity);
+		style.parentNode.removeChild(style);
+		return opacity;
+	});
+	if (!(glowWithoutAnimation > 0.4)) {
+		fail('relay glow disappears without animation: opacity ' + glowWithoutAnimation);
+	}
+
 	// The red state (slowBase) is still applied. Freeze the breathing animation
 	// and pin its opacity so the screenshot is deterministic, then sample the
 	// centre and the four edges.

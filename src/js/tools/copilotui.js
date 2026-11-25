@@ -69,6 +69,82 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var relaySuppressed = false; // aborted with ESC, stay clean until the next start
 
 	/**
+	 * The relay overlay styles ship with this script instead of style.css: the
+	 * service worker precaches style.css but not the JS modules, so a stale
+	 * cached stylesheet used to leave the overlay without any styling.  An
+	 * explicit breathing opacity also keeps it visible when animations are off.
+	 */
+	var relayStyle = [
+		'#copilotRelayGlow, #copilotRelayFlash {',
+		'    position: fixed;',
+		'    left: 0;',
+		'    top: 0;',
+		'    width: 100%;',
+		'    height: 100%;',
+		'    pointer-events: none;',
+		'    opacity: 0;',
+		'    background-repeat: no-repeat;',
+		'}',
+		'#copilotRelayGlow { z-index: 40; }',
+		'#copilotRelayFlash { z-index: 41; }',
+		/* four gradient strips + darker corners: only the screen edges tint */
+		'#copilotRelayGlow.relay-glow-ok {',
+		'    background-image:',
+		'        linear-gradient(to bottom, rgba(0, 185, 80, 0.9), rgba(0, 185, 80, 0.32) 30%, rgba(0, 185, 80, 0)),',
+		'        linear-gradient(to top, rgba(0, 185, 80, 0.9), rgba(0, 185, 80, 0.32) 30%, rgba(0, 185, 80, 0)),',
+		'        linear-gradient(to right, rgba(0, 185, 80, 0.85), rgba(0, 185, 80, 0.3) 30%, rgba(0, 185, 80, 0)),',
+		'        linear-gradient(to left, rgba(0, 185, 80, 0.85), rgba(0, 185, 80, 0.3) 30%, rgba(0, 185, 80, 0)),',
+		'        radial-gradient(circle at left top, rgba(0, 130, 60, 0.5), rgba(0, 130, 60, 0) 28vmin),',
+		'        radial-gradient(circle at right top, rgba(0, 130, 60, 0.5), rgba(0, 130, 60, 0) 28vmin),',
+		'        radial-gradient(circle at left bottom, rgba(0, 130, 60, 0.5), rgba(0, 130, 60, 0) 28vmin),',
+		'        radial-gradient(circle at right bottom, rgba(0, 130, 60, 0.5), rgba(0, 130, 60, 0) 28vmin);',
+		'    background-size: 100% 13vmin, 100% 13vmin, 16vmin 100%, 16vmin 100%, auto, auto, auto, auto;',
+		'    background-position: left top, left bottom, left top, right top, left top, right top, left bottom, right bottom;',
+		'    box-shadow: inset 0 0 3vmin 0 rgba(0, 60, 30, 0.18);',
+		'}',
+		'#copilotRelayGlow.relay-glow-bad {',
+		'    background-image:',
+		'        linear-gradient(to bottom, rgba(205, 0, 0, 1), rgba(165, 0, 0, 0.55) 30%, rgba(130, 0, 0, 0)),',
+		'        linear-gradient(to top, rgba(205, 0, 0, 1), rgba(165, 0, 0, 0.55) 30%, rgba(130, 0, 0, 0)),',
+		'        linear-gradient(to right, rgba(205, 0, 0, 0.95), rgba(165, 0, 0, 0.5) 30%, rgba(130, 0, 0, 0)),',
+		'        linear-gradient(to left, rgba(205, 0, 0, 0.95), rgba(165, 0, 0, 0.5) 30%, rgba(130, 0, 0, 0)),',
+		'        radial-gradient(circle at left top, rgba(110, 0, 0, 0.72), rgba(110, 0, 0, 0) 32vmin),',
+		'        radial-gradient(circle at right top, rgba(110, 0, 0, 0.72), rgba(110, 0, 0, 0) 32vmin),',
+		'        radial-gradient(circle at left bottom, rgba(110, 0, 0, 0.72), rgba(110, 0, 0, 0) 32vmin),',
+		'        radial-gradient(circle at right bottom, rgba(110, 0, 0, 0.72), rgba(110, 0, 0, 0) 32vmin);',
+		'    background-size: 100% 17vmin, 100% 17vmin, 20vmin 100%, 20vmin 100%, auto, auto, auto, auto;',
+		'    background-position: left top, left bottom, left top, right top, left top, right top, left bottom, right bottom;',
+		'    box-shadow: inset 0 0 2vmin 0 rgba(220, 0, 0, 0.45);',
+		'}',
+		'#copilotRelayGlow.relay-glow-on {',
+		'    opacity: 0.85;',
+		'    animation: copilotRelayBreath 2.4s ease-in-out infinite alternate;',
+		'}',
+		'#copilotRelayFlash.relay-flash-ok {',
+		'    background-image:',
+		'        linear-gradient(to bottom, rgba(80, 255, 130, 0.7), rgba(80, 255, 130, 0.25) 30%, rgba(80, 255, 130, 0)),',
+		'        linear-gradient(to top, rgba(80, 255, 130, 0.7), rgba(80, 255, 130, 0.25) 30%, rgba(80, 255, 130, 0)),',
+		'        linear-gradient(to right, rgba(80, 255, 130, 0.65), rgba(80, 255, 130, 0.22) 30%, rgba(80, 255, 130, 0)),',
+		'        linear-gradient(to left, rgba(80, 255, 130, 0.65), rgba(80, 255, 130, 0.22) 30%, rgba(80, 255, 130, 0));',
+		'    background-size: 100% 12vmin, 100% 12vmin, 15vmin 100%, 15vmin 100%;',
+		'    background-position: left top, left bottom, left top, right top;',
+		'}',
+		'#copilotRelayFlash.relay-flash-bad {',
+		'    background-image:',
+		'        linear-gradient(to bottom, rgba(255, 30, 30, 0.8), rgba(255, 30, 30, 0.3) 30%, rgba(255, 30, 30, 0)),',
+		'        linear-gradient(to top, rgba(255, 30, 30, 0.8), rgba(255, 30, 30, 0.3) 30%, rgba(255, 30, 30, 0)),',
+		'        linear-gradient(to right, rgba(255, 30, 30, 0.75), rgba(255, 30, 30, 0.26) 30%, rgba(255, 30, 30, 0)),',
+		'        linear-gradient(to left, rgba(255, 30, 30, 0.75), rgba(255, 30, 30, 0.26) 30%, rgba(255, 30, 30, 0));',
+		'    background-size: 100% 12vmin, 100% 12vmin, 15vmin 100%, 15vmin 100%;',
+		'    background-position: left top, left bottom, left top, right top;',
+		'}',
+		'#copilotRelayFlash.relay-flash-run { animation: copilotRelayFlash 500ms ease-out; }',
+		'@keyframes copilotRelayBreath { from { opacity: 0.42; } to { opacity: 0.95; } }',
+		'@keyframes copilotRelayFlash { from { opacity: 0.7; } to { opacity: 0; } }'
+	].join('\n');
+	$('<style id="copilotRelayStyle"/>').text(relayStyle).appendTo('head');
+
+	/**
 	 * Language strings live as globals of the selected locale file, and most
 	 * locales predate this module, so every lookup must tolerate a missing
 	 * string instead of throwing a ReferenceError.
@@ -824,7 +900,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function relayActive() {
-		return relayTargetMs() > 0 && !!(timer.virtual && timer.virtual.isRelay && timer.virtual.isRelay());
+		return relayTargetMs() > 0 && /^r\d+$/.test(kernel.getProp('scrType'));
 	}
 
 	function clearRelayFeedback() {
