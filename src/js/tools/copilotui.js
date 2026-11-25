@@ -60,6 +60,17 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var lastSentId = 0;
 	var queuedReq = null;
 
+	/* 3x3 relay pacing feedback: persistent background + one flash per cube */
+	var relayBodyStyle = null;
+	var RELAY_OK_BG = '#b8f6c4';
+	var RELAY_OK_FG = '#001b05';
+	var RELAY_FAIL_BG = '#7a0000';
+	var RELAY_FAIL_FG = '#ffffff';
+	var RELAY_FLASH_OK_BG = '#3dff79';
+	var RELAY_FLASH_OK_FG = '#001b05';
+	var RELAY_FLASH_FAIL_BG = '#ff2424';
+	var RELAY_FLASH_FAIL_FG = '#ffffff';
+
 	/**
 	 * Language strings live as globals of the selected locale file, and most
 	 * locales predate this module, so every lookup must tolerate a missing
@@ -756,6 +767,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function onTimerStatus(status) {
+		// keep the final pace colour after a relay, but clear it as soon as the
+		// next attempt starts (space with or without inspection)
+		if (status <= -2 || status >= 1) {
+			clearRelayFeedback();
+		}
 		if (status >= 1) {
 			isSolving = true;
 			stageSince = $.now();
@@ -770,6 +786,75 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			lockedOri = null;
 			finishHint();
 		}
+	}
+
+	// ------------------------------------------------------ relay feedback
+
+	function relayTargetMs() {
+		var val = parseFloat(kernel.getProp('cpRelayTarget', 0));
+		return isFinite(val) && val > 0 ? val * 1000 : 0;
+	}
+
+	function saveRelayBodyStyle() {
+		if (relayBodyStyle || !document.body) {
+			return;
+		}
+		var style = document.body.style;
+		relayBodyStyle = {
+			bg: style.backgroundColor,
+			fg: style.color,
+			transition: style.transition
+		};
+	}
+
+	function clearRelayFeedback() {
+		if (!relayBodyStyle || !document.body) {
+			return;
+		}
+		var style = document.body.style;
+		style.transition = 'none';
+		style.backgroundColor = relayBodyStyle.bg;
+		style.color = relayBodyStyle.fg;
+		style.transition = relayBodyStyle.transition;
+		relayBodyStyle = null;
+	}
+
+	/**
+	 * Start this cube with a bright flash, then settle on the cumulative
+	 * (x * target) colour until the next cube finishes.
+	 */
+	function setRelayFeedback(ok, baseBg, baseFg) {
+		if (!document.body) {
+			return;
+		}
+		saveRelayBodyStyle();
+		var style = document.body.style;
+		style.transition = 'none';
+		style.backgroundColor = ok ? RELAY_FLASH_OK_BG : RELAY_FLASH_FAIL_BG;
+		style.color = ok ? RELAY_FLASH_OK_FG : RELAY_FLASH_FAIL_FG;
+		document.body.offsetHeight;
+		style.transition = 'background-color 500ms ease-out, color 500ms ease-out';
+		style.backgroundColor = baseBg;
+		style.color = baseFg;
+	}
+
+	function onRelaySolve(value) {
+		var target = relayTargetMs();
+		if (!target) {
+			clearRelayFeedback();
+			return;
+		}
+		var idx = ~~value[0];
+		var elapsed = ~~value[2];
+		var split = ~~value[3];
+		if (idx <= 0) {
+			return;
+		}
+		var cumulativeOk = elapsed < idx * target;
+		var splitOk = split < target;
+		setRelayFeedback(splitOk,
+			cumulativeOk ? RELAY_OK_BG : RELAY_FAIL_BG,
+			cumulativeOk ? RELAY_OK_FG : RELAY_FAIL_FG);
 	}
 
 	// ---------------------------------------------------------------- display
@@ -1294,6 +1379,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			onFacelet(value[0], value[0]);
 		} else if (signal == 'timerStatus') {
 			onTimerStatus(value);
+		} else if (signal == 'relaySolve') {
+			onRelaySolve(value);
 		} else if (signal == 'property') {
 			if (/^(cpEnabled|cpMethod|cpTimeout|cpLlmode|cpUndoMax)$/.exec(value[0])) {
 				clearAll();
@@ -1309,6 +1396,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				}
 			} else if (value[0] == 'cpCustom') {
 				rebuildHintFromDefault();
+			} else if (value[0] == 'cpRelayTarget') {
+				clearRelayFeedback();
 			}
 		} else if (signal == 'scramble' || signal == 'time') {
 			clearAll();
@@ -1325,6 +1414,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regProp('copilot', 'cpColor', 3, L('COPILOT_COLOR', 'Highlight color'), ['#ffd700'], 1);
 		kernel.regProp('copilot', 'cpTimeout', 2, L('COPILOT_TIMEOUT', 'Hint after no progress (s)'), [6, 0, 120], 1);
 		kernel.regProp('copilot', 'cpUndoMax', 2, L('COPILOT_UNDOMAX', 'Re-plan after this many wrong moves'), [3, 1, 10], 1);
+		kernel.regProp('copilot', 'cpRelayTarget', 2, L('COPILOT_RELAY_TARGET', '3x3 relay target per cube (s, 0 = off)'), [0, 0, 999], 1);
 		kernel.regProp('copilot', 'cpLlmode', 1, L('COPILOT_LLMODE', 'Last-layer method'), ['op', ['op', 'coll', 'zbll', 'alll', 'off'], [
 			L('COPILOT_LL_OP', 'OLL + PLL'),
 			L('COPILOT_LL_COLL', 'COLL + EPLL'),
@@ -1356,8 +1446,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 		kernel.regListener('copilot', 'giikerState', procSignal);
 		kernel.regListener('copilot', 'virtualState', procSignal);
+		kernel.regListener('copilot', 'relaySolve', procSignal);
 		kernel.regListener('copilot', 'timerStatus', procSignal);
-		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpMethod|cpColor|cpTimeout|cpLlmode|cpUndoMax|cpCustom)$/);
+		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpMethod|cpColor|cpTimeout|cpLlmode|cpUndoMax|cpCustom|cpRelayTarget)$/);
 		kernel.regListener('copilot', 'scramble', procSignal);
 		kernel.regListener('copilot', 'time', procSignal);
 

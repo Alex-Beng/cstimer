@@ -85,6 +85,7 @@ var COPILOT_METHOD_OFF = '关闭';
 var COPILOT_METHOD_OFF_MSG = '提示解法已关闭';
 var COPILOT_COLOR = '高亮颜色';
 var COPILOT_TIMEOUT = '阶段无进展提示(秒)';
+var COPILOT_RELAY_TARGET = '三阶连拧每颗期望时间(秒，0 为关闭)';
 var COPILOT_F2LDEPTH = 'F2L 最大搜索深度';
 var COPILOT_HINT = '提示';
 var COPILOT_CLEAR = '清除';

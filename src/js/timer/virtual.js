@@ -11,6 +11,7 @@ execMain(function(timer) {
 	var scrSeq = 0;
 	var scrSettleTid = 0;
 	var isScrambling = false;
+	var relayLastTime = 0;
 
 	//mstep: 0 move start, 1 move doing, 2 move finish
 	function moveListener(move, mstep, ts) {
@@ -63,6 +64,9 @@ execMain(function(timer) {
 			if (mstep == 2 && curProgress == 0) {
 				moveCnt += puzzleObj.moveCnt();
 				cancelPendingStart();
+				if (curScrType == "r3") {
+					emitRelaySolve(now);
+				}
 				if (/^r\d+$/.exec(curScrType) && curScramble.length != 0) {
 					if (curScrType != "r3") {
 						curScrSize++;
@@ -136,6 +140,27 @@ execMain(function(timer) {
 		} catch (e) {}
 	}
 
+	/**
+	 * One cube of a 3x3 relay is done.  Report both the cumulative time and
+	 * the split for this cube, so the UI can show a persistent pace state and
+	 * a short green/red flash without knowing anything about the timer.
+	 */
+	function emitRelaySolve(now) {
+		if (!relayScrs || !curScramble || typeof curScramble.length != 'number') {
+			return;
+		}
+		var idx = relayScrs.length - curScramble.length;
+		if (idx <= 0) {
+			return;
+		}
+		var elapsed = now - timer.startTime();
+		var split = Math.max(0, elapsed - relayLastTime);
+		relayLastTime = elapsed;
+		kernel.pushSignal('relaySolve', [
+			idx, relayScrs.length, elapsed, split, curScramble.length == 0
+		]);
+	}
+
 	function highlightFacelets(facelets, color) {
 		if (!puzzleObj || !puzzleObj.highlight) {
 			return;
@@ -199,6 +224,7 @@ execMain(function(timer) {
 		try {
 			if (relayScrs) {
 				curScramble = relayScrs.slice();
+				relayLastTime = 0;
 			}
 			scrambleIt();
 		} catch (e) {
