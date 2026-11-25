@@ -85,7 +85,17 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'    opacity: 0;',
 		'    background-repeat: no-repeat;',
 		'}',
-		'#copilotRelayGlow { z-index: 40; }',
+		'#copilotRelayGlow {',
+		'    z-index: 40;',
+		/* depth knobs: a slower cumulative pace makes the red deeper and wider */
+		'    --relay-ce: 205, 0, 0;',
+		'    --relay-cm: 165, 0, 0;',
+		'    --relay-ct: 130, 0, 0;',
+		'    --relay-ck: 110, 0, 0;',
+		'    --relay-ey: 17vmin;',
+		'    --relay-ex: 20vmin;',
+		'    --relay-cc: 32vmin;',
+		'}',
 		'#copilotRelayFlash { z-index: 41; }',
 		/* four gradient strips + darker corners: only the screen edges tint */
 		'#copilotRelayGlow.relay-glow-ok {',
@@ -104,15 +114,15 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'}',
 		'#copilotRelayGlow.relay-glow-bad {',
 		'    background-image:',
-		'        linear-gradient(to bottom, rgba(205, 0, 0, 1), rgba(165, 0, 0, 0.55) 30%, rgba(130, 0, 0, 0)),',
-		'        linear-gradient(to top, rgba(205, 0, 0, 1), rgba(165, 0, 0, 0.55) 30%, rgba(130, 0, 0, 0)),',
-		'        linear-gradient(to right, rgba(205, 0, 0, 0.95), rgba(165, 0, 0, 0.5) 30%, rgba(130, 0, 0, 0)),',
-		'        linear-gradient(to left, rgba(205, 0, 0, 0.95), rgba(165, 0, 0, 0.5) 30%, rgba(130, 0, 0, 0)),',
-		'        radial-gradient(circle at left top, rgba(110, 0, 0, 0.72), rgba(110, 0, 0, 0) 32vmin),',
-		'        radial-gradient(circle at right top, rgba(110, 0, 0, 0.72), rgba(110, 0, 0, 0) 32vmin),',
-		'        radial-gradient(circle at left bottom, rgba(110, 0, 0, 0.72), rgba(110, 0, 0, 0) 32vmin),',
-		'        radial-gradient(circle at right bottom, rgba(110, 0, 0, 0.72), rgba(110, 0, 0, 0) 32vmin);',
-		'    background-size: 100% 17vmin, 100% 17vmin, 20vmin 100%, 20vmin 100%, auto, auto, auto, auto;',
+		'        linear-gradient(to bottom, rgba(var(--relay-ce), 1), rgba(var(--relay-cm), 0.55) 30%, rgba(var(--relay-ct), 0)),',
+		'        linear-gradient(to top, rgba(var(--relay-ce), 1), rgba(var(--relay-cm), 0.55) 30%, rgba(var(--relay-ct), 0)),',
+		'        linear-gradient(to right, rgba(var(--relay-ce), 0.95), rgba(var(--relay-cm), 0.5) 30%, rgba(var(--relay-ct), 0)),',
+		'        linear-gradient(to left, rgba(var(--relay-ce), 0.95), rgba(var(--relay-cm), 0.5) 30%, rgba(var(--relay-ct), 0)),',
+		'        radial-gradient(circle at left top, rgba(var(--relay-ck), 0.72), rgba(var(--relay-ck), 0) var(--relay-cc)),',
+		'        radial-gradient(circle at right top, rgba(var(--relay-ck), 0.72), rgba(var(--relay-ck), 0) var(--relay-cc)),',
+		'        radial-gradient(circle at left bottom, rgba(var(--relay-ck), 0.72), rgba(var(--relay-ck), 0) var(--relay-cc)),',
+		'        radial-gradient(circle at right bottom, rgba(var(--relay-ck), 0.72), rgba(var(--relay-ck), 0) var(--relay-cc));',
+		'    background-size: 100% var(--relay-ey), 100% var(--relay-ey), var(--relay-ex) 100%, var(--relay-ex) 100%, auto, auto, auto, auto;',
 		'    background-position: left top, left bottom, left top, right top, left top, right top, left bottom, right bottom;',
 		'    box-shadow: inset 0 0 2vmin 0 rgba(220, 0, 0, 0.45);',
 		'}',
@@ -140,9 +150,15 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'    background-position: left top, left bottom, left top, right top;',
 		'    box-shadow: inset 0 0 7vmin 1vmin rgba(255, 20, 20, 0.8);',
 		'}',
-		'#copilotRelayFlash.relay-flash-run { animation: copilotRelayFlash 650ms ease-out; }',
+		'#copilotRelayFlash.relay-flash-run { animation: copilotRelayFlashOnce 420ms ease-out; }',
+		'#copilotRelayFlash.relay-flash-bad.relay-flash-run { animation: copilotRelayFlashTwice 650ms ease-out; }',
 		'@keyframes copilotRelayBreath { from { opacity: 0.42; } to { opacity: 0.95; } }',
-		'@keyframes copilotRelayFlash {',
+		'@keyframes copilotRelayFlashOnce {',
+		'    0% { opacity: 0; }',
+		'    14% { opacity: 1; }',
+		'    100% { opacity: 0; }',
+		'}',
+		'@keyframes copilotRelayFlashTwice {',
 		'    0% { opacity: 0; }',
 		'    12% { opacity: 1; }',
 		'    42% { opacity: 0.2; }',
@@ -909,6 +925,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	function clearRelayFeedback() {
 		cancelRelayClear();
+		setRelayDepth(0);
 		relayGlow.removeClass('relay-glow-ok relay-glow-bad relay-glow-on');
 		relayFlash.removeClass('relay-flash-ok relay-flash-bad relay-flash-run');
 	}
@@ -941,11 +958,41 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	/**
+	 * How far behind the cumulative pace is (0 = on target, 1 = 60% over).
+	 * The red gets darker and thicker as the gap grows.
+	 */
+	function setRelayDepth(depth) {
+		var el = relayGlow[0];
+		if (!el) {
+			return;
+		}
+		var keys = ['--relay-ce', '--relay-cm', '--relay-ct', '--relay-ck', '--relay-ey', '--relay-ex', '--relay-cc'];
+		var i;
+		if (!(depth > 0)) {
+			for (i = 0; i < keys.length; i++) {
+				el.style.removeProperty(keys[i]);
+			}
+			return;
+		}
+		function mix(from, to) {
+			return Math.round(from + (to - from) * depth);
+		}
+		el.style.setProperty('--relay-ce', mix(205, 145) + ', 0, 0');
+		el.style.setProperty('--relay-cm', mix(165, 100) + ', 0, 0');
+		el.style.setProperty('--relay-ct', mix(130, 70) + ', 0, 0');
+		el.style.setProperty('--relay-ck', mix(110, 55) + ', 0, 0');
+		el.style.setProperty('--relay-ey', (17 + 5 * depth).toFixed(2) + 'vmin');
+		el.style.setProperty('--relay-ex', (20 + 5 * depth).toFixed(2) + 'vmin');
+		el.style.setProperty('--relay-cc', (32 + 6 * depth).toFixed(2) + 'vmin');
+	}
+
+	/**
 	 * Start this cube with a small flash, then breathe on the cumulative
 	 * (x * target) edge colour until the next cube finishes.
 	 */
-	function setRelayFeedback(splitOk, cumulativeOk) {
+	function setRelayFeedback(splitOk, cumulativeOk, depth) {
 		showRelayGlow(cumulativeOk);
+		setRelayDepth(cumulativeOk ? 0 : depth);
 
 		relayFlash.removeClass('relay-flash-run relay-flash-ok relay-flash-bad');
 		relayFlash.addClass(splitOk ? 'relay-flash-ok' : 'relay-flash-bad');
@@ -968,8 +1015,10 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		var cumulativeOk = elapsed < idx * target;
 		var splitOk = split < target;
+		var paceBudget = idx * target;
+		var depth = cumulativeOk ? 0 : Math.max(0, Math.min(1, (elapsed - paceBudget) / (paceBudget * 0.6)));
 		relayFinished = !!value[4];
-		setRelayFeedback(splitOk, cumulativeOk);
+		setRelayFeedback(splitOk, cumulativeOk, depth);
 		if (relayFinished) {
 			scheduleRelayClear(1200);
 		}

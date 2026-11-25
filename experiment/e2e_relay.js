@@ -113,6 +113,7 @@ var server = http.createServer(function(req, res) {
 				glowBg: glow.length ? getComputedStyle(glow[0]).backgroundImage : '',
 				glowSize: glow.length ? getComputedStyle(glow[0]).backgroundSize : '',
 				glowAnim: glow.length ? getComputedStyle(glow[0]).animationName : '',
+				glowDepth: glow.length ? glow[0].style.getPropertyValue('--relay-ce') : '',
 				flash: flash.attr('class') || '',
 				flashAnim: flash.length ? getComputedStyle(flash[0]).animationName : ''
 			};
@@ -284,8 +285,12 @@ var server = http.createServer(function(req, res) {
 
 		timer.virtual.onkeydown(32, {});
 		await wait(200);
-		kernel.pushSignal('relaySolve', [1, 2, 15000, 15000, false]);
-		await wait(100);
+		kernel.pushSignal('relaySolve', [1, 2, 11000, 11000, false]);
+		await wait(60);
+		var mildDepth = $('#copilotRelayGlow')[0].style.getPropertyValue('--relay-ce');
+		kernel.pushSignal('relaySolve', [1, 2, 40000, 40000, false]);
+		await wait(60);
+		var deepDepth = $('#copilotRelayGlow')[0].style.getPropertyValue('--relay-ce');
 		var beforeEsc = uiState();
 		timer.virtual.onkeydown(27, {});
 		await wait(200);
@@ -298,6 +303,8 @@ var server = http.createServer(function(req, res) {
 		return {
 			afterFinish: afterFinish,
 			afterFinishCleared: afterFinishCleared,
+			mildDepth: mildDepth,
+			deepDepth: deepDepth,
 			beforeEsc: beforeEsc,
 			afterEsc: afterEsc,
 			afterRestart: {
@@ -308,6 +315,8 @@ var server = http.createServer(function(req, res) {
 	});
 	relay.afterFinish = escState.afterFinish;
 	relay.afterFinishCleared = escState.afterFinishCleared;
+	relay.mildDepth = escState.mildDepth;
+	relay.deepDepth = escState.deepDepth;
 	relay.beforeEsc = escState.beforeEsc;
 	relay.afterEsc = escState.afterEsc;
 	relay.afterRestart = escState.afterRestart;
@@ -357,8 +366,14 @@ var server = http.createServer(function(req, res) {
 		fail('relay glow edge strips have no size: ' + relay.afterFirst.ui.glowSize);
 	}
 	if (!/relay-flash-run/.test(relay.afterFirst.ui.flash) ||
-		relay.afterFirst.ui.flashAnim != 'copilotRelayFlash') {
+		relay.afterFirst.ui.flashAnim != 'copilotRelayFlashOnce') {
 		fail('cube completion did not flash: ' + JSON.stringify(relay.afterFirst.ui));
+	}
+	if (relay.splitFlash.flashAnim != 'copilotRelayFlashTwice') {
+		fail('slow split should double-flash red: ' + relay.splitFlash.flashAnim);
+	}
+	if (relay.slowFlash.flashAnim != 'copilotRelayFlashOnce') {
+		fail('fast split should single-flash green: ' + relay.slowFlash.flashAnim);
 	}
 	if (!/relay-glow-ok/.test(relay.settledFirst.glow)) {
 		fail('fast relay should settle on the green edge: ' + relay.settledFirst.glow);
@@ -377,6 +392,9 @@ var server = http.createServer(function(req, res) {
 	}
 	if (!/relay-glow-bad/.test(relay.beforeEsc.glow)) {
 		fail('relay should be red before ESC: ' + relay.beforeEsc.glow);
+	}
+	if (!(parseFloat(relay.deepDepth) < parseFloat(relay.mildDepth) && parseFloat(relay.deepDepth) <= 150)) {
+		fail('red depth did not grow with the pace gap: mild=' + relay.mildDepth + ' deep=' + relay.deepDepth);
 	}
 	if (!/relay-glow-bad/.test(relay.afterFinish.glow)) {
 		fail('finishing the relay should show the final colour first: ' + relay.afterFinish.glow);
