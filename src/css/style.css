@@ -1555,30 +1555,31 @@ html.cspt:not(.m) .mywindow:hover, html.cspt:not(.m) #leftbar:hover {
 
 #copilotRelayGlow.relay-glow-ok {
     background-image:
-        linear-gradient(to bottom, rgba(40, 220, 110, 0.6), rgba(40, 220, 110, 0.24) 35%, rgba(40, 220, 110, 0)),
-        linear-gradient(to top, rgba(40, 220, 110, 0.6), rgba(40, 220, 110, 0.24) 35%, rgba(40, 220, 110, 0)),
-        linear-gradient(to right, rgba(40, 220, 110, 0.55), rgba(40, 220, 110, 0.22) 35%, rgba(40, 220, 110, 0)),
-        linear-gradient(to left, rgba(40, 220, 110, 0.55), rgba(40, 220, 110, 0.22) 35%, rgba(40, 220, 110, 0)),
-        radial-gradient(circle at left top, rgba(30, 190, 90, 0.32), rgba(30, 190, 90, 0) 26vmin),
-        radial-gradient(circle at right top, rgba(30, 190, 90, 0.32), rgba(30, 190, 90, 0) 26vmin),
-        radial-gradient(circle at left bottom, rgba(30, 190, 90, 0.32), rgba(30, 190, 90, 0) 26vmin),
-        radial-gradient(circle at right bottom, rgba(30, 190, 90, 0.32), rgba(30, 190, 90, 0) 26vmin);
-    background-size: 100% 12vmin, 100% 12vmin, 14vmin 100%, 14vmin 100%, auto, auto, auto, auto;
+        linear-gradient(to bottom, rgba(40, 220, 110, 0.85), rgba(40, 220, 110, 0.3) 30%, rgba(40, 220, 110, 0)),
+        linear-gradient(to top, rgba(40, 220, 110, 0.85), rgba(40, 220, 110, 0.3) 30%, rgba(40, 220, 110, 0)),
+        linear-gradient(to right, rgba(40, 220, 110, 0.8), rgba(40, 220, 110, 0.28) 30%, rgba(40, 220, 110, 0)),
+        linear-gradient(to left, rgba(40, 220, 110, 0.8), rgba(40, 220, 110, 0.28) 30%, rgba(40, 220, 110, 0)),
+        radial-gradient(circle at left top, rgba(30, 190, 90, 0.4), rgba(30, 190, 90, 0) 28vmin),
+        radial-gradient(circle at right top, rgba(30, 190, 90, 0.4), rgba(30, 190, 90, 0) 28vmin),
+        radial-gradient(circle at left bottom, rgba(30, 190, 90, 0.4), rgba(30, 190, 90, 0) 28vmin),
+        radial-gradient(circle at right bottom, rgba(30, 190, 90, 0.4), rgba(30, 190, 90, 0) 28vmin);
+    background-size: 100% 13vmin, 100% 13vmin, 16vmin 100%, 16vmin 100%, auto, auto, auto, auto;
     background-position: left top, left bottom, left top, right top, left top, right top, left bottom, right bottom;
 }
 
 #copilotRelayGlow.relay-glow-bad {
     background-image:
-        linear-gradient(to bottom, rgba(190, 0, 0, 0.95), rgba(160, 0, 0, 0.45) 32%, rgba(130, 0, 0, 0)),
-        linear-gradient(to top, rgba(190, 0, 0, 0.95), rgba(160, 0, 0, 0.45) 32%, rgba(130, 0, 0, 0)),
-        linear-gradient(to right, rgba(190, 0, 0, 0.9), rgba(160, 0, 0, 0.42) 32%, rgba(130, 0, 0, 0)),
-        linear-gradient(to left, rgba(190, 0, 0, 0.9), rgba(160, 0, 0, 0.42) 32%, rgba(130, 0, 0, 0)),
-        radial-gradient(circle at left top, rgba(110, 0, 0, 0.6), rgba(110, 0, 0, 0) 30vmin),
-        radial-gradient(circle at right top, rgba(110, 0, 0, 0.6), rgba(110, 0, 0, 0) 30vmin),
-        radial-gradient(circle at left bottom, rgba(110, 0, 0, 0.6), rgba(110, 0, 0, 0) 30vmin),
-        radial-gradient(circle at right bottom, rgba(110, 0, 0, 0.6), rgba(110, 0, 0, 0) 30vmin);
-    background-size: 100% 15vmin, 100% 15vmin, 17vmin 100%, 17vmin 100%, auto, auto, auto, auto;
+        linear-gradient(to bottom, rgba(205, 0, 0, 1), rgba(165, 0, 0, 0.55) 30%, rgba(130, 0, 0, 0)),
+        linear-gradient(to top, rgba(205, 0, 0, 1), rgba(165, 0, 0, 0.55) 30%, rgba(130, 0, 0, 0)),
+        linear-gradient(to right, rgba(205, 0, 0, 0.95), rgba(165, 0, 0, 0.5) 30%, rgba(130, 0, 0, 0)),
+        linear-gradient(to left, rgba(205, 0, 0, 0.95), rgba(165, 0, 0, 0.5) 30%, rgba(130, 0, 0, 0)),
+        radial-gradient(circle at left top, rgba(110, 0, 0, 0.72), rgba(110, 0, 0, 0) 32vmin),
+        radial-gradient(circle at right top, rgba(110, 0, 0, 0.72), rgba(110, 0, 0, 0) 32vmin),
+        radial-gradient(circle at left bottom, rgba(110, 0, 0, 0.72), rgba(110, 0, 0, 0) 32vmin),
+        radial-gradient(circle at right bottom, rgba(110, 0, 0, 0.72), rgba(110, 0, 0, 0) 32vmin);
+    background-size: 100% 17vmin, 100% 17vmin, 20vmin 100%, 20vmin 100%, auto, auto, auto, auto;
     background-position: left top, left bottom, left top, right top, left top, right top, left bottom, right bottom;
+    box-shadow: inset 0 0 2vmin 0 rgba(220, 0, 0, 0.45);
 }
 
 #copilotRelayGlow.relay-glow-on {
@@ -1591,40 +1592,40 @@ html.cspt:not(.m) .mywindow:hover, html.cspt:not(.m) #leftbar:hover {
 
 #copilotRelayFlash.relay-flash-ok {
     background-image:
-        linear-gradient(to bottom, rgba(80, 255, 130, 0.45), rgba(80, 255, 130, 0)),
-        linear-gradient(to top, rgba(80, 255, 130, 0.45), rgba(80, 255, 130, 0)),
-        linear-gradient(to right, rgba(80, 255, 130, 0.4), rgba(80, 255, 130, 0)),
-        linear-gradient(to left, rgba(80, 255, 130, 0.4), rgba(80, 255, 130, 0));
-    background-size: 100% 9vmin, 100% 9vmin, 11vmin 100%, 11vmin 100%;
+        linear-gradient(to bottom, rgba(80, 255, 130, 0.7), rgba(80, 255, 130, 0.25) 30%, rgba(80, 255, 130, 0)),
+        linear-gradient(to top, rgba(80, 255, 130, 0.7), rgba(80, 255, 130, 0.25) 30%, rgba(80, 255, 130, 0)),
+        linear-gradient(to right, rgba(80, 255, 130, 0.65), rgba(80, 255, 130, 0.22) 30%, rgba(80, 255, 130, 0)),
+        linear-gradient(to left, rgba(80, 255, 130, 0.65), rgba(80, 255, 130, 0.22) 30%, rgba(80, 255, 130, 0));
+    background-size: 100% 12vmin, 100% 12vmin, 15vmin 100%, 15vmin 100%;
     background-position: left top, left bottom, left top, right top;
 }
 
 #copilotRelayFlash.relay-flash-bad {
     background-image:
-        linear-gradient(to bottom, rgba(255, 40, 40, 0.5), rgba(255, 40, 40, 0)),
-        linear-gradient(to top, rgba(255, 40, 40, 0.5), rgba(255, 40, 40, 0)),
-        linear-gradient(to right, rgba(255, 40, 40, 0.45), rgba(255, 40, 40, 0)),
-        linear-gradient(to left, rgba(255, 40, 40, 0.45), rgba(255, 40, 40, 0));
-    background-size: 100% 9vmin, 100% 9vmin, 11vmin 100%, 11vmin 100%;
+        linear-gradient(to bottom, rgba(255, 30, 30, 0.8), rgba(255, 30, 30, 0.3) 30%, rgba(255, 30, 30, 0)),
+        linear-gradient(to top, rgba(255, 30, 30, 0.8), rgba(255, 30, 30, 0.3) 30%, rgba(255, 30, 30, 0)),
+        linear-gradient(to right, rgba(255, 30, 30, 0.75), rgba(255, 30, 30, 0.26) 30%, rgba(255, 30, 30, 0)),
+        linear-gradient(to left, rgba(255, 30, 30, 0.75), rgba(255, 30, 30, 0.26) 30%, rgba(255, 30, 30, 0));
+    background-size: 100% 12vmin, 100% 12vmin, 15vmin 100%, 15vmin 100%;
     background-position: left top, left bottom, left top, right top;
 }
 
 #copilotRelayFlash.relay-flash-run {
-    animation: copilotRelayFlash 320ms ease-out;
+    animation: copilotRelayFlash 500ms ease-out;
 }
 
 @keyframes copilotRelayBreath {
     from {
-        opacity: 0.3;
+        opacity: 0.42;
     }
     to {
-        opacity: 0.72;
+        opacity: 0.95;
     }
 }
 
 @keyframes copilotRelayFlash {
     from {
-        opacity: 0.45;
+        opacity: 0.7;
     }
     to {
         opacity: 0;

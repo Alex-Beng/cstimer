@@ -148,6 +148,7 @@ var server = http.createServer(function(req, res) {
 		timer.virtual.onkeydown(32, {});
 		await wait(100);
 		var started = timer.status();
+		var armed = uiState();
 
 		// first scramble R -> R'
 		timer.virtual.onkeydown(75, {});
@@ -180,9 +181,11 @@ var server = http.createServer(function(req, res) {
 		kernel.pushSignal('relaySolve', [2, 2, 25000, 5000, true]);
 		var slowFlash = uiState();
 		await wait(650);
+		var slowBase = uiState();
 
 		return {
 			started: started,
+			armed: armed,
 			targetUi: targetUi,
 			afterFirst: afterFirst,
 			settledFirst: settledFirst,
@@ -190,7 +193,7 @@ var server = http.createServer(function(req, res) {
 			splitFlash: splitFlash,
 			splitBase: splitBase,
 			slowFlash: slowFlash,
-			slowBase: uiState()
+			slowBase: slowBase
 		};
 	});
 
@@ -231,6 +234,51 @@ var server = http.createServer(function(req, res) {
 			' vs ' + JSON.stringify(greenEdge.center));
 	}
 
+	// ESC in the middle of a relay must clear the overlay completely, and the
+	// next attempt must start neutral (green) again.
+	await page.evaluate(function() {
+		var glow = document.getElementById('copilotRelayGlow');
+		glow.style.animation = '';
+		glow.style.opacity = '';
+	});
+	var escState = await page.evaluate(async function() {
+		function wait(ms) {
+			return new Promise(function(resolve) {
+				setTimeout(resolve, ms);
+			});
+		}
+		function uiState() {
+			return {
+				glow: $('#copilotRelayGlow').attr('class') || '',
+				flash: $('#copilotRelayFlash').attr('class') || ''
+			};
+		}
+		timer.virtual.onkeydown(32, {});
+		await wait(200);
+		kernel.pushSignal('relaySolve', [1, 2, 15000, 15000, false]);
+		await wait(100);
+		var beforeEsc = uiState();
+		timer.virtual.onkeydown(27, {});
+		await wait(200);
+		var afterEsc = {
+			status: timer.status(),
+			ui: uiState()
+		};
+		timer.virtual.onkeydown(32, {});
+		await wait(200);
+		return {
+			beforeEsc: beforeEsc,
+			afterEsc: afterEsc,
+			afterRestart: {
+				status: timer.status(),
+				ui: uiState()
+			}
+		};
+	});
+	relay.beforeEsc = escState.beforeEsc;
+	relay.afterEsc = escState.afterEsc;
+	relay.afterRestart = escState.afterRestart;
+
 	if (!relay.targetUi.shown) {
 		fail('relay target input is not visible for r3');
 	}
@@ -245,6 +293,9 @@ var server = http.createServer(function(req, res) {
 	}
 	if (relay.started != -2) {
 		fail('relay did not start');
+	}
+	if (!/relay-glow-ok/.test(relay.armed.glow)) {
+		fail('relay should glow green before the first cube: ' + relay.armed.glow);
 	}
 	if (relay.afterFirst.status != 1) {
 		fail('timer should still run after the first relay cube');
@@ -290,6 +341,18 @@ var server = http.createServer(function(req, res) {
 	}
 	if (!/relay-glow-bad/.test(relay.slowBase.glow)) {
 		fail('slow relay should settle on the red edge: ' + relay.slowBase.glow);
+	}
+	if (!/relay-glow-bad/.test(relay.beforeEsc.glow)) {
+		fail('relay should be red before ESC: ' + relay.beforeEsc.glow);
+	}
+	if (relay.afterEsc.ui.glow != '' || relay.afterEsc.ui.flash != '') {
+		fail('ESC left relay feedback behind: ' + JSON.stringify(relay.afterEsc));
+	}
+	if (relay.afterEsc.status != -1) {
+		fail('ESC should stop the timer: ' + relay.afterEsc.status);
+	}
+	if (!/relay-glow-ok/.test(relay.afterRestart.ui.glow)) {
+		fail('restarting after ESC should glow green again: ' + relay.afterRestart.ui.glow);
 	}
 
 	fatal.forEach(function(m) {

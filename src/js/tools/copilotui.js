@@ -65,6 +65,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	/* 3x3 relay pacing feedback: breathing edge glow + one small flash per cube */
 	var relayGlow = $('<div id="copilotRelayGlow"/>');
 	var relayFlash = $('<div id="copilotRelayFlash"/>');
+	var relayFinished = false; // the last cube is done, keep its colour
+	var relaySuppressed = false; // aborted with ESC, stay clean until the next start
 
 	/**
 	 * Language strings live as globals of the selected locale file, and most
@@ -778,10 +780,25 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function onTimerStatus(status) {
-		// keep the final pace colour after a relay, but clear it as soon as the
-		// next attempt starts (space with or without inspection)
-		if (status <= -2 || status >= 1) {
-			clearRelayFeedback();
+		// A relay attempt starts neutral (green) and keeps whatever pace colour
+		// it has while solving. The final colour stays after the last cube, but
+		// an aborted attempt (ESC) must not leave anything behind.
+		if (status == -3 || status == -2) {
+			relayFinished = false;
+			relaySuppressed = false;
+			if (relayActive()) {
+				showRelayGlow(true);
+			} else {
+				clearRelayFeedback();
+			}
+		} else if (status == -1) {
+			if (relayActive()) {
+				if (!relayFinished && !relaySuppressed) {
+					showRelayGlow(true);
+				}
+			} else {
+				clearRelayFeedback();
+			}
 		}
 		if (status >= 1) {
 			isSolving = true;
@@ -806,9 +823,20 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return isFinite(val) && val > 0 ? val * 1000 : 0;
 	}
 
+	function relayActive() {
+		return relayTargetMs() > 0 && !!(timer.virtual && timer.virtual.isRelay && timer.virtual.isRelay());
+	}
+
 	function clearRelayFeedback() {
 		relayGlow.removeClass('relay-glow-ok relay-glow-bad relay-glow-on');
 		relayFlash.removeClass('relay-flash-ok relay-flash-bad relay-flash-run');
+	}
+
+	function showRelayGlow(ok) {
+		relayGlow
+			.removeClass('relay-glow-ok relay-glow-bad')
+			.addClass(ok ? 'relay-glow-ok' : 'relay-glow-bad')
+			.addClass('relay-glow-on');
 	}
 
 	/**
@@ -816,10 +844,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	 * (x * target) edge colour until the next cube finishes.
 	 */
 	function setRelayFeedback(splitOk, cumulativeOk) {
-		relayGlow
-			.removeClass('relay-glow-ok relay-glow-bad')
-			.addClass(cumulativeOk ? 'relay-glow-ok' : 'relay-glow-bad')
-			.addClass('relay-glow-on');
+		showRelayGlow(cumulativeOk);
 
 		relayFlash.removeClass('relay-flash-run relay-flash-ok relay-flash-bad');
 		relayFlash.addClass(splitOk ? 'relay-flash-ok' : 'relay-flash-bad');
@@ -830,6 +855,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	function onRelaySolve(value) {
 		var target = relayTargetMs();
 		if (!target) {
+			relayFinished = false;
 			clearRelayFeedback();
 			return;
 		}
@@ -841,6 +867,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		var cumulativeOk = elapsed < idx * target;
 		var splitOk = split < target;
+		relayFinished = !!value[4];
 		setRelayFeedback(splitOk, cumulativeOk);
 	}
 
@@ -1419,6 +1446,10 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			onTimerStatus(value);
 		} else if (signal == 'relaySolve') {
 			onRelaySolve(value);
+		} else if (signal == 'relayReset') {
+			relayFinished = false;
+			relaySuppressed = true;
+			clearRelayFeedback();
 		} else if (signal == 'property') {
 			if (/^(cpEnabled|cpMethod|cpTimeout|cpLlmode|cpUndoMax)$/.exec(value[0])) {
 				clearAll();
@@ -1435,10 +1466,26 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			} else if (value[0] == 'cpCustom') {
 				rebuildHintFromDefault();
 			} else if (value[0] == 'cpRelayTarget') {
+				relayFinished = false;
+				relaySuppressed = false;
 				clearRelayFeedback();
+				if (relayActive()) {
+					showRelayGlow(true);
+				}
 			}
 		} else if (signal == 'scramble' || signal == 'time') {
 			clearAll();
+			if (signal == 'scramble') {
+				if (relayActive()) {
+					if (timer.status() == -1 && !relayFinished && !relaySuppressed) {
+						showRelayGlow(true);
+					}
+				} else {
+					relayFinished = false;
+					relaySuppressed = false;
+					clearRelayFeedback();
+				}
+			}
 		}
 	}
 
@@ -1486,6 +1533,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regListener('copilot', 'giikerState', procSignal);
 		kernel.regListener('copilot', 'virtualState', procSignal);
 		kernel.regListener('copilot', 'relaySolve', procSignal);
+		kernel.regListener('copilot', 'relayReset', procSignal);
 		kernel.regListener('copilot', 'timerStatus', procSignal);
 		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpMethod|cpColor|cpTimeout|cpLlmode|cpUndoMax|cpCustom|cpRelayTarget)$/);
 		kernel.regListener('copilot', 'scramble', procSignal);
@@ -1501,6 +1549,12 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		chkEnable.prop('checked', isEnabled());
 		refreshStatus();
 		startPolling();
+		// the first scramble may arrive after this module boots
+		setTimeout(function() {
+			if (relayActive() && timer.status() == -1 && !relayFinished && !relaySuppressed) {
+				showRelayGlow(true);
+			}
+		}, 800);
 	});
 
 	return {

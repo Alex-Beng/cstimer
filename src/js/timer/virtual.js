@@ -271,6 +271,7 @@ execMain(function(timer) {
 				cancelPendingStart();
 				startSeq++;
 				timer.lcd.setStaticAppend('');
+				kernel.pushSignal('relayReset');
 				timer.status(-1);
 				reset();
 				$('#lcd').css({'visibility': 'unset'}); // disable dragging
@@ -389,6 +390,9 @@ execMain(function(timer) {
 		setEnable: setEnable,
 		setSize: setSize,
 		reset: reset,
+		isRelay: function() {
+			return !!relayScrs;
+		},
 		highlight: highlightFacelets
 	};
 }, [timer]);
