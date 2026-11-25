@@ -153,16 +153,32 @@ function overlay(page) {
 	}
 
 	// solve the OLL case, which must complete (and hide) the hint...
-	var afterOll = await page.evaluate(function() {
+	var ollSteps = await page.evaluate(function() {
 		var cc = new mathlib.CubieCube();
 		cc.fromFacelet(window.__ollState);
-		// push every step, as the cube reports one facelet per move
+		var ret = [];
 		window.__ollFull.slice().forEach(function(t) {
 			cc.selfMoveStr(t);
-			kernel.pushSignal('virtualState', [cc.toFaceCube()]);
+			var facelet = cc.toFaceCube();
+			ret.push({facelet: facelet, stage: cubeCopilot.getStage(facelet)});
 		});
-		return cubeCopilot.getStage(cc.toFaceCube());
+		return ret;
 	});
+	// the algorithm passes through cross/F2L states; the OLL hint must stay
+	for (var si = 0; si < ollSteps.length - 1; si++) {
+		await page.evaluate(function(st) {
+			kernel.pushSignal('virtualState', [st.facelet]);
+		}, ollSteps[si]);
+		await page.waitForTimeout(150);
+		var mid = await overlay(page);
+		if (!mid.visible) {
+			fail('hint disappeared after OLL step ' + (si + 1) + ' (' + ollSteps[si].stage + ')');
+		}
+	}
+	var afterOll = ollSteps.length ? ollSteps[ollSteps.length - 1].stage : null;
+	await page.evaluate(function(st) {
+		kernel.pushSignal('virtualState', [st.facelet]);
+	}, ollSteps[ollSteps.length - 1]);
 	console.log('after OLL', afterOll);
 	if (afterOll != 'll') fail('OLL algorithm did not leave a last-layer state');
 

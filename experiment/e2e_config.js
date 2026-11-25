@@ -122,7 +122,7 @@ var server = http.createServer(function(req, res) {
 	if (opts.inputs.indexOf('cpTimeout') == -1) fail('cpTimeout not rendered in Options');
 	if (opts.inputs.indexOf('cpMethod') == -1) fail('cpMethod not rendered in Options');
 	if (opts.inputs.indexOf('cpF2LDepth') != -1) fail('cpF2LDepth still rendered in Options');
-	['cfop', 'roux', 'off'].forEach(function(m) {
+	['cfop', 'lbl', 'roux', 'off'].forEach(function(m) {
 		if (opts.methodOptions.indexOf(m) == -1) fail('cpMethod missing option ' + m);
 	});
 	if (opts.inputs.indexOf('cpLlmode') == -1) fail('cpLlmode not rendered in Options');

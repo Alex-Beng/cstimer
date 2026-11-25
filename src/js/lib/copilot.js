@@ -89,6 +89,30 @@ function makeCubeCopilot() {
 		return isCrossSolved(cc) && solvedPairMask(cc) == 0xf;
 	}
 
+	/** first-layer corners: bit i is set when D corner 4+i is solved */
+	function solvedCornerMask(cc) {
+		var mask = 0;
+		for (var i = 0; i < 4; i++) {
+			if (cc.ca[4 + i] == 4 + i) {
+				mask |= 1 << i;
+			}
+		}
+		return mask;
+	}
+
+	function isFirstLayerDone(cc) {
+		return isCrossSolved(cc) && solvedCornerMask(cc) == 0xf;
+	}
+
+	function cornersOriented(cc) {
+		for (var i = 0; i < 4; i++) {
+			if ((cc.ca[i] >> 3) != 0) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	/** both Roux blocks (everything except the M slice and U layer) */
 	function isF2BDone(cc) {
 		for (var c = 4; c < 8; c++) {
@@ -116,6 +140,9 @@ function makeCubeCopilot() {
 		if (method == 'roux') {
 			return getRouxStage(cc);
 		}
+		if (method == 'lbl') {
+			return getLblStage(cc);
+		}
 		if (isLastLayerSolved(cc)) {
 			return 'solved';
 		}
@@ -137,6 +164,36 @@ function makeCubeCopilot() {
 			return 'blocks';
 		}
 		return cornersSolvedOnTop(cc) ? 'lse' : 'cmll';
+	}
+
+	/**
+	 * 'cross' | 'fl' | 'sl' | 'eoll' | 'ocll' | 'cpll' | 'epll' | 'solved'
+	 * (layer by layer: first-layer corners, second-layer edges, then the four
+	 * beginner top-layer steps)
+	 */
+	function getLblStage(cc) {
+		if (isLastLayerSolved(cc)) {
+			return 'solved';
+		}
+		if (!isCrossSolved(cc)) {
+			return 'cross';
+		}
+		if (solvedCornerMask(cc) != 0xf) {
+			return 'fl';
+		}
+		if (!isF2LDone(cc)) {
+			return 'sl';
+		}
+		if (!edgesOriented(cc)) {
+			return 'eoll';
+		}
+		if (!cornersOriented(cc)) {
+			return 'ocll';
+		}
+		if (!cornersSolvedOnTop(cc)) {
+			return 'cpll';
+		}
+		return 'epll';
 	}
 
 	/**
@@ -306,6 +363,60 @@ function makeCubeCopilot() {
 	function crossDistance(cc) {
 		var v = crossPrunTable()[crossKey(cc)];
 		return v < 0 ? 99 : v;
+	}
+
+	// ------------------------------------------------- piece pruning (LBL)
+
+	var PIECE_PRUN = {corner: {}, edge: {}};
+
+	/** slot/orientation coordinate of a single corner or edge (0..23) */
+	function pieceCoord(cc, kind, piece) {
+		var arr = kind == 'corner' ? cc.ca : cc.ea;
+		var n = kind == 'corner' ? 8 : 12;
+		for (var p = 0; p < n; p++) {
+			var perm = kind == 'corner' ? (arr[p] & 7) : (arr[p] >> 1);
+			if (perm == piece) {
+				return kind == 'corner' ? p * 3 + (arr[p] >> 3) : p * 2 + (arr[p] & 1);
+			}
+		}
+		return -1;
+	}
+
+	/** distance of one piece back to its home slot, all other pieces ignored */
+	function piecePrun(kind, piece) {
+		var cache = PIECE_PRUN[kind];
+		if (cache[piece]) {
+			return cache[piece];
+		}
+		var start = new mathlib.CubieCube();
+		var startKey = pieceCoord(start, kind, piece);
+		var dist = {};
+		var reps = {};
+		var queue = [startKey];
+		var moves = getMoveCubes();
+		dist[startKey] = 0;
+		reps[startKey] = start;
+		for (var qi = 0; qi < queue.length; qi++) {
+			var key = queue[qi];
+			var cc = reps[key];
+			for (var m = 0; m < moves.length; m++) {
+				var ns = mul(cc, moves[m]);
+				var nkey = pieceCoord(ns, kind, piece);
+				if (nkey < 0 || nkey in dist) {
+					continue;
+				}
+				dist[nkey] = dist[key] + 1;
+				reps[nkey] = ns;
+				queue.push(nkey);
+			}
+		}
+		cache[piece] = dist;
+		return dist;
+	}
+
+	function pieceDistance(cc, kind, piece) {
+		var v = piecePrun(kind, piece)[pieceCoord(cc, kind, piece)];
+		return v == null ? 99 : v;
 	}
 
 	/** number of solved F2L pairs (0..4) */
@@ -523,7 +634,8 @@ function makeCubeCopilot() {
 	 * keeping the cross and the already solved pairs intact.  Depths are
 	 * tried in increasing order and the search stops at the first depth where
 	 * any pair fits, so the usual cost is only a few milliseconds.  If the
-	 * time limit is hit, fall back to the pruning-distance ranking.
+	 * time limit is hit, fall back to the pruning-distance ranking.  The last
+	 * remaining pair is returned directly, without searching.
 	 */
 	function minPair(facelet, options) {
 		options = options || {};
@@ -534,14 +646,23 @@ function makeCubeCopilot() {
 		}
 		var maxDepth = options.maxDepth || 11;
 		var deadline = $.now() + (options.timeLimit || 1000);
+		var unsolved = [];
+		for (var u = 0; u < 4; u++) {
+			if (!(solved & (1 << u))) {
+				unsolved.push(u);
+			}
+		}
+		// only one pair left: it is the hint, no need to search for it
+		if (unsolved.length == 1) {
+			var only = annotateColors(facelet, pairInfoOf(cc, unsolved[0]));
+			only.exact = false;
+			return only;
+		}
 		var cand = [];
 		var minLb = 99;
-		for (var i = 0; i < 4; i++) {
-			if (solved & (1 << i)) {
-				continue;
-			}
-			var lb = pairLowerBound(cc, i, solved);
-			cand.push({i: i, lb: lb, found: null});
+		for (var i = 0; i < unsolved.length; i++) {
+			var lb = pairLowerBound(cc, unsolved[i], solved);
+			cand.push({i: unsolved[i], lb: lb, found: null});
 			if (lb < minLb) {
 				minLb = lb;
 			}
@@ -575,6 +696,309 @@ function makeCubeCopilot() {
 			}
 		}
 		return approxMinPair(facelet);
+	}
+
+	// ------------------------------------------------------------ LBL search
+
+	function middleEdgeMask(cc) {
+		var mask = 0;
+		for (var i = 0; i < 4; i++) {
+			if (cc.ea[8 + i] == (8 + i) * 2) {
+				mask |= 1 << i;
+			}
+		}
+		return mask;
+	}
+
+	function lblLowerBound(cc, kind, target, protect) {
+		var h = crossDistance(cc);
+		function bump(d) {
+			if (d < 99 && d > h) {
+				h = d;
+			}
+		}
+		if (kind == 'corner') {
+			bump(pieceDistance(cc, 'corner', 4 + target));
+			for (var i = 0; i < 4; i++) {
+				if (protect & (1 << i)) {
+					bump(pieceDistance(cc, 'corner', 4 + i));
+				}
+			}
+		} else {
+			for (var c = 0; c < 4; c++) {
+				bump(pieceDistance(cc, 'corner', 4 + c));
+			}
+			// the D corner and the middle edge of the target slot must both be
+			// home, so the F2L pair distance is an admissible lower bound
+			bump(pairDistance(target, cc));
+			for (var e = 0; e < 4; e++) {
+				if (protect & (1 << e)) {
+					bump(pieceDistance(cc, 'edge', 8 + e));
+				}
+			}
+		}
+		return h;
+	}
+
+	function lblGoal(cc, kind, target, protect) {
+		if (!isCrossSolved(cc)) {
+			return false;
+		}
+		if (kind == 'corner') {
+			if (cc.ca[4 + target] != 4 + target) {
+				return false;
+			}
+			for (var i = 0; i < 4; i++) {
+				if (protect & (1 << i)) {
+					if (cc.ca[4 + i] != 4 + i) {
+						return false;
+					}
+				}
+			}
+			return true;
+		}
+		for (var c = 0; c < 4; c++) {
+			if (cc.ca[4 + c] != 4 + c) {
+				return false;
+			}
+		}
+		if (cc.ea[8 + target] != (8 + target) * 2) {
+			return false;
+		}
+		for (var e = 0; e < 4; e++) {
+			if (protect & (1 << e)) {
+				if (cc.ea[8 + e] != (8 + e) * 2) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	function searchLblDepth(cc, kind, target, protect, depth, deadline) {
+		var moves = getMoveCubes();
+		var path = [];
+
+		function dfs(state, remaining, lastFace) {
+			if (deadline && $.now() > deadline) {
+				return null;
+			}
+			if (lblLowerBound(state, kind, target, protect) > remaining) {
+				return null;
+			}
+			if (remaining == 0) {
+				return lblGoal(state, kind, target, protect) ? path.slice() : null;
+			}
+			for (var m = 0; m < moves.length; m++) {
+				var face = ~~(m / 3);
+				if (face == lastFace) {
+					continue;
+				}
+				var ns = mul(state, moves[m]);
+				path.push(MOVE_NAMES[m]);
+				var found = dfs(ns, remaining - 1, face);
+				if (found) {
+					return found;
+				}
+				path.pop();
+			}
+			return null;
+		}
+		return dfs(cc, depth, -1);
+	}
+
+	function lblInfo(facelet, cc, kind, target, path, protect) {
+		var piece = (kind == 'corner' ? 4 : 8) + target;
+		var coord = pieceCoord(cc, kind, piece);
+		var at = kind == 'corner' ? ~~(coord / 3) : ~~(coord / 2);
+		var facelets = kind == 'corner' ? mathlib.CubieCube.cFacelet[at] : mathlib.CubieCube.eFacelet[at];
+		return {
+			kind: kind == 'corner' ? 'lblcorner' : 'lblmid',
+			pair: target,
+			name: F2L_PAIRS[target].name,
+			key: 'LBL/' + (kind == 'corner' ? 'CORNER/' : 'MID/') + target,
+			base: path.slice(),
+			pre: '',
+			post: '',
+			alg: path.join(' '),
+			corner: kind == 'corner' ? piece : -1,
+			edge: kind == 'edge' ? piece : -1,
+			cornerAt: kind == 'corner' ? at : -1,
+			edgeAt: kind == 'edge' ? at : -1,
+			cornerColors: kind == 'corner' ? stickerKey(facelet, facelets) : null,
+			edgeColors: kind == 'edge' ? stickerKey(facelet, facelets) : null,
+			pieces: facelets.slice(),
+			protect: protect,
+			distance: path.length,
+			moves: path,
+			exact: true,
+			solved: false
+		};
+	}
+
+	/** follow a first/second-layer hint after the cube (and the piece) moved */
+	function locateLbl(facelet, hint) {
+		if (!facelet || !hint) {
+			return null;
+		}
+		var isCorner = hint.kind == 'lblcorner';
+		var facelets = isCorner ? mathlib.CubieCube.cFacelet : mathlib.CubieCube.eFacelet;
+		var key = isCorner ? hint.cornerColors : hint.edgeColors;
+		if (!key) {
+			return null;
+		}
+		var at = findPieceAt(facelet, facelets, key);
+		if (at < 0) {
+			return null;
+		}
+		return {
+			at: at,
+			pieces: facelets[at].slice(),
+			solved: pieceMatchesCenters(facelet, facelets[at])
+		};
+	}
+
+	function lblSearch(facelet, kind, options) {
+		options = options || {};
+		var cc = cubieFromFacelet(facelet);
+		if (!isCrossSolved(cc)) {
+			return null;
+		}
+		if (kind == 'edge' && solvedCornerMask(cc) != 0xf) {
+			return null;
+		}
+		var solved = kind == 'corner' ? solvedCornerMask(cc) : middleEdgeMask(cc);
+		if (solved == 0xf) {
+			return null;
+		}
+		var protect = solved;
+		var cand = [];
+		var minLb = 99;
+		for (var i = 0; i < 4; i++) {
+			if (solved & (1 << i)) {
+				continue;
+			}
+			var lb = lblLowerBound(cc, kind, i, protect);
+			cand.push({i: i, lb: lb});
+			if (lb < minLb) {
+				minLb = lb;
+			}
+		}
+		var maxDepth = options.maxDepth || 11;
+		var deadline = $.now() + (options.timeLimit || 1000);
+		for (var depth = minLb; depth <= maxDepth; depth++) {
+			for (var c = 0; c < cand.length; c++) {
+				var item = cand[c];
+				if (item.lb > depth) {
+					continue;
+				}
+				var path = searchLblDepth(cc, kind, item.i, protect, depth, deadline);
+				if (path) {
+					return lblInfo(facelet, cc, kind, item.i, path, protect);
+				}
+				if ($.now() > deadline) {
+					return null;
+				}
+			}
+		}
+		return null;
+	}
+
+	/** shortest first-layer corner insertion (cross and solved corners kept) */
+	function lblCornerHint(facelet, options) {
+		return lblSearch(facelet, 'corner', options);
+	}
+
+	/**
+	 * Second-layer edge insertions, one short algorithm per slot and per
+	 * position/orientation of the slot's edge.  The first layer is solved and
+	 * the edge sits in the U layer or in one of the other middle slots, so the
+	 * case depends only on that coordinate; using a table keeps the hint instant
+	 * (an exact search needs seconds for the harder cases).
+	 */
+	var LBL_SL_DATA = [
+		{
+			0: "R' U2 B' R' B U2 R", 1: "R U2 R' U2 F' U' F",
+			2: "F' U2 F U2 R U R'", 3: "R' U2 B' R B U2 R",
+			4: "R U2 B U2 B' U2 R'", 5: "R U R' U' F' U' F",
+			6: "R U2 B U B' U2 R'", 7: "F U2 L F2 L' U2 F'",
+			17: "R U' R U2 F R2 F' U2 R2", 18: "F2 U2 F2 U2 F2",
+			19: "F U L F' L' F'", 20: "R2 U D B2 U' D' R2",
+			21: "R2 D B' R' U R D' R2", 22: "R2 U2 R2 U2 R2",
+			23: "R F R F' U' R'"
+		},
+		{
+			0: "R U R2 D' F2 D R", 1: "F U2 R U R' U2 F'",
+			2: "F U2 R U' R' U2 F'", 3: "R' F2 U' F' U F2 R",
+			4: "R B2 D L D' B2 R'", 5: "R' F2 U' F U F2 R",
+			6: "R B2 D L' D' B2 R'", 7: "F U2 R U2 R' U2 F'",
+			16: "F2 U2 F2 U2 F2", 17: "F L F L' U' F'",
+			19: "F U' F U2 L F2 L' U2 F2", 20: "R2 D2 L2 D2 R2",
+			21: "L U B L' B' L'", 22: "R F2 U R U' F2 R'",
+			23: "R2 D' R U R' F' D R2"
+		},
+		{
+			0: "R D B2 D' R2 U R", 1: "F R2 D B' D' R2 F'",
+			2: "R' F2 D' L D F2 R", 3: "F U F2 D' L2 D F",
+			4: "R' F2 D' L' D F2 R", 5: "R B2 U B' U' B2 R'",
+			6: "F' L2 U' L U L2 F", 7: "R B2 U B U' B2 R'",
+			16: "R2 U D B2 U' D' R2", 17: "R2 D R' U' R B D' R2",
+			18: "R2 D2 L2 D2 R2", 19: "L B L B' U' L'",
+			21: "L U' L U2 B L2 B' U2 L2", 22: "F2 D2 B2 D2 F2",
+			23: "B U R B' R' B'"
+		},
+		{
+			0: "R U2 F R F' U2 R'", 1: "R' U2 R U2 B U B'",
+			2: "R B' R' B R' U' R", 3: "F R2 U R2 U' R2 F'",
+			4: "R U2 F R2 F' U2 R'", 5: "R' U R U B U' B'",
+			6: "F R2 U R' U' R2 F'", 7: "R U2 F R' F' U2 R'",
+			16: "R2 U2 R2 U2 R2", 17: "R U F R' F' R'",
+			18: "R F2 U R' U' F2 R'", 19: "R2 D' F R U' R' D R2",
+			20: "F2 D2 B2 D2 F2", 21: "B R B R' U' B'",
+			23: "R2 U2 B' R2 B U2 R U' R"
+		}
+	];
+
+	/** position/orientation of one edge piece: pos*2 + ori (0..23) */
+	function edgeCoord(cc, piece) {
+		for (var p = 0; p < 12; p++) {
+			if ((cc.ea[p] >> 1) == piece) {
+				return p * 2 + (cc.ea[p] & 1);
+			}
+		}
+		return -1;
+	}
+
+	/** precomputed second-layer insertion (first layer and solved edges kept) */
+	function lblMidHint(facelet, options) {
+		options = options || {};
+		var cc = cubieFromFacelet(facelet);
+		if (!isCrossSolved(cc) || solvedCornerMask(cc) != 0xf) {
+			return null;
+		}
+		var solved = middleEdgeMask(cc);
+		if (solved == 0xf) {
+			return null;
+		}
+		var protect = solved;
+		for (var i = 0; i < 4; i++) {
+			if (solved & (1 << i)) {
+				continue;
+			}
+			var coord = edgeCoord(cc, 8 + i);
+			var alg = coord < 0 ? null : LBL_SL_DATA[i][coord];
+			if (!alg) {
+				continue;
+			}
+			var tokens = tokensOf(alg);
+			var info = lblInfo(facelet, cc, 'edge', i, tokens, protect);
+			// the table assumes the maximal set of intact edges; a state whose
+			// protected edges differ falls back to the search below
+			if (validateAlg(facelet, tokens, info)) {
+				return info;
+			}
+		}
+		return lblSearch(facelet, 'edge', options);
 	}
 
 	/** shortest sequence that completes the D cross (used to guide back) */
@@ -1366,6 +1790,284 @@ function makeCubeCopilot() {
 		return null;
 	}
 
+	// ------------------------------------------------------ LBL top layer
+
+	var LBL_EO = null;
+	var LBL_OCLL = null;
+	var LBL_CPLL = null;
+
+	function eoKey(cc) {
+		var ret = 0;
+		for (var i = 0; i < 4; i++) {
+			ret |= (cc.ea[i] & 1) << i;
+		}
+		return ret;
+	}
+
+	function cornerOriKey(cc) {
+		var ret = [];
+		for (var i = 0; i < 4; i++) {
+			ret.push(cc.ca[i] >> 3);
+		}
+		return ret.join(',');
+	}
+
+	function buildEollLut() {
+		LBL_EO = {};
+		var t1 = 'F R U R\' U\' F\''.split(' ');
+		var t2 = 'F U R U\' R\' F\''.split(' ');
+		var seqs = [];
+		function add(seq) {
+			seqs.push(seq);
+		}
+		for (var a = 0; a < 4; a++) {
+			add(tokensOf(AUF_STR[a]).concat(t1));
+			add(tokensOf(AUF_STR[a]).concat(t2));
+		}
+		for (var pre = 0; pre < 4; pre++) {
+			for (var mid = 0; mid < 4; mid++) {
+				for (var post = 0; post < 4; post++) {
+					add(tokensOf(AUF_STR[pre]).concat(t1, tokensOf(AUF_STR[mid]), t2, tokensOf(AUF_STR[post])));
+					add(tokensOf(AUF_STR[pre]).concat(t2, tokensOf(AUF_STR[mid]), t1, tokensOf(AUF_STR[post])));
+				}
+			}
+		}
+		for (var i = 0; i < seqs.length; i++) {
+			var seq = seqs[i];
+			var state = inverseState(seq);
+			if (!isF2LDone(state) || edgesOriented(state)) {
+				continue;
+			}
+			var test = cloneCube(state);
+			for (var k = 0; k < seq.length; k++) {
+				test.selfMoveStr(seq[k]);
+			}
+			if (!isF2LDone(test) || !edgesOriented(test)) {
+				continue;
+			}
+			var key = eoKey(state);
+			var disp = seq.join(' ');
+			if (!(key in LBL_EO) || disp.length < LBL_EO[key].alg.length) {
+				LBL_EO[key] = {name: 'EO', alg: disp, len: disp.split(/\s+/).length};
+			}
+		}
+		return LBL_EO;
+	}
+
+	function ensureEollLut() {
+		return LBL_EO || buildEollLut();
+	}
+
+	function buildOcllLut() {
+		LBL_OCLL = {};
+		var list = (typeof OLL_DATA == 'undefined') ? [] : OLL_DATA;
+		for (var i = 0; i < list.length; i++) {
+			var e = parseEntry(list[i]);
+			if (!e) {
+				continue;
+			}
+			for (var pre = 0; pre < 4; pre++) {
+				for (var post = 0; post < 4; post++) {
+					var seq = tokensOf(AUF_STR[pre]).concat(e.tokens, tokensOf(AUF_STR[post]));
+					var state = inverseState(seq);
+					if (!isF2LDone(state) || !edgesOriented(state) || cornersOriented(state)) {
+						continue;
+					}
+					var test = cloneCube(state);
+					for (var k = 0; k < seq.length; k++) {
+						test.selfMoveStr(seq[k]);
+					}
+					if (!isF2LDone(test) || !edgesOriented(test) || !cornersOriented(test)) {
+						continue;
+					}
+					var key = cornerOriKey(state);
+					var disp = seq.join(' ');
+					if (!(key in LBL_OCLL) || disp.length < LBL_OCLL[key].alg.length) {
+						LBL_OCLL[key] = {name: e.name, alg: disp, len: disp.split(/\s+/).length};
+					}
+				}
+			}
+		}
+		return LBL_OCLL;
+	}
+
+	function ensureOcllLut() {
+		return LBL_OCLL || buildOcllLut();
+	}
+
+	function buildCpllLut() {
+		LBL_CPLL = {};
+		var list = (typeof CMLL_DATA == 'undefined') ? [] : CMLL_DATA;
+		for (var i = 0; i < list.length; i++) {
+			var e = parseEntry(list[i]);
+			if (!e) {
+				continue;
+			}
+			for (var pre = 0; pre < 4; pre++) {
+				for (var post = 0; post < 4; post++) {
+					var seq = tokensOf(AUF_STR[pre]).concat(e.tokens, tokensOf(AUF_STR[post]));
+					var state = inverseState(seq);
+					if (!isF2LDone(state)) {
+						continue;
+					}
+					var test = cloneCube(state);
+					for (var k = 0; k < seq.length; k++) {
+						test.selfMoveStr(seq[k]);
+					}
+					if (!isF2LDone(test) || !cornersSolvedOnTop(test) || !edgesOriented(test)) {
+						continue;
+					}
+					var key = cornerKey(state);
+					var disp = seq.join(' ');
+					if (!(key in LBL_CPLL) || disp.length < LBL_CPLL[key].alg.length) {
+						LBL_CPLL[key] = {name: e.name, alg: disp, len: disp.split(/\s+/).length};
+					}
+				}
+			}
+		}
+		return LBL_CPLL;
+	}
+
+	function ensureCpllLut() {
+		return LBL_CPLL || buildCpllLut();
+	}
+
+	function eollHint(cc) {
+		if (edgesOriented(cc)) {
+			return null;
+		}
+		var hit = ensureEollLut()[eoKey(cc)];
+		if (!hit) {
+			return null;
+		}
+		var tokens = tokensOf(hit.alg);
+		return {
+			kind: 'eoll',
+			name: 'EO',
+			key: 'LBL/EO/' + eoKey(cc),
+			base: tokens.slice(),
+			pre: '',
+			post: '',
+			moves: tokens,
+			alg: hit.alg
+		};
+	}
+
+	function ocllHint(cc) {
+		if (cornersOriented(cc)) {
+			return null;
+		}
+		var hit = ensureOcllLut()[cornerOriKey(cc)];
+		if (!hit) {
+			return null;
+		}
+		var tokens = tokensOf(hit.alg);
+		return {
+			kind: 'ocll',
+			name: hit.name,
+			key: 'LBL/OCLL/' + hit.name,
+			base: tokens.slice(),
+			pre: '',
+			post: '',
+			moves: tokens,
+			alg: hit.alg
+		};
+	}
+
+	function cpllHint(cc) {
+		if (!cornersOriented(cc) || cornersSolvedOnTop(cc)) {
+			return null;
+		}
+		var hit = ensureCpllLut()[cornerKey(cc)];
+		if (hit) {
+			var tokens = tokensOf(hit.alg);
+			return {
+				kind: 'cpll',
+				name: hit.name,
+				key: 'LBL/CPLL/' + hit.name,
+				base: tokens.slice(),
+				pre: '',
+				post: '',
+				moves: tokens,
+				alg: hit.alg
+			};
+		}
+		// corners are solved up to an AUF
+		for (var k = 1; k < 4; k++) {
+			var test = cloneCube(cc);
+			for (var i = 0; i < k; i++) {
+				test.selfMoveStr('U');
+			}
+			if (cornersSolvedOnTop(test)) {
+				var alg = AUF_STR[k];
+				return {
+					kind: 'cpll',
+					name: 'AUF',
+					key: 'LBL/CPLL/AUF',
+					base: [alg],
+					pre: '',
+					post: '',
+					moves: [alg],
+					alg: alg
+				};
+			}
+		}
+		return null;
+	}
+
+	function epllHint(cc) {
+		if (!cornersSolvedOnTop(cc) || isLastLayerSolved(cc)) {
+			return null;
+		}
+		var hit = pllHint(cc);
+		if (!hit) {
+			return null;
+		}
+		return {
+			kind: 'epll',
+			name: hit.name,
+			key: 'LBL/EPLL/' + hit.name,
+			base: hit.base,
+			pre: hit.pre,
+			post: hit.post,
+			moves: hit.moves,
+			alg: hit.alg
+		};
+	}
+
+	function lblKind(stage) {
+		if (stage == 'fl') {
+			return 'lblcorner';
+		}
+		if (stage == 'sl') {
+			return 'lblmid';
+		}
+		return stage;
+	}
+
+	function solveLbl(facelet, stage, options) {
+		if (stage == 'fl') {
+			return lblCornerHint(facelet, options);
+		}
+		if (stage == 'sl') {
+			return lblMidHint(facelet, options);
+		}
+		var cc = cubieFromFacelet(facelet);
+		if (stage == 'eoll') {
+			return eollHint(cc);
+		}
+		if (stage == 'ocll') {
+			return ocllHint(cc);
+		}
+		if (stage == 'cpll') {
+			return cpllHint(cc);
+		}
+		if (stage == 'epll') {
+			return epllHint(cc);
+		}
+		return null;
+	}
+
 	function twoLookHint(cc) {
 		if (!isOriented(cc)) {
 			return ollHint(cc);
@@ -1474,6 +2176,33 @@ function makeCubeCopilot() {
 				post: cmll.post,
 				moves: cmll.moves,
 				alg: cmll.alg
+			};
+		}
+		if (method == 'lbl' && stage != 'cross' && stage != 'solved') {
+			var lbl = solveLbl(facelet, stage, options);
+			if (!lbl) {
+				return {stage: stage, kind: lblKind(stage), name: 'no-alg'};
+			}
+			return {
+				stage: stage,
+				kind: lbl.kind,
+				name: lbl.name,
+				key: lbl.key,
+				base: lbl.base,
+				pre: lbl.pre,
+				post: lbl.post,
+				moves: lbl.moves,
+				alg: lbl.alg,
+				pieces: lbl.pieces,
+				pair: lbl.pair,
+				protect: lbl.protect,
+				distance: lbl.distance,
+				corner: lbl.corner,
+				edge: lbl.edge,
+				cornerAt: lbl.cornerAt,
+				edgeAt: lbl.edgeAt,
+				cornerColors: lbl.cornerColors,
+				edgeColors: lbl.edgeColors
 			};
 		}
 		if (stage == 'cross') {
@@ -1729,6 +2458,48 @@ function makeCubeCopilot() {
 		if (hint.kind == 'cmll') {
 			return isF2BDone(cc) && cornersSolvedOnTop(cc);
 		}
+		if (hint.kind == 'lblcorner') {
+			if (!isCrossSolved(cc) || cc.ca[4 + hint.pair] != 4 + hint.pair) {
+				return false;
+			}
+			for (var lc = 0; lc < 4; lc++) {
+				if ((hint.protect & (1 << lc)) && cc.ca[4 + lc] != 4 + lc) {
+					return false;
+				}
+			}
+			return true;
+		}
+		if (hint.kind == 'lblmid') {
+			if (!isCrossSolved(cc)) {
+				return false;
+			}
+			for (var lm = 0; lm < 4; lm++) {
+				if (cc.ca[4 + lm] != 4 + lm) {
+					return false;
+				}
+			}
+			if (cc.ea[8 + hint.pair] != (8 + hint.pair) * 2) {
+				return false;
+			}
+			for (var le = 0; le < 4; le++) {
+				if ((hint.protect & (1 << le)) && cc.ea[8 + le] != (8 + le) * 2) {
+					return false;
+				}
+			}
+			return true;
+		}
+		if (hint.kind == 'eoll') {
+			return isF2LDone(cc) && edgesOriented(cc);
+		}
+		if (hint.kind == 'ocll') {
+			return isF2LDone(cc) && edgesOriented(cc) && cornersOriented(cc);
+		}
+		if (hint.kind == 'cpll') {
+			return isF2LDone(cc) && edgesOriented(cc) && cornersSolvedOnTop(cc);
+		}
+		if (hint.kind == 'epll') {
+			return cc.isEqual(mathlib.CubieCube.SOLVED);
+		}
 		return cc.isEqual(mathlib.CubieCube.SOLVED);
 	}
 
@@ -1740,7 +2511,17 @@ function makeCubeCopilot() {
 		minPair: minPair,
 		pairInfo: pairInfo,
 		locatePair: locatePair,
+		locateLbl: locateLbl,
 		pairCount: pairCountOf,
+		lblCornerHint: lblCornerHint,
+		lblMidHint: lblMidHint,
+		solveLbl: solveLbl,
+		buildEollLut: buildEollLut,
+		ensureEollLut: ensureEollLut,
+		buildOcllLut: buildOcllLut,
+		ensureOcllLut: ensureOcllLut,
+		buildCpllLut: buildCpllLut,
+		ensureCpllLut: ensureCpllLut,
 		solveLastLayer: solveLastLayer,
 		getHint: getHint,
 		warmUp: warmUp,

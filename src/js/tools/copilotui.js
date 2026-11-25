@@ -51,6 +51,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var onTrackPairs = 0;
 	/* live F2L highlight: the pair with the fewest moves, no algorithm */
 	var f2lPair = null;
+	/* first/second-layer hint: highlight follows the piece it targets */
+	var lblPiece = null;
 
 	var customRows = [];
 
@@ -93,6 +95,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	// any vrcMP, or not multi-phase at all, and still use the CFOP hints.
 	var HINT_METHODS = {
 		cfop: 1,
+		lbl: 1,
 		roux: 1
 	};
 
@@ -454,6 +457,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		prevRaw = null;
 		onTrackPairs = 0;
 		f2lPair = null;
+		lblPiece = null;
 		hintSpan.empty();
 		if (toolHintSpan) {
 			toolHintSpan.empty();
@@ -496,7 +500,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			stageNow = stageOf(facelet);
 		} catch (e) {}
 		// F2L: keep the live highlight on the corner/edge with the fewest moves
-		if (stageNow == 'f2l') {
+		// (an LL/CMLL algorithm may pass through F2L states, so let the hint
+		// tracking below follow it instead of dropping the hint)
+		if (stageNow == 'f2l' && !(hintInfo && hintTracks && hintTracks.length)) {
 			if (hintInfo && hintInfo.stage != 'f2l') {
 				finishHint();
 			}
@@ -509,7 +515,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			return;
 		}
 		clearF2lHint();
-		if (hintInfo && hintInfo.stage == 'cmll' && stageNow != 'cmll') {
+		if (hintInfo && hintInfo.stage == 'cmll' && stageNow != 'cmll' &&
+			!(hintTracks && hintTracks.length)) {
 			finishHint();
 		}
 		// CF finished while a cross hint was active: go straight to the LL hint
@@ -615,6 +622,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 					updateStage(facelet, true);
 					requestNext(facelet);
 				} else {
+					refreshLblHighlight(facelet);
 					renderCurrent();
 					updateStage(facelet, false);
 				}
@@ -649,6 +657,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				hintUndo = [cubeCopilot.invertToken(bad)];
 				hintInfo.undo = hintUndo.slice(0);
 				prevRaw = raw;
+				refreshLblHighlight(facelet);
 				renderCurrent();
 				updateStage(facelet, false);
 				return;
@@ -665,6 +674,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		updateStage(facelet, false);
 		// reaching the last layer is a clear milestone: hint right away
 		if ((curStage == 'll' || curStage == 'cmll') && prevStage != curStage) {
+			requestNext(facelet);
+			return;
+		}
+		// LBL: the beginner phases are short, so hint each new phase right away
+		if (hintMethod() == 'lbl' && prevStage != curStage) {
 			requestNext(facelet);
 			return;
 		}
@@ -705,7 +719,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		} catch (e) {
 			return;
 		}
-		if (stage != 'cross' && stage != 'f2l' && stage != 'll' && stage != 'cmll') {
+		if (stage != 'cross' && stage != 'f2l' && stage != 'll' && stage != 'cmll' &&
+			stage != 'fl' && stage != 'sl' && stage != 'eoll' && stage != 'ocll' &&
+			stage != 'cpll' && stage != 'epll') {
 			return;
 		}
 		if (stage == 'll' && llMode() == 'off') {
@@ -726,7 +742,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (!canRun() || !curFacelet || !isSolving) {
 			return;
 		}
-		if (curStage != 'f2l' && curStage != 'll' && curStage != 'cmll') {
+		if (curStage != 'f2l' && curStage != 'll' && curStage != 'cmll' &&
+			curStage != 'fl' && curStage != 'sl' && curStage != 'eoll' &&
+			curStage != 'ocll' && curStage != 'cpll' && curStage != 'epll') {
 			return;
 		}
 		// never replace a hint the user is still following
@@ -863,6 +881,24 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (hint.stage == 'f2l') {
 			return L('COPILOT_F2L', 'Next F2L pair: %s').replace('%s', hint.name);
 		}
+		if (hint.kind == 'lblcorner') {
+			return L('COPILOT_LBL_CORNER', 'First-layer corner %s').replace('%s', hint.name);
+		}
+		if (hint.kind == 'lblmid') {
+			return L('COPILOT_LBL_MID', 'Second-layer edge %s').replace('%s', hint.name);
+		}
+		if (hint.stage == 'eoll') {
+			return L('COPILOT_LBL_EOLL', 'Top layer: orient the edges (cross)');
+		}
+		if (hint.stage == 'ocll') {
+			return L('COPILOT_LBL_OCLL', 'Top layer: orient the corners');
+		}
+		if (hint.stage == 'cpll') {
+			return L('COPILOT_LBL_CPLL', 'Top layer: place the corners');
+		}
+		if (hint.stage == 'epll') {
+			return L('COPILOT_LBL_EPLL', 'Top layer: place the edges');
+		}
 		if (hint.kind == 'oll') {
 			return L('COPILOT_OLL', 'OLL %s').replace('%s', hint.name);
 		}
@@ -909,6 +945,10 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			}
 			if (hint.kind == 'cmll') {
 				return L('COPILOT_NO_CMLL', 'No algorithm for this CMLL case');
+			}
+			if (hint.stage == 'fl' || hint.stage == 'sl' || hint.stage == 'eoll' ||
+				hint.stage == 'ocll' || hint.stage == 'cpll' || hint.stage == 'epll') {
+				return L('COPILOT_NO_ALG', 'No algorithm for this case');
 			}
 			return L('COPILOT_NO_ALLL', 'No algorithm for this last-layer case');
 		}
@@ -1115,6 +1155,22 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		clearHighlight();
 	}
 
+	/** keep the highlight on the corner/edge a first/second-layer hint targets */
+	function refreshLblHighlight(facelet) {
+		if (!lblPiece || !facelet) {
+			return;
+		}
+		var info = null;
+		try {
+			info = cubeCopilot.locateLbl(facelet, lblPiece);
+		} catch (e) {}
+		if (!info) {
+			return;
+		}
+		lblPiece.pieces = info.pieces;
+		highlightFacelets(info.pieces);
+	}
+
 	function renderCurrent() {
 		if (!hintInfo) {
 			return;
@@ -1157,6 +1213,19 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		f2lPair = null;
 		baseHint = hint;
 		hintInfo = composeHint(hint);
+		// first/second-layer hints also highlight the piece they target
+		if (hint.kind == 'lblcorner' || hint.kind == 'lblmid') {
+			lblPiece = {
+				kind: hint.kind,
+				cornerColors: hint.cornerColors,
+				edgeColors: hint.edgeColors,
+				pieces: hint.pieces
+			};
+			highlightFacelets(hint.pieces);
+		} else if (lblPiece) {
+			lblPiece = null;
+			clearHighlight();
+		}
 		hintFacelet = facelet;
 		hintLastSig = null;
 		hintUndo = [];
@@ -1406,8 +1475,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	function initProps() {
 		kernel.regProp('copilot', 'cpEnabled', 0, L('COPILOT_ENABLED', 'Enable Copilot'), [false], 1);
-		kernel.regProp('copilot', 'cpMethod', 1, L('COPILOT_METHOD', 'Hint method'), ['cfop', ['cfop', 'roux', 'off'], [
+		kernel.regProp('copilot', 'cpMethod', 1, L('COPILOT_METHOD', 'Hint method'), ['cfop', ['cfop', 'lbl', 'roux', 'off'], [
 			L('COPILOT_METHOD_CFOP', 'CFOP (Cross/F2L/LL)'),
+			L('COPILOT_METHOD_LBL', 'Layer by layer (beginner)'),
 			L('COPILOT_METHOD_ROUX', 'Roux (CMLL)'),
 			L('COPILOT_METHOD_OFF', 'Off')
 		]], 1);

@@ -33,6 +33,8 @@ function makeContext() {
 		.replace('const ISCSTIMER = true;', 'const ISCSTIMER = false;'), ctx);
 	vm.runInContext(fs.readFileSync(path.join(root, 'src/js/lib/mathlib.js'), 'utf8'), ctx);
 	vm.runInContext(fs.readFileSync(path.join(root, 'src/js/lib/alll.js'), 'utf8'), ctx);
+	vm.runInContext(fs.readFileSync(path.join(root, 'src/js/lib/ollpll.js'), 'utf8'), ctx);
+	vm.runInContext(fs.readFileSync(path.join(root, 'src/js/lib/cmll.js'), 'utf8'), ctx);
 	vm.runInContext(fs.readFileSync(path.join(root, 'src/js/lib/copilot.js'), 'utf8'), ctx);
 	return ctx;
 }
@@ -409,27 +411,40 @@ while (f2lTests < CASES && attempts < 20000) {
 		}
 		seen[idx] = 1;
 	}
-	if (hint.exact !== true || !hint.moves) {
-		fail('F2L hint was not an exact search');
-		continue;
-	}
-	if (hint.distance != hint.moves.length) {
-		fail('F2L distance does not match its move sequence');
-	}
-	var after = applyAlg(pos, hint.moves.join(' '));
-	if (!isPairSolved(after, hint.pair) || !crossSolved(after)) {
-		fail('F2L hint does not insert the pair while keeping the cross');
-	}
-	for (var p = 0; p < 4; p++) {
-		if (isPairSolved(pos, p) && !isPairSolved(after, p)) {
-			fail('F2L hint broke an already solved pair');
+		var unsolvedCount = 0;
+		for (var up = 0; up < 4; up++) {
+			if (!isPairSolved(pos, up)) unsolvedCount++;
 		}
-	}
-	var ref = refMinPair(pos, 11);
-	if (!ref || ref.pair != hint.pair || ref.distance != hint.distance) {
-		fail('cheapest pair is ' + (ref && ref.pair) + ' in ' +
-			(ref && ref.distance) + ' moves, got ' + hint.pair + ' in ' + hint.distance);
-	}
+		if (unsolvedCount == 1) {
+			if (hint.exact === true || hint.moves) {
+				fail('last-pair hint should skip the exact search');
+			}
+			if (isPairSolved(pos, hint.pair)) {
+				fail('last-pair hint points at a solved pair');
+			}
+		} else {
+			if (hint.exact !== true || !hint.moves) {
+				fail('F2L hint was not an exact search');
+				continue;
+			}
+			if (hint.distance != hint.moves.length) {
+				fail('F2L distance does not match its move sequence');
+			}
+			var after = applyAlg(pos, hint.moves.join(' '));
+			if (!isPairSolved(after, hint.pair) || !crossSolved(after)) {
+				fail('F2L hint does not insert the pair while keeping the cross');
+			}
+			for (var p = 0; p < 4; p++) {
+				if (isPairSolved(pos, p) && !isPairSolved(after, p)) {
+					fail('F2L hint broke an already solved pair');
+				}
+			}
+			var ref = refMinPair(pos, 11);
+			if (!ref || ref.pair != hint.pair || ref.distance != hint.distance) {
+				fail('cheapest pair is ' + (ref && ref.pair) + ' in ' +
+					(ref && ref.distance) + ' moves, got ' + hint.pair + ' in ' + hint.distance);
+			}
+		}
 	// turning the whole cube must not swap the highlighted pair
 	for (var r = 0; r < 24; r++) {
 		var turned = copilot.orientFacelet(facelet, r);
@@ -447,6 +462,26 @@ while (f2lTests < CASES && attempts < 20000) {
 }
 
 console.log('F2L cases', f2lTests, 'avg min moves', (f2lMoves / Math.max(f2lTests, 1)).toFixed(2));
+
+// the last remaining pair is highlighted without running the exact search
+var lastPair = new mathlib.CubieCube();
+['R', 'U', "R'"].forEach(function(t) {
+	lastPair.selfMoveStr(t);
+});
+var lastPairFacelet = lastPair.toFaceCube();
+var lastHint = copilot.minPair(lastPairFacelet);
+if (copilot.getStage(lastPairFacelet) != 'f2l') {
+	fail('last-pair setup is not an F2L case');
+}
+if (!lastHint || lastHint.pair != 0) {
+	fail('last-pair hint picked the wrong pair');
+}
+if (lastHint && (lastHint.exact === true || lastHint.moves)) {
+	fail('last-pair hint ran the exact search');
+}
+if (lastHint && lastHint.pieces.length != 5) {
+	fail('last-pair hint has no highlight');
+}
 
 // a position without a solved cross has no F2L pair hint
 var loose = new mathlib.CubieCube();
@@ -489,6 +524,267 @@ Object.keys(lut).forEach(function(key) {
 	verified++;
 });
 console.log('LUT entries verified', verified);
+
+// ---- 3. Layer by layer ---------------------------------------------------
+
+function edgesOriented(cc) {
+	for (var i = 0; i < 4; i++) {
+		if (cc.ea[i] & 1) {
+			return false;
+		}
+	}
+	return true;
+}
+
+function cornersOriented(cc) {
+	for (var i = 0; i < 4; i++) {
+		if (cc.ca[i] >> 3) {
+			return false;
+		}
+	}
+	return true;
+}
+
+function cornersPlaced(cc) {
+	for (var i = 0; i < 4; i++) {
+		if ((cc.ca[i] & 7) != i) {
+			return false;
+		}
+	}
+	return true;
+}
+
+// exhaustive: every legal last-layer state falls in the right beginner step
+// and gets a verified algorithm for that step
+(function() {
+	function perms(n) {
+		var out = [];
+		var a = [];
+		for (var i = 0; i < n; i++) {
+			a.push(i);
+		}
+		(function rec(k) {
+			if (k == n) {
+				out.push(a.slice());
+				return;
+			}
+			for (var i = k; i < n; i++) {
+				var t = a[k];
+				a[k] = a[i];
+				a[i] = t;
+				rec(k + 1);
+				t = a[k];
+				a[k] = a[i];
+				a[i] = t;
+			}
+		})(0);
+		return out;
+	}
+	function parity(a) {
+		var c = 0;
+		for (var i = 0; i < a.length; i++) {
+			for (var j = i + 1; j < a.length; j++) {
+				if (a[i] > a[j]) {
+					c++;
+				}
+			}
+		}
+		return c % 2;
+	}
+	var P = perms(4);
+	var states = 0;
+	var staged = {eoll: 0, ocll: 0, cpll: 0, epll: 0, solved: 0};
+	var miss = 0;
+	P.forEach(function(cp) {
+		for (var c0 = 0; c0 < 3; c0++) {
+			for (var c1 = 0; c1 < 3; c1++) {
+				for (var c2 = 0; c2 < 3; c2++) {
+					for (var c3 = 0; c3 < 3; c3++) {
+						var co = [c0, c1, c2, c3];
+						if ((c0 + c1 + c2 + c3) % 3) {
+							continue;
+						}
+						P.forEach(function(ep) {
+							if (parity(cp) != parity(ep)) {
+								return;
+							}
+							for (var e0 = 0; e0 < 2; e0++) {
+								for (var e1 = 0; e1 < 2; e1++) {
+									for (var e2 = 0; e2 < 2; e2++) {
+										for (var e3 = 0; e3 < 2; e3++) {
+											var eo = [e0, e1, e2, e3];
+											if ((e0 + e1 + e2 + e3) % 2) {
+												continue;
+											}
+											var ca = [];
+											var ea = [];
+											for (var i = 0; i < 8; i++) {
+												ca.push(i);
+											}
+											for (i = 0; i < 12; i++) {
+												ea.push(i * 2);
+											}
+											for (i = 0; i < 4; i++) {
+												ca[i] = cp[i] | (co[i] << 3);
+												ea[i] = (ep[i] << 1) | eo[i];
+											}
+											var cc = new mathlib.CubieCube();
+											cc.init(ca, ea);
+											var facelet = cc.toFaceCube();
+											var expect = !edgesOriented(cc) ? 'eoll' :
+												!cornersOriented(cc) ? 'ocll' :
+													!cornersPlaced(cc) ? 'cpll' : 'epll';
+											if (cc.toFaceCube() == mathlib.SOLVED_FACELET) {
+												expect = 'solved';
+											}
+											var stage = copilot.getStage(facelet, 'lbl');
+											if (stage != expect) {
+												miss++;
+												if (miss < 5) {
+													fail('LBL stage ' + stage + ' expected ' + expect);
+												}
+												return;
+											}
+											staged[stage]++;
+											states++;
+											if (stage != 'solved') {
+												var hint = copilot.getHint(facelet, {method: 'lbl', timeLimit: 100});
+												if (!hint || !hint.moves || !hint.alg) {
+													miss++;
+													if (miss < 5) {
+														fail('no LBL hint for a ' + stage + ' state');
+													}
+													return;
+												}
+												if (!copilot.validateAlg(facelet, hint.moves, hint)) {
+													miss++;
+													if (miss < 5) {
+														fail('LBL hint does not solve the ' + stage + ' state: ' + hint.alg);
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						});
+					}
+				}
+			}
+		}
+	});
+	console.log('LBL last-layer states', states, JSON.stringify(staged), 'misses', miss);
+})();
+
+// the second-layer table covers every slot and every place the edge can be
+(function() {
+	var cases = 0;
+	for (var slot = 0; slot < 4; slot++) {
+		var positions = [0, 1, 2, 3, 8, 9, 10, 11];
+		for (var pi = 0; pi < positions.length; pi++) {
+			for (var ori = 0; ori < 2; ori++) {
+				var pos = positions[pi];
+				if (pos == 8 + slot && ori == 0) {
+					continue;
+				}
+				var ca = [];
+				var ea = [];
+				for (var i = 0; i < 8; i++) {
+					ca.push(i);
+				}
+				for (i = 0; i < 12; i++) {
+					ea.push(i * 2);
+				}
+				var displaced = ea[pos] >> 1;
+				ea[pos] = ((8 + slot) << 1) | ori;
+				if (displaced != 8 + slot) {
+					ea[8 + slot] = displaced << 1;
+				}
+				var cc = new mathlib.CubieCube();
+				cc.init(ca, ea);
+				var facelet = cc.toFaceCube();
+				if (copilot.getStage(facelet, 'lbl') != 'sl') {
+					continue;
+				}
+				var unsolved = [];
+				for (i = 0; i < 4; i++) {
+					if (cc.ea[8 + i] != (8 + i) * 2) {
+						unsolved.push(i);
+					}
+				}
+				var hint = copilot.lblMidHint(facelet, {timeLimit: 200});
+				if (!hint || unsolved.indexOf(hint.pair) < 0) {
+					fail('second-layer case ' + slot + '/' + pos + '/' + ori +
+						' picked slot ' + (hint && hint.pair));
+				} else if (!copilot.validateAlg(facelet, hint.moves, hint)) {
+					fail('second-layer case ' + slot + '/' + pos + '/' + ori +
+						' alg is invalid: ' + hint.alg);
+				}
+				cases++;
+			}
+		}
+	}
+	console.log('LBL second-layer cases', cases);
+})();
+
+// a full layer-by-layer solve: every hint validates and the stages progress
+(function() {
+	var solves = 0;
+	var hints = 0;
+	var moves = 0;
+	var worst = 0;
+	var longest = 0;
+	for (var trial = 0; trial < 20; trial++) {
+		var cc = applyMoves(new mathlib.CubieCube(), randomScramble(25));
+		var cross = copilot.solveCross(cc.toFaceCube(), {timeLimit: 3000});
+		if (!cross) {
+			fail('LBL: could not solve the cross');
+			continue;
+		}
+		cc = applyAlg(cc, cross.join(' '));
+		var guard = 0;
+		var done = false;
+		while (guard++ < 40) {
+			var facelet = cc.toFaceCube();
+			var stage = copilot.getStage(facelet, 'lbl');
+			if (stage == 'solved') {
+				done = true;
+				break;
+			}
+			if (stage == 'cross') {
+				fail('LBL: cross broke during the solve');
+				break;
+			}
+			var t0 = Date.now();
+			var hint = copilot.getHint(facelet, {method: 'lbl', timeLimit: 4000});
+			var dt = Date.now() - t0;
+			if (dt > worst) {
+				worst = dt;
+			}
+			if (!hint || !hint.moves || !hint.alg) {
+				fail('LBL: no hint at stage ' + stage);
+				break;
+			}
+			if (!copilot.validateAlg(facelet, hint.moves, hint)) {
+				fail('LBL: hint does not apply at stage ' + stage + ': ' + hint.alg);
+				break;
+			}
+			if (hint.moves.length > longest) {
+				longest = hint.moves.length;
+			}
+			moves += hint.moves.length;
+			hints++;
+			cc = applyAlg(cc, hint.moves.join(' '));
+		}
+		if (done) {
+			solves++;
+		} else if (guard >= 40) {
+			fail('LBL: solve did not finish');
+		}
+	}
+	console.log('LBL solves', solves, 'hints', hints, 'avg hint moves',
+		(hints ? (moves / hints).toFixed(1) : 0), 'longest', longest, 'slowest ms', worst);
+})();
 
 console.log(failures == 0 ? 'ALL OK' : ('FAILURES: ' + failures));
 process.exitCode = failures == 0 ? 0 : 1;
