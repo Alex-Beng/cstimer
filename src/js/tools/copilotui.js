@@ -62,16 +62,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var lastSentId = 0;
 	var queuedReq = null;
 
-	/* 3x3 relay pacing feedback: persistent background + one flash per cube */
-	var relayBodyStyle = null;
-	var RELAY_OK_BG = '#b8f6c4';
-	var RELAY_OK_FG = '#001b05';
-	var RELAY_FAIL_BG = '#7a0000';
-	var RELAY_FAIL_FG = '#ffffff';
-	var RELAY_FLASH_OK_BG = '#3dff79';
-	var RELAY_FLASH_OK_FG = '#001b05';
-	var RELAY_FLASH_FAIL_BG = '#ff2424';
-	var RELAY_FLASH_FAIL_FG = '#ffffff';
+	/* 3x3 relay pacing feedback: breathing edge glow + one small flash per cube */
+	var relayGlow = $('<div id="copilotRelayGlow"/>');
+	var relayFlash = $('<div id="copilotRelayFlash"/>');
 
 	/**
 	 * Language strings live as globals of the selected locale file, and most
@@ -813,47 +806,25 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return isFinite(val) && val > 0 ? val * 1000 : 0;
 	}
 
-	function saveRelayBodyStyle() {
-		if (relayBodyStyle || !document.body) {
-			return;
-		}
-		var style = document.body.style;
-		relayBodyStyle = {
-			bg: style.backgroundColor,
-			fg: style.color,
-			transition: style.transition
-		};
-	}
-
 	function clearRelayFeedback() {
-		if (!relayBodyStyle || !document.body) {
-			return;
-		}
-		var style = document.body.style;
-		style.transition = 'none';
-		style.backgroundColor = relayBodyStyle.bg;
-		style.color = relayBodyStyle.fg;
-		style.transition = relayBodyStyle.transition;
-		relayBodyStyle = null;
+		relayGlow.removeClass('relay-glow-ok relay-glow-bad relay-glow-on');
+		relayFlash.removeClass('relay-flash-ok relay-flash-bad relay-flash-run');
 	}
 
 	/**
-	 * Start this cube with a bright flash, then settle on the cumulative
-	 * (x * target) colour until the next cube finishes.
+	 * Start this cube with a small flash, then breathe on the cumulative
+	 * (x * target) edge colour until the next cube finishes.
 	 */
-	function setRelayFeedback(ok, baseBg, baseFg) {
-		if (!document.body) {
-			return;
-		}
-		saveRelayBodyStyle();
-		var style = document.body.style;
-		style.transition = 'none';
-		style.backgroundColor = ok ? RELAY_FLASH_OK_BG : RELAY_FLASH_FAIL_BG;
-		style.color = ok ? RELAY_FLASH_OK_FG : RELAY_FLASH_FAIL_FG;
-		document.body.offsetHeight;
-		style.transition = 'background-color 500ms ease-out, color 500ms ease-out';
-		style.backgroundColor = baseBg;
-		style.color = baseFg;
+	function setRelayFeedback(splitOk, cumulativeOk) {
+		relayGlow
+			.removeClass('relay-glow-ok relay-glow-bad')
+			.addClass(cumulativeOk ? 'relay-glow-ok' : 'relay-glow-bad')
+			.addClass('relay-glow-on');
+
+		relayFlash.removeClass('relay-flash-run relay-flash-ok relay-flash-bad');
+		relayFlash.addClass(splitOk ? 'relay-flash-ok' : 'relay-flash-bad');
+		void relayFlash[0].offsetHeight;
+		relayFlash.addClass('relay-flash-run');
 	}
 
 	function onRelaySolve(value) {
@@ -870,9 +841,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		var cumulativeOk = elapsed < idx * target;
 		var splitOk = split < target;
-		setRelayFeedback(splitOk,
-			cumulativeOk ? RELAY_OK_BG : RELAY_FAIL_BG,
-			cumulativeOk ? RELAY_OK_FG : RELAY_FAIL_FG);
+		setRelayFeedback(splitOk, cumulativeOk);
 	}
 
 	// ---------------------------------------------------------------- display
@@ -1526,6 +1495,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 		kernel.addWindow('copilot', L('COPILOT_BUTTON', 'HINT'), div, false, false, 5);
 		tools.regTool('copilot', L('TOOLS_COPILOT', 'Copilot'), toolExec);
+		relayGlow.appendTo('body');
+		relayFlash.appendTo('body');
 		hintOverlay.appendTo('body');
 		chkEnable.prop('checked', isEnabled());
 		refreshStatus();

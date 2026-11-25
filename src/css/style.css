@@ -1533,3 +1533,65 @@ html.cspt:not(.m) .mywindow:hover, html.cspt:not(.m) #leftbar:hover {
     font-size: 1.6em;
     color: #ffd54a;
 }
+
+/* Relay pace feedback: the edges of the screen glow, the centre stays clear. */
+#copilotRelayGlow,
+#copilotRelayFlash {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0;
+}
+
+#copilotRelayGlow {
+    z-index: 6;
+}
+
+#copilotRelayGlow.relay-glow-ok {
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 45%, rgba(40, 210, 95, 0.55) 100%);
+}
+
+#copilotRelayGlow.relay-glow-bad {
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 38%, rgba(150, 0, 0, 0.75) 100%);
+}
+
+#copilotRelayGlow.relay-glow-on {
+    animation: copilotRelayBreath 2.4s ease-in-out infinite alternate;
+}
+
+#copilotRelayFlash {
+    z-index: 7;
+}
+
+#copilotRelayFlash.relay-flash-ok {
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 48%, rgba(80, 255, 130, 0.55) 100%);
+}
+
+#copilotRelayFlash.relay-flash-bad {
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 48%, rgba(255, 40, 40, 0.6) 100%);
+}
+
+#copilotRelayFlash.relay-flash-run {
+    animation: copilotRelayFlash 320ms ease-out;
+}
+
+@keyframes copilotRelayBreath {
+    from {
+        opacity: 0.3;
+    }
+    to {
+        opacity: 0.72;
+    }
+}
+
+@keyframes copilotRelayFlash {
+    from {
+        opacity: 0.45;
+    }
+    to {
+        opacity: 0;
+    }
+}

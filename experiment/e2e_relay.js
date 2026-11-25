@@ -23,21 +23,6 @@ function fail(msg) {
 	console.log('FAIL ' + msg);
 }
 
-function rgb(color) {
-	var m = /^rgb\((\d+), (\d+), (\d+)\)$/.exec(color);
-	return m ? [+m[1], +m[2], +m[3]] : null;
-}
-
-function isRed(color) {
-	var c = rgb(color);
-	return !!c && c[0] > c[1] * 2 && c[0] > c[2] * 2;
-}
-
-function isGreen(color) {
-	var c = rgb(color);
-	return !!c && c[1] > c[0] * 2 && c[1] > c[2] * 2;
-}
-
 var MIME = {
 	'.html': 'text/html; charset=utf-8',
 	'.js': 'text/javascript; charset=utf-8',
@@ -88,6 +73,17 @@ var server = http.createServer(function(req, res) {
 				setTimeout(resolve, ms);
 			});
 		}
+		function uiState() {
+			var glow = $('#copilotRelayGlow');
+			var flash = $('#copilotRelayFlash');
+			return {
+				glow: glow.attr('class') || '',
+				glowBg: glow.length ? getComputedStyle(glow[0]).backgroundImage : '',
+				glowAnim: glow.length ? getComputedStyle(glow[0]).animationName : '',
+				flash: flash.attr('class') || '',
+				flashAnim: flash.length ? getComputedStyle(flash[0]).animationName : ''
+			};
+		}
 
 		kernel.setProp('input', 'v');
 		kernel.setProp('scrType', 'r3');
@@ -126,10 +122,10 @@ var server = http.createServer(function(req, res) {
 		var afterFirst = {
 			status: timer.status(),
 			events: events.slice(),
-			bg: document.body.style.backgroundColor
+			ui: uiState()
 		};
 		await wait(650);
-		var settledFirst = document.body.style.backgroundColor;
+		var settledFirst = uiState();
 
 		// second scramble U -> U'
 		timer.virtual.onkeydown(70, {});
@@ -137,19 +133,19 @@ var server = http.createServer(function(req, res) {
 		var afterSecond = {
 			status: timer.status(),
 			events: events.slice(),
-			bg: document.body.style.backgroundColor
+			ui: uiState()
 		};
 
 		// force a slow cumulative pace without running another relay
 		kernel.pushSignal('timerStatus', -2);
 		kernel.pushSignal('relaySolve', [2, 2, 15000, 12000, true]);
-		var splitFlash = getComputedStyle(document.body).backgroundColor;
+		var splitFlash = uiState();
 		await wait(650);
-		var splitBase = document.body.style.backgroundColor;
+		var splitBase = uiState();
 
 		kernel.pushSignal('timerStatus', -2);
 		kernel.pushSignal('relaySolve', [2, 2, 25000, 5000, true]);
-		var slowFlash = getComputedStyle(document.body).backgroundColor;
+		var slowFlash = uiState();
 		await wait(650);
 
 		return {
@@ -161,7 +157,7 @@ var server = http.createServer(function(req, res) {
 			splitFlash: splitFlash,
 			splitBase: splitBase,
 			slowFlash: slowFlash,
-			slowBg: document.body.style.backgroundColor
+			slowBase: uiState()
 		};
 	});
 
@@ -193,20 +189,34 @@ var server = http.createServer(function(req, res) {
 	if (relay.afterSecond.status != -1) {
 		fail('timer should stop after the final relay cube');
 	}
-	if (relay.settledFirst != 'rgb(184, 246, 196)') {
-		fail('fast relay should settle on the green background: ' + relay.settledFirst);
+	if (!/relay-glow-on/.test(relay.afterFirst.ui.glow) ||
+		!/relay-glow-ok/.test(relay.afterFirst.ui.glow)) {
+		fail('fast relay should breathe on the green edge: ' + relay.afterFirst.ui.glow);
 	}
-	if (relay.splitBase != 'rgb(184, 246, 196)') {
-		fail('fast cumulative pace should stay green when only the split is slow: ' + relay.splitBase);
+	if (relay.afterFirst.ui.glowAnim != 'copilotRelayBreath') {
+		fail('relay edge glow is not breathing: ' + relay.afterFirst.ui.glowAnim);
 	}
-	if (!isRed(relay.splitFlash)) {
-		fail('slow split should flash red: ' + relay.splitFlash);
+	if (!/radial-gradient/.test(relay.afterFirst.ui.glowBg)) {
+		fail('relay glow is not an edge gradient: ' + relay.afterFirst.ui.glowBg);
 	}
-	if (!isGreen(relay.slowFlash)) {
-		fail('fast split should flash green even when the cumulative pace is slow: ' + relay.slowFlash);
+	if (!/relay-flash-run/.test(relay.afterFirst.ui.flash) ||
+		relay.afterFirst.ui.flashAnim != 'copilotRelayFlash') {
+		fail('cube completion did not flash: ' + JSON.stringify(relay.afterFirst.ui));
 	}
-	if (relay.slowBg != 'rgb(122, 0, 0)') {
-		fail('slow relay should settle on the red background: ' + relay.slowBg);
+	if (!/relay-glow-ok/.test(relay.settledFirst.glow)) {
+		fail('fast relay should settle on the green edge: ' + relay.settledFirst.glow);
+	}
+	if (!/relay-glow-ok/.test(relay.splitBase.glow)) {
+		fail('fast cumulative pace should stay green when only the split is slow: ' + relay.splitBase.glow);
+	}
+	if (!/relay-flash-bad/.test(relay.splitFlash.flash)) {
+		fail('slow split should flash red: ' + relay.splitFlash.flash);
+	}
+	if (!/relay-flash-ok/.test(relay.slowFlash.flash)) {
+		fail('fast split should flash green even when the cumulative pace is slow: ' + relay.slowFlash.flash);
+	}
+	if (!/relay-glow-bad/.test(relay.slowBase.glow)) {
+		fail('slow relay should settle on the red edge: ' + relay.slowBase.glow);
 	}
 
 	fatal.forEach(function(m) {
