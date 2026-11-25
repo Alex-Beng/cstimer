@@ -95,6 +95,16 @@ var server = http.createServer(function(req, res) {
 		kernel.setProp('vrcSpeed', 0);
 		await wait(1200);
 
+		var input = $('#relayTargetInput');
+		var targetUi = {
+			shown: input.length == 1 && input.parent().css('display') != 'none',
+			initial: input.val()
+		};
+		input.val('9').change();
+		targetUi.applied = kernel.getProp('cpRelayTarget');
+		input.val('10').change();
+		targetUi.final = kernel.getProp('cpRelayTarget');
+
 		var events = [];
 		kernel.regListener('relayTest', 'relaySolve', function(signal, value) {
 			events.push(value.slice());
@@ -141,6 +151,7 @@ var server = http.createServer(function(req, res) {
 
 		return {
 			started: started,
+			targetUi: targetUi,
 			afterFirst: afterFirst,
 			settledFirst: settledFirst,
 			afterSecond: afterSecond,
@@ -152,6 +163,18 @@ var server = http.createServer(function(req, res) {
 	});
 
 	console.log(JSON.stringify(relay, null, 2));
+	if (!relay.targetUi.shown) {
+		fail('relay target input is not visible for r3');
+	}
+	if (relay.targetUi.initial != '10') {
+		fail('relay target input did not show the current value: ' + relay.targetUi.initial);
+	}
+	if (relay.targetUi.applied != 9) {
+		fail('relay target input did not update cpRelayTarget: ' + relay.targetUi.applied);
+	}
+	if (relay.targetUi.final != 10) {
+		fail('relay target input did not restore cpRelayTarget');
+	}
 	if (relay.started != -2) {
 		fail('relay did not start');
 	}

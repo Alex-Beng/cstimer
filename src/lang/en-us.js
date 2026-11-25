@@ -213,6 +213,7 @@ var SCRAMBLE_NEXT = 'next';
 var SCRAMBLE_SCRAMBLE = 'scramble';
 var SCRAMBLE_SCRAMBLING = 'Scrambling';
 var SCRAMBLE_LENGTH = 'length';
+var SCRAMBLE_RELAY_TARGET = 'target/cube (s, 0=off)';
 var SCRAMBLE_INPUT = 'Input Scramble(s)';
 var SCRAMBLE_INPUTTYPE = 'Scramble type';
 var PROPERTY_VRCSPEED = 'VRC base speed (tps)';

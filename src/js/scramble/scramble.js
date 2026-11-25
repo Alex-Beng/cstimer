@@ -204,6 +204,8 @@ var scramble = ISCSTIMER && execMain(function(rn, rndEl) {
 	var scrFltSelAll = $('<input type="button">').val(SCROPT_BTNALL);
 	var scrFltSelNon = $('<input type="button">').val(SCROPT_BTNNONE);
 	var scrLen = $('<input type="text" maxlength="3">');
+	var relayTarget = $('<input type="text" maxlength="3" id="relayTargetInput">');
+	var relayTargetWrap = $('<nobr />');
 	var scrHelp = $('<span>');
 	var sdiv = $('<div>');
 	var ssdiv = $('<div id="scrambleTxt"/>');
@@ -219,6 +221,20 @@ var scramble = ISCSTIMER && execMain(function(rn, rndEl) {
 
 	var scrFlt = "";
 	var scrTPRe = /^\$T([a-zA-Z0-9]+)(-[0-9]+)?\$\s*(.*)$/;
+
+	function relayTargetValue() {
+		var val = ~~parseFloat(kernel.getProp('cpRelayTarget', 0));
+		return isFinite(val) ? Math.max(0, Math.min(999, val)) : 0;
+	}
+
+	function updateRelayTarget() {
+		if (menu.getSelected() == 'r3') {
+			relayTargetWrap.show();
+		} else {
+			relayTargetWrap.hide();
+		}
+		relayTarget.val(relayTargetValue());
+	}
 
 	function genScramble() {
 		kernel.blur();
@@ -578,6 +594,7 @@ var scramble = ISCSTIMER && execMain(function(rn, rndEl) {
 		scrLen.val(Math.abs(len));
 		scrLen[0].disabled = len <= 0;
 		var curType = menu.getSelected();
+		updateRelayTarget();
 		if (curType in helpMsg) {
 			scrHelp.text(helpMsg[curType]).show();
 		} else {
@@ -794,6 +811,8 @@ var scramble = ISCSTIMER && execMain(function(rn, rndEl) {
 				} else {
 					ssdiv.addClass('noselect');
 				}
+			} else if (value[0] == 'cpRelayTarget') {
+				relayTarget.val(relayTargetValue());
 			}
 		} else if (signal == 'button' && value[0] == 'scramble') {
 			isEn = value[1];
@@ -901,7 +920,7 @@ var scramble = ISCSTIMER && execMain(function(rn, rndEl) {
 
 	$(function() {
 		kernel.regListener('scramble', 'time', procSignal);
-		kernel.regListener('scramble', 'property', procSignal, /^scr(?:Size|Mono|Type|Lim|Align|Wrap|Fast|KeyM|Hide|Neut|EqPr|Clk)$/);
+		kernel.regListener('scramble', 'property', procSignal, /^(?:scr(?:Size|Mono|Type|Lim|Align|Wrap|Fast|KeyM|Hide|Neut|EqPr|Clk)|cpRelayTarget)$/);
 		kernel.regListener('scramble', 'button', procSignal, /^scramble$/);
 		kernel.regListener('scramble', 'ctrl', procSignal, /^scramble$/);
 		kernel.regListener('scramble', 'scrfix', procSignal);
@@ -927,11 +946,22 @@ var scramble = ISCSTIMER && execMain(function(rn, rndEl) {
 		kernel.regProp('scramble', 'scrType', ~5, SCRAMBLE_INPUTTYPE, ['333'], 3);
 
 		scrLen.change(genScramble);
+		relayTarget.change(function() {
+			var val = ~~parseFloat(relayTarget.val());
+			val = isFinite(val) ? Math.max(0, Math.min(999, val)) : 0;
+			relayTarget.val(val);
+			kernel.setProp('cpRelayTarget', val);
+		});
 		scrOpt.click(showScrOpt);
 		scrOptDiv.append($('<div>').append(SCRAMBLE_LENGTH + ': ', scrLen), scrHelp, scrFltDiv);
 
 		title.append($('<nobr>').append(selects[0], ' ', selects[1], ' ', scrOpt), " <wbr>");
 		title.append($('<nobr>').append(lastClick, '/', nextClick, ' ', SCRAMBLE_SCRAMBLE));
+		relayTargetWrap.append(
+			(typeof SCRAMBLE_RELAY_TARGET == 'undefined' ? 'target/cube (s, 0=off)' : SCRAMBLE_RELAY_TARGET) + ': ',
+			relayTarget
+		).hide();
+		title.append(' ', relayTargetWrap);
 		div.append(title, ssdiv.append(sdiv).click(procScrambleClick));
 		tools.regTool('scrgen', TOOLS_SCRGEN, scrambleGenerator);
 		ssdiv.click(function() {

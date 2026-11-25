@@ -213,6 +213,7 @@ var SCRAMBLE_NEXT = '下一条';
 var SCRAMBLE_SCRAMBLE = '打乱公式';
 var SCRAMBLE_SCRAMBLING = '打乱中';
 var SCRAMBLE_LENGTH = '长度';
+var SCRAMBLE_RELAY_TARGET = '每颗期望(秒，0关)';
 var SCRAMBLE_INPUT = '输入打乱公式';
 var SCRAMBLE_INPUTTYPE = '打乱类型';
 var PROPERTY_VRCSPEED = 'VRC基础速度 (tps)';
