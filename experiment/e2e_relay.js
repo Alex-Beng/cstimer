@@ -178,7 +178,7 @@ var server = http.createServer(function(req, res) {
 		var splitBase = uiState();
 
 		kernel.pushSignal('timerStatus', -2);
-		kernel.pushSignal('relaySolve', [2, 2, 25000, 5000, true]);
+		kernel.pushSignal('relaySolve', [2, 2, 25000, 5000, false]);
 		var slowFlash = uiState();
 		await wait(650);
 		var slowBase = uiState();
@@ -211,6 +211,13 @@ var server = http.createServer(function(req, res) {
 	if (!(glowWithoutAnimation > 0.4)) {
 		fail('relay glow disappears without animation: opacity ' + glowWithoutAnimation);
 	}
+
+	// The last real cube schedules an auto-clear; re-apply a slow pace so the
+	// pixel checks below always have something to sample.
+	await page.evaluate(function() {
+		kernel.pushSignal('relaySolve', [1, 2, 25000, 25000, false]);
+	});
+	await page.waitForTimeout(800);
 
 	// The red state (slowBase) is still applied. Freeze the breathing animation
 	// and pin its opacity so the screenshot is deterministic, then sample the
@@ -266,6 +273,15 @@ var server = http.createServer(function(req, res) {
 				flash: $('#copilotRelayFlash').attr('class') || ''
 			};
 		}
+		// finishing the whole relay should clear itself after a short moment
+		timer.virtual.onkeydown(32, {});
+		await wait(200);
+		kernel.pushSignal('relaySolve', [2, 2, 25000, 5000, true]);
+		await wait(150);
+		var afterFinish = uiState();
+		await wait(1400);
+		var afterFinishCleared = uiState();
+
 		timer.virtual.onkeydown(32, {});
 		await wait(200);
 		kernel.pushSignal('relaySolve', [1, 2, 15000, 15000, false]);
@@ -280,6 +296,8 @@ var server = http.createServer(function(req, res) {
 		timer.virtual.onkeydown(32, {});
 		await wait(200);
 		return {
+			afterFinish: afterFinish,
+			afterFinishCleared: afterFinishCleared,
 			beforeEsc: beforeEsc,
 			afterEsc: afterEsc,
 			afterRestart: {
@@ -288,6 +306,8 @@ var server = http.createServer(function(req, res) {
 			}
 		};
 	});
+	relay.afterFinish = escState.afterFinish;
+	relay.afterFinishCleared = escState.afterFinishCleared;
 	relay.beforeEsc = escState.beforeEsc;
 	relay.afterEsc = escState.afterEsc;
 	relay.afterRestart = escState.afterRestart;
@@ -357,6 +377,12 @@ var server = http.createServer(function(req, res) {
 	}
 	if (!/relay-glow-bad/.test(relay.beforeEsc.glow)) {
 		fail('relay should be red before ESC: ' + relay.beforeEsc.glow);
+	}
+	if (!/relay-glow-bad/.test(relay.afterFinish.glow)) {
+		fail('finishing the relay should show the final colour first: ' + relay.afterFinish.glow);
+	}
+	if (relay.afterFinishCleared.glow != '' || relay.afterFinishCleared.flash != '') {
+		fail('finishing the relay left feedback behind: ' + JSON.stringify(relay.afterFinishCleared));
 	}
 	if (relay.afterEsc.ui.glow != '' || relay.afterEsc.ui.flash != '') {
 		fail('ESC left relay feedback behind: ' + JSON.stringify(relay.afterEsc));
