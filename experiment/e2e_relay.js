@@ -3,8 +3,9 @@
 // Browser test for 3x3 relay pacing feedback.
 //
 //  1. a two-cube r3 relay emits one relaySolve event per solved cube
-//  2. the body keeps a green pace background while both cubes beat the target
-//  3. a slow cumulative pace turns the background red
+//  2. the screen edges glow green while both cubes beat the target
+//  3. a slow cumulative pace turns the edges red
+//  4. pixels near the edges are tinted while the centre stays clear
 //
 // The page needs `input = v` and a simple relay scramble, so the test can
 // finish each cube with a single inverse move.
@@ -21,6 +22,37 @@ var failures = 0;
 function fail(msg) {
 	failures++;
 	console.log('FAIL ' + msg);
+}
+
+// Screenshot the viewport and read a few pixels, so an edge-only vignette can
+// be told apart from a full-screen wash.
+async function sampleGlow(page) {
+	var shot = await page.screenshot();
+	return await page.evaluate(async function(b64) {
+		var img = new Image();
+		img.src = 'data:image/png;base64,' + b64;
+		await img.decode();
+		var canvas = document.createElement('canvas');
+		canvas.width = img.width;
+		canvas.height = img.height;
+		var ctx = canvas.getContext('2d');
+		ctx.drawImage(img, 0, 0);
+		function px(x, y) {
+			var d = ctx.getImageData(x, y, 1, 1).data;
+			return [d[0], d[1], d[2]];
+		}
+		var w = img.width;
+		var h = img.height;
+		return {
+			width: w,
+			height: h,
+			center: px(~~(w / 2), ~~(h / 2)),
+			top: px(~~(w / 2), 2),
+			bottom: px(~~(w / 2), h - 3),
+			left: px(2, ~~(h / 2)),
+			right: px(w - 3, ~~(h / 2))
+		};
+	}, shot.toString('base64'));
 }
 
 var MIME = {
@@ -79,6 +111,7 @@ var server = http.createServer(function(req, res) {
 			return {
 				glow: glow.attr('class') || '',
 				glowBg: glow.length ? getComputedStyle(glow[0]).backgroundImage : '',
+				glowSize: glow.length ? getComputedStyle(glow[0]).backgroundSize : '',
 				glowAnim: glow.length ? getComputedStyle(glow[0]).animationName : '',
 				flash: flash.attr('class') || '',
 				flashAnim: flash.length ? getComputedStyle(flash[0]).animationName : ''
@@ -162,6 +195,42 @@ var server = http.createServer(function(req, res) {
 	});
 
 	console.log(JSON.stringify(relay, null, 2));
+
+	// The red state (slowBase) is still applied. Freeze the breathing animation
+	// and pin its opacity so the screenshot is deterministic, then sample the
+	// centre and the four edges.
+	await page.evaluate(function() {
+		var glow = document.getElementById('copilotRelayGlow');
+		glow.style.animation = 'none';
+		glow.style.opacity = '0.72';
+	});
+	var redEdge = await sampleGlow(page);
+	await page.evaluate(function() {
+		document.getElementById('copilotRelayGlow').className = 'relay-glow-ok relay-glow-on';
+	});
+	var greenEdge = await sampleGlow(page);
+	console.log('red edge pixels: ' + JSON.stringify(redEdge));
+	console.log('green edge pixels: ' + JSON.stringify(greenEdge));
+
+	var EDGES = ['top', 'bottom', 'left', 'right'];
+	EDGES.forEach(function(edge) {
+		var redTint = redEdge[edge][0] - redEdge[edge][1];
+		var redCentre = redEdge.center[0] - redEdge.center[1];
+		if (redTint < redCentre + 18) {
+			fail('red pace glow does not reach the ' + edge + ' edge');
+		}
+		var greenTint = greenEdge[edge][1] - greenEdge[edge][0];
+		var greenCentre = greenEdge.center[1] - greenEdge.center[0];
+		if (greenTint < greenCentre + 18) {
+			fail('green pace glow does not reach the ' + edge + ' edge');
+		}
+	});
+	if (Math.abs(redEdge.center[0] - greenEdge.center[0]) > 8 ||
+		Math.abs(redEdge.center[1] - greenEdge.center[1]) > 8) {
+		fail('pace glow tints the centre: ' + JSON.stringify(redEdge.center) +
+			' vs ' + JSON.stringify(greenEdge.center));
+	}
+
 	if (!relay.targetUi.shown) {
 		fail('relay target input is not visible for r3');
 	}
@@ -196,8 +265,12 @@ var server = http.createServer(function(req, res) {
 	if (relay.afterFirst.ui.glowAnim != 'copilotRelayBreath') {
 		fail('relay edge glow is not breathing: ' + relay.afterFirst.ui.glowAnim);
 	}
-	if (!/radial-gradient/.test(relay.afterFirst.ui.glowBg)) {
-		fail('relay glow is not an edge gradient: ' + relay.afterFirst.ui.glowBg);
+	if (!/linear-gradient/.test(relay.afterFirst.ui.glowBg) ||
+		/at center/.test(relay.afterFirst.ui.glowBg)) {
+		fail('relay glow is not made of edge strips: ' + relay.afterFirst.ui.glowBg);
+	}
+	if ((relay.afterFirst.ui.glowSize.match(/px/g) || []).length < 4) {
+		fail('relay glow edge strips have no size: ' + relay.afterFirst.ui.glowSize);
 	}
 	if (!/relay-flash-run/.test(relay.afterFirst.ui.flash) ||
 		relay.afterFirst.ui.flashAnim != 'copilotRelayFlash') {
