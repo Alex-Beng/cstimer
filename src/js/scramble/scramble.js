@@ -206,6 +206,7 @@ var scramble = ISCSTIMER && execMain(function(rn, rndEl) {
 	var scrLen = $('<input type="text" maxlength="3">');
 	var relayTarget = $('<input type="text" maxlength="3" id="relayTargetInput">');
 	var relayTargetWrap = $('<nobr />');
+	var relayTargetRow = $('<div />').append(relayTargetWrap).hide();
 	var scrHelp = $('<span>');
 	var sdiv = $('<div>');
 	var ssdiv = $('<div id="scrambleTxt"/>');
@@ -229,9 +230,9 @@ var scramble = ISCSTIMER && execMain(function(rn, rndEl) {
 
 	function updateRelayTarget() {
 		if (menu.getSelected() == 'r3') {
-			relayTargetWrap.show();
+			relayTargetRow.show();
 		} else {
-			relayTargetWrap.hide();
+			relayTargetRow.hide();
 		}
 		relayTarget.val(relayTargetValue());
 	}
@@ -953,15 +954,19 @@ var scramble = ISCSTIMER && execMain(function(rn, rndEl) {
 			kernel.setProp('cpRelayTarget', val);
 		});
 		scrOpt.click(showScrOpt);
-		scrOptDiv.append($('<div>').append(SCRAMBLE_LENGTH + ': ', scrLen), scrHelp, scrFltDiv);
+		scrOptDiv.append(
+			$('<div>').append(SCRAMBLE_LENGTH + ': ', scrLen),
+			relayTargetRow,
+			scrHelp,
+			scrFltDiv
+		);
 
 		title.append($('<nobr>').append(selects[0], ' ', selects[1], ' ', scrOpt), " <wbr>");
 		title.append($('<nobr>').append(lastClick, '/', nextClick, ' ', SCRAMBLE_SCRAMBLE));
 		relayTargetWrap.append(
 			(typeof SCRAMBLE_RELAY_TARGET == 'undefined' ? 'target/cube (s, 0=off)' : SCRAMBLE_RELAY_TARGET) + ': ',
 			relayTarget
-		).hide();
-		title.append(' ', relayTargetWrap);
+		);
 		div.append(title, ssdiv.append(sdiv).click(procScrambleClick));
 		tools.regTool('scrgen', TOOLS_SCRGEN, scrambleGenerator);
 		ssdiv.click(function() {

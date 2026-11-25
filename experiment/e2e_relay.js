@@ -95,9 +95,12 @@ var server = http.createServer(function(req, res) {
 		kernel.setProp('vrcSpeed', 0);
 		await wait(1200);
 
+		// the target field lives in the scramble-settings popup
+		$('#scrambleDiv .title input.icon').first().click();
+		await wait(100);
 		var input = $('#relayTargetInput');
 		var targetUi = {
-			shown: input.length == 1 && input.parent().css('display') != 'none',
+			shown: input.length == 1 && input.is(':visible'),
 			initial: input.val()
 		};
 		input.val('9').change();

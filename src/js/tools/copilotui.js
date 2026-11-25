@@ -1484,7 +1484,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regProp('copilot', 'cpColor', 3, L('COPILOT_COLOR', 'Highlight color'), ['#ffd700'], 1);
 		kernel.regProp('copilot', 'cpTimeout', 2, L('COPILOT_TIMEOUT', 'Hint after no progress (s)'), [6, 0, 120], 1);
 		kernel.regProp('copilot', 'cpUndoMax', 2, L('COPILOT_UNDOMAX', 'Re-plan after this many wrong moves'), [3, 1, 10], 1);
-		kernel.regProp('copilot', 'cpRelayTarget', 2, L('COPILOT_RELAY_TARGET', '3x3 relay target per cube (s, 0 = off)'), [0, 0, 999], 1);
+		kernel.regProp('copilot', 'cpRelayTarget', ~2, L('COPILOT_RELAY_TARGET', '3x3 relay target per cube (s, 0 = off)'), [0, 0, 999], 1);
 		kernel.regProp('copilot', 'cpLlmode', 1, L('COPILOT_LLMODE', 'Last-layer method'), ['op', ['op', 'coll', 'zbll', 'alll', 'off'], [
 			L('COPILOT_LL_OP', 'OLL + PLL'),
 			L('COPILOT_LL_COLL', 'COLL + EPLL'),
