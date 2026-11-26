@@ -2583,6 +2583,7 @@ function makeCubeCopilot() {
 				llCp: false,
 				oriented: false,
 				orientedCp: false,
+				ollSeen: false,
 				done: false
 			};
 			if (st.prev >= 2 && st.prev <= 6) {
@@ -2611,7 +2612,8 @@ function makeCubeCopilot() {
 			} else if (st.cross && prev > 6 && prog <= 6) {
 				// the cross was broken by an F2L alg and is back: resync
 				st.pairs = 6 - prog;
-			} else if (st.cross && prev >= 2 && prev <= 6 && prog >= 2 && prog <= 6) {
+			} else if (!st.f2l && st.cross && prev >= 2 && prev <= 6 &&
+					prog >= 2 && prog <= 6) {
 				var nowPairs = 6 - prog;
 				if (nowPairs - st.pairs >= 2) {
 					ev.push({key: 'multi', n: nowPairs - st.pairs});
@@ -2656,9 +2658,12 @@ function makeCubeCopilot() {
 			// COLL / OLLCP are achieved the moment OLL completes, not when
 			// the following EPLL/PLL is done.  Only inspect the 2 -> 1
 			// transition so intermediate PLL states cannot fire them.
-			if (prev > 1 && prog == 1 && st.f2l && st.oriented &&
-					st.orientedCp && !st.llCp && !(st.llEo && st.llCo)) {
-				ev.push({key: st.llEo ? 'coll' : 'ollcp'});
+			if (!st.ollSeen && prev > 1 && prog == 1 && st.f2l) {
+				st.ollSeen = true;
+				if (st.oriented && st.orientedCp && !st.llCp &&
+						!(st.llEo && st.llCo)) {
+					ev.push({key: st.llEo ? 'coll' : 'ollcp'});
+				}
 			}
 
 			if (prog == 0) {

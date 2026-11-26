@@ -128,6 +128,15 @@ check('COLL is not repeated at PLL', !coll.per[6].some(function(e) {
 	return e.key == 'coll';
 }));
 
+var collDip = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: true, co: false, cp: false},
+	{prog: 2, eo: true, co: false, cp: false},
+	{prog: 1, eo: true, co: true, cp: true},
+	{prog: 2, eo: true, co: true, cp: true},
+	{prog: 1, eo: true, co: true, cp: true}, SOLVED]);
+check('COLL is not repeated when PLL dips through F2L', keys(collDip).filter(function(k) {
+	return k == 'coll';
+}).length == 1);
+
 var ollcp = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false, cp: false},
 	{prog: 2, eo: false, co: false, cp: false},
 	{prog: 1, eo: true, co: true, cp: true}, SOLVED]);
@@ -156,6 +165,9 @@ check('normal OLL+PLL has no achievement', noEvents(normal));
 // ---------------------------------------------------------------- misc
 var multi = run(7, [CROSS_ONLY, P1, {prog: 3}]);
 check('Multislotting', has(multi, 'multi'));
+var lateMulti = run(7, [CROSS_ONLY, P1, P2, {prog: 3}, {prog: 2},
+	{prog: 4}, {prog: 2}]);
+check('no multislot after F2L completes', !has(lateMulti, 'multi'));
 
 var regress = run(7, [P1, {prog: 7}, P1]);
 check('a broken cross does not re-fire XC', keys(regress).filter(function(k) {
