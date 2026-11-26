@@ -19,7 +19,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url || steps.deployment_final.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -76,6 +76,30 @@ jobs:
         with:
           path: 'dist/pages'
 
+      # deploy-pages occasionally starts before the freshly uploaded
+      # "github-pages" artifact is visible through the artifacts API and fails
+      # with "No artifacts named github-pages were found".  The upload itself
+      # succeeded, so retrying the deploy a few times is enough.
       - name: Deploy to GitHub Pages
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Wait before deploy retry
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 20
+
+      - name: Deploy to GitHub Pages (retry)
+        id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Wait before final deploy retry
+        if: steps.deployment.outcome == 'failure' && steps.deployment_retry.outcome == 'failure'
+        run: sleep 30
+
+      - name: Deploy to GitHub Pages (final retry)
+        id: deployment_final
+        if: steps.deployment.outcome == 'failure' && steps.deployment_retry.outcome == 'failure'
         uses: actions/deploy-pages@v4
