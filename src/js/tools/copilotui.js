@@ -1711,17 +1711,35 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	function showTechToast(ach) {
 		var flow = ach.key.indexOf('flow') == 0;
-		if (!flow) {
-			// a real technique tip outranks any flow tips still waiting
+		var speed = /^tps/.test(ach.key);
+		if (!flow && !speed) {
+			// a real technique tip outranks any flow or TPS tips still waiting
 			for (var i = techToastQueue.length - 1; i >= 0; i--) {
-				if (techToastQueue[i].key.indexOf('flow') == 0) {
+				var queued = techToastQueue[i].key;
+				if (queued.indexOf('flow') == 0 || /^tps/.test(queued)) {
 					techToastQueue.splice(i, 1);
 				}
 			}
 		}
 		techToastQueue.push(ach);
+		// Drop filler tips before a technique tip when the queue overflows.
 		while (techToastQueue.length > 4) {
-			techToastQueue.shift();
+			var drop = -1;
+			for (var j = 0; j < techToastQueue.length; j++) {
+				if (/^tps/.test(techToastQueue[j].key)) {
+					drop = j;
+					break;
+				}
+			}
+			if (drop < 0) {
+				for (j = 0; j < techToastQueue.length; j++) {
+					if (techToastQueue[j].key.indexOf('flow') == 0) {
+						drop = j;
+						break;
+					}
+				}
+			}
+			techToastQueue.splice(drop >= 0 ? drop : 0, 1);
 		}
 		pumpTechToast();
 	}
@@ -2154,7 +2172,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			return;
 		}
 		var plan = stagePlan();
-		if (!plan || plan == 'roux') {
+		if (plan == 'roux') {
 			return;
 		}
 		var keys = [];
@@ -2492,7 +2510,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		// keep a finished stepper visible for a moment, but never leave
 		// anything behind when the attempt is aborted
-		var solved = stageChips.length > 0 && stageIdx >= stageChips.length;
+		var solved = (stageChips.length > 0 && stageIdx >= stageChips.length) ||
+			techLastProg == 0;
 		lastSolveSolved = solved;
 		hideStageBar(solved ? 2600 : 0);
 		if (!solved) {
@@ -2534,14 +2553,18 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			noteTurn($.now());
 		}
 		var plan = stagePlan();
+		// Technique tips are independent of the multi-phase stepper: a
+		// single-phase smart/virtual solve should still report XC/ZBLL/...
+		// just like the TPS tips do.  Roux has no CFOP progress to read.
+		if (plan != 'roux' &&
+				(plan || kernel.getProp('cpMethod', 'cfop') != 'roux')) {
+			techStep(facelet, prog);
+		}
 		if (!plan) {
 			return;
 		}
 		buildStageChips(plan);
 		stageFacelet = facelet;
-		if (plan != 'roux') {
-			techStep(facelet, prog);
-		}
 		var idx = stageIndexFor(plan, facelet);
 		if (idx < 0) {
 			return;
