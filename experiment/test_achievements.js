@@ -100,6 +100,48 @@ step(t, ['xc']);
 step(t, ['xxc']);
 check('十字军', has(step(t, ['xxxc']), 'xc3'));
 
+// ------------------------------------------------------------------ speed
+function stepStats(t, keys, stats) {
+	return t.step(keys, stats).map(function(ev) {
+		return ev.key;
+	});
+}
+
+t = tracker();
+check('Lightspeed at 16 TPS', has(stepStats(t, [], {tps: 16}), 'speed'));
+check('Lightspeed is not repeated', !has(stepStats(t, [], {tps: 18}), 'speed'));
+
+t = tracker();
+stepStats(t, [], {tps: 12});
+stepStats(t, [], {tps: 12});
+check('手速狂人 after three 12+ TPS solves', has(stepStats(t, [], {tps: 13}), 'tps3'));
+
+t = tracker();
+stepStats(t, [], {tps: 12});
+stepStats(t, [], {tps: 12});
+stepStats(t, [], {tps: 7});
+check('a slow solve resets the TPS streak', !has(stepStats(t, [], {tps: 12}), 'tps3'));
+check('TPS streak restarts from one', !has(stepStats(t, [], {tps: 12}), 'tps3'));
+check('TPS streak reaches three again', has(stepStats(t, [], {tps: 12}), 'tps3'));
+
+t = tracker();
+check('16 TPS still counts towards the 12+ streak',
+	stepStats(t, [], {tps: 16}).length == 1 &&
+	t.state().tps == 1);
+
+// ------------------------------------------------------------- no rotation
+t = tracker();
+check('四向无转 after a rotation-free full solve',
+	has(stepStats(t, [], {norot: true}), 'norot'));
+check('四向无转 is not repeated',
+	!has(stepStats(t, [], {norot: true}), 'norot'));
+
+t = tracker();
+check('TPS tiers are not required for 图鉴大师',
+	t.requiredKeys().indexOf('tps16') < 0 &&
+	t.requiredKeys().indexOf('tps8') < 0);
+check('no-rotation is not a codex technique', t.requiredKeys().indexOf('norot') < 0);
+
 // -------------------------------------------------------------- same solve
 t = tracker();
 check('全家桶', has(step(t, ['zbls', 'zbll']), 'fullhouse'));

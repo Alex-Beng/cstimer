@@ -52,7 +52,10 @@ execMain(function(timer) {
 				puzzleObj.toggleColorVisible(puzzleObj.isSolved(kernel.getProp('vrcMP', 'n')) == 0);
 			}
 			if (mstep == 0) {
-				rawMoves[timer.status() - 1].push([puzzleObj.move2str(move), now - timer.startTime()]);
+				var mvStr = puzzleObj.move2str(move);
+				rawMoves[timer.status() - 1].push([mvStr, now - timer.startTime()]);
+				// let the copilot tell whole-cube rotations from face turns
+				kernel.pushSignal('virtualMove', [mvStr]);
 			}
 			var curProgress;
 			if (mstep == 2) {

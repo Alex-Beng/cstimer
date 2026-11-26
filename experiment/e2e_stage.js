@@ -555,6 +555,108 @@ var server = http.createServer(function(req, res) {
 		fail('a new solve kept the previous achievement toast: ' + JSON.stringify(tech.freshAch));
 	}
 
+	// ------------------------------------------------- TPS / rotation-free
+	var speed = await page.evaluate(async function() {
+		function wait(ms) {
+			return new Promise(function(resolve) {
+				setTimeout(resolve, ms);
+			});
+		}
+		async function waitToast(part, ms) {
+			var end = Date.now() + ms;
+			while (Date.now() < end) {
+				if ($('#copilotTechToast .cp-toast-label').text().indexOf(part) >= 0) {
+					return true;
+				}
+				await wait(50);
+			}
+			return false;
+		}
+		function faceletOf(seq) {
+			var cc = new mathlib.CubieCube();
+			seq.split(' ').forEach(function(m) {
+				if (m) {
+					cc.selfMoveStr(m);
+				}
+			});
+			cc.ori = 0;
+			return cc.toFaceCube();
+		}
+		function panel() {
+			return $('#copilotAchPanel').text();
+		}
+		function combo() {
+			return $('#copilotStageTip').text();
+		}
+		var scr = 'R U F L D B R2 U2 F2';
+		kernel.setProp('scrType', '333');
+		kernel.setProp('vrcMP', 'cf4op');
+		kernel.pushSignal('timerStatus', -1);
+		await wait(150);
+
+		// a whole-cube rotation disqualifies the solve from the no-rotation tip
+		kernel.pushSignal('virtualState', [faceletOf(scr)]);
+		await wait(40);
+		kernel.pushSignal('timerStatus', 1);
+		await wait(60);
+		kernel.pushSignal('virtualMove', ['x']);
+		await wait(30);
+		kernel.pushSignal('virtualState', [mathlib.SOLVED_FACELET]);
+		await wait(80);
+		kernel.pushSignal('timerStatus', -1);
+		await wait(80);
+		kernel.pushSignal('time', [10000]);
+		await wait(300);
+		var rotatedCombo = combo();
+		var rotatedPanel = panel();
+
+		// 10 quick face turns trigger a TPS tip; no rotation keeps it clean
+		kernel.pushSignal('timerStatus', -1);
+		await wait(150);
+		kernel.pushSignal('virtualState', [faceletOf(scr)]);
+		await wait(40);
+		kernel.pushSignal('timerStatus', 1);
+		await wait(60);
+		for (var i = 0; i < 10; i++) {
+			kernel.pushSignal('virtualMove', ['R']);
+			await wait(40);
+		}
+		var sawTps = await waitToast('TPS', 3000);
+		kernel.pushSignal('virtualState', [mathlib.SOLVED_FACELET]);
+		await wait(100);
+		kernel.pushSignal('timerStatus', -1);
+		await wait(80);
+		kernel.pushSignal('time', [10000]);
+		await wait(500);
+		return {
+			rotatedCombo: rotatedCombo,
+			rotatedPanel: rotatedPanel,
+			sawTps: sawTps,
+			combo: combo(),
+			panel: panel()
+		};
+	});
+	console.log('speed/norot: ' + JSON.stringify(speed));
+
+	if (speed.rotatedCombo.indexOf('No Rot') >= 0) {
+		fail('a rotated solve showed the no-rotation tip: ' + speed.rotatedCombo);
+	}
+	if (speed.rotatedPanel.indexOf('Four-Way F2L0/1') < 0) {
+		fail('a rotated solve unlocked the no-rotation achievement: ' + speed.rotatedPanel);
+	}
+	if (!speed.sawTps) {
+		fail('fast virtual turns did not show a TPS tip');
+	}
+	if (speed.combo.indexOf('No Rot') < 0) {
+		fail('a rotation-free solve did not show the no-rotation tip: ' + speed.combo);
+	}
+	if (speed.panel.indexOf('Four-Way F2L✓') < 0) {
+		fail('the rotation-free achievement did not unlock: ' + speed.panel);
+	}
+	if (speed.panel.indexOf('Speed Demon1/3') < 0) {
+		fail('the fast solve did not count towards the TPS streak: ' + speed.panel);
+	}
+
 	fatal.forEach(function(m) {
 		fail('page error: ' + m);
 	});

@@ -2837,13 +2837,25 @@ function makeCubeCopilot() {
 
 	var ACHIEVEMENT_KEYS = ['xc', 'xxc', 'xxxc', 'xxxxc', 'zbls', 'wv', 'ols',
 		'ollskip', 'zbll', 'coll', 'pll', 'epll', 'ollcp', 'llll', 'llskip',
-		'multi', 'flowcf', 'flowff', 'flowfl', 'flowop', 'basicf2l'];
+		'multi', 'flowcf', 'flowff', 'flowfl', 'flowop', 'basicf2l',
+		'tps8', 'tps12', 'tps16'];
 	// display order in the achievements panel
 	var ACHIEVEMENT_ORDER = ['hot3', 'zb3', 'coll3', 'slot3', 'xc3',
-		'flow3', 'basic3', 'fullhouse', 'triple', 'codex'];
+		'flow3', 'basic3', 'tps3', 'speed', 'norot', 'fullhouse', 'triple',
+		'codex'];
 	var ACHIEVEMENT_STREAKS = {
-		hot3: 'hot', zb3: 'zbll', coll3: 'coll', slot3: 'slot', xc3: 'xc'
+		hot3: 'hot', zb3: 'zbll', coll3: 'coll', slot3: 'slot', xc3: 'xc',
+		tps3: 'tps'
 	};
+	// Speed markers are shown as tips but are not solving techniques, so
+	// they do not count towards the codex or the per-solve combo.
+	var ACHIEVEMENT_TIP_KEYS = {tps8: 1, tps12: 1, tps16: 1};
+
+	function achievementRequiredKeys() {
+		return ACHIEVEMENT_KEYS.filter(function(key) {
+			return !ACHIEVEMENT_TIP_KEYS[key];
+		});
+	}
 
 	/**
 	 * Cross-solve achievement state.  step() receives the set of technique
@@ -2862,6 +2874,7 @@ function makeCubeCopilot() {
 				coll: 0,
 				slot: 0,
 				xc: 0,
+				tps: 0,
 				seen: {},
 				unlocked: {}
 			};
@@ -2878,6 +2891,7 @@ function makeCubeCopilot() {
 			st.coll = Math.max(0, ~~obj.coll);
 			st.slot = Math.max(0, ~~obj.slot);
 			st.xc = Math.max(0, ~~obj.xc);
+			st.tps = Math.max(0, ~~obj.tps);
 			ACHIEVEMENT_KEYS.forEach(function(key) {
 				if (obj.seen && obj.seen[key]) {
 					st.seen[key] = Math.max(0, ~~obj.seen[key]);
@@ -2897,7 +2911,7 @@ function makeCubeCopilot() {
 		function seenCount() {
 			var n = 0;
 			ACHIEVEMENT_KEYS.forEach(function(key) {
-				if (st.seen[key]) {
+				if (st.seen[key] && !ACHIEVEMENT_TIP_KEYS[key]) {
 					n++;
 				}
 			});
@@ -2921,6 +2935,7 @@ function makeCubeCopilot() {
 			bump('coll', !!has.coll);
 			bump('slot', !!(has.zbls || has.ols || has.wv));
 			bump('xc', !!(has.xc || has.xxc || has.xxxc || has.xxxxc));
+			bump('tps', !!stats && ~~stats.tps >= 12);
 
 			function unlock(key, ok) {
 				if (ok && !st.unlocked[key]) {
@@ -2929,11 +2944,14 @@ function makeCubeCopilot() {
 				}
 			}
 			// rarer / more specific achievements first so they lead the toast
-			unlock('codex', seenCount() >= ACHIEVEMENT_KEYS.length);
+			unlock('codex', seenCount() >= achievementRequiredKeys().length);
 			unlock('fullhouse', !!(has.zbls && has.zbll));
 			unlock('triple', uniq.length >= 3);
 			unlock('flow3', !!stats && ~~stats.flow >= 3);
 			unlock('basic3', !!stats && ~~stats.basic >= 3);
+			unlock('speed', !!stats && ~~stats.tps >= 16);
+			unlock('norot', !!stats && !!stats.norot);
+			unlock('tps3', st.tps >= 3);
 			unlock('zb3', st.zbll >= 3);
 			unlock('coll3', st.coll >= 3);
 			unlock('slot3', st.slot >= 3);
@@ -2948,7 +2966,7 @@ function makeCubeCopilot() {
 				return {cur: Math.min(cur, 3), target: 3};
 			}
 			if (key == 'codex') {
-				return {cur: seenCount(), target: ACHIEVEMENT_KEYS.length};
+				return {cur: seenCount(), target: achievementRequiredKeys().length};
 			}
 			return {cur: st.unlocked[key] ? 1 : 0, target: 1};
 		}
@@ -2973,6 +2991,7 @@ function makeCubeCopilot() {
 				coll: st.coll,
 				slot: st.slot,
 				xc: st.xc,
+				tps: st.tps,
 				seen: seen,
 				unlocked: unlocked
 			};
@@ -2991,7 +3010,7 @@ function makeCubeCopilot() {
 				return ACHIEVEMENT_ORDER.slice();
 			},
 			requiredKeys: function() {
-				return ACHIEVEMENT_KEYS.slice();
+				return achievementRequiredKeys();
 			}
 		};
 	}

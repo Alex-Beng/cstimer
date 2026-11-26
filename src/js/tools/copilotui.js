@@ -197,6 +197,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var techPairMask = 0;
 	var techFlow = 0;
 	var techBasic = 0;
+	var techMoveTs = [];
+	var techTpsMax = 0;
+	var techTpsTier = 0;
+	var techRotated = false;
+	var techNorotDone = false;
+	var techUseMoves = false;
+	var techMaxProg = 0;
 	var lastSolveSolved = false;
 	var achTracker = cubeCopilot.makeAchievementTracker();
 	var achToast = $('<div id="copilotAchToast"/>');
@@ -216,12 +223,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		zbll: 'ZBLL', coll: 'COLL', pll: 'PLL', epll: 'EPLL',
 		ollcp: 'OLLCP', llll: '1LLL', llskip: 'LL Skip',
 		multi: 'Multislotting', basicf2l: 'Basic F2L',
-		flowcf: 'Cross→F1', flowff: 'F2F', flowfl: 'F→LL', flowop: 'OLL→PLL'
+		flowcf: 'Cross→F1', flowff: 'F2F', flowfl: 'F→LL', flowop: 'OLL→PLL',
+		tps8: 'TPS 8', tps12: 'TPS 12', tps16: 'TPS 16', norot: 'No Rot'
 	};
 	var TECH_COLORS = {
 		xc: 'green', xxc: 'green', xxxc: 'green', xxxxc: 'green',
 		zbls: 'green', wv: 'green', ols: 'green', ollskip: 'green', multi: 'green',
 		basicf2l: 'green', flowcf: 'green', flowff: 'green', flowfl: 'green',
+		tps8: 'green', tps12: 'gold', tps16: 'gold', norot: 'gold',
 		zbll: 'gold', coll: 'gold',
 		pll: 'blue', epll: 'blue', ollcp: 'blue', llll: 'blue', llskip: 'gold',
 		flowop: 'blue'
@@ -247,8 +256,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		flowcf: ['COPILOT_TIP_FLOWCF', 'Cross→F1 · straight on without a pause'],
 		flowff: ['COPILOT_TIP_FLOWFF', 'F2F · next pair without a pause'],
 		flowfl: ['COPILOT_TIP_FLOWFL', 'F→LL · straight into the last layer'],
-		flowop: ['COPILOT_TIP_FLOWOP', 'OLL→PLL · straight into PLL']
+		flowop: ['COPILOT_TIP_FLOWOP', 'OLL→PLL · straight into PLL'],
+		tps8: ['COPILOT_TIP_TPS8', 'TPS 8 · eight turns per second'],
+		tps12: ['COPILOT_TIP_TPS12', 'TPS 12 · twelve turns per second'],
+		tps16: ['COPILOT_TIP_TPS16', 'TPS 16 · sixteen turns per second'],
+		norot: ['COPILOT_TIP_NOROT',
+			'No Rotation · all 4 F2L pairs and the whole last layer without turning the cube']
 	};
+	var TECH_TIP_ONLY = {tps8: 1, tps12: 1, tps16: 1};
 	var ACH_META = {
 		hot3: ['COPILOT_ACH_HOT3', 'On Fire',
 			'COPILOT_ACH_HOT3_D', 'Trigger a technique in 3 solves in a row', 'gold'],
@@ -264,6 +279,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			'COPILOT_ACH_FLOW3_D', '3 connected stage changes in one solve', 'purple'],
 		basic3: ['COPILOT_ACH_BASIC3', 'Back to Basics',
 			'COPILOT_ACH_BASIC3_D', '3 basic three-move F2L inserts in one solve', 'blue'],
+		tps3: ['COPILOT_ACH_TPS3', 'Speed Demon',
+			'COPILOT_ACH_TPS3_D', '3 solves in a row peaking at 12+ TPS', 'blue'],
+		speed: ['COPILOT_ACH_SPEED', 'Lightspeed',
+			'COPILOT_ACH_SPEED_D', 'Reach 16 TPS in one solve', 'purple'],
+		norot: ['COPILOT_ACH_NOROT', 'Four-Way F2L',
+			'COPILOT_ACH_NOROT_D',
+			'All 4 F2L pairs and the whole last layer without a cube rotation', 'gold'],
 		fullhouse: ['COPILOT_ACH_FULLHOUSE', 'Full House',
 			'COPILOT_ACH_FULLHOUSE_D', 'ZBLS + ZBLL in one solve', 'gold'],
 		triple: ['COPILOT_ACH_TRIPLE', 'Triple Combo',
@@ -1722,9 +1744,16 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		var keys = [];
 		for (var i = 0; i < techAch.length; i++) {
-			keys.push(techAch[i].key);
+			if (techAch[i].key != 'norot' && !TECH_TIP_ONLY[techAch[i].key]) {
+				keys.push(techAch[i].key);
+			}
 		}
-		var evs = achTracker.step(keys, {flow: techFlow, basic: techBasic});
+		var evs = achTracker.step(keys, {
+			flow: techFlow,
+			basic: techBasic,
+			tps: techTpsMax,
+			norot: techNorotDone
+		});
 		saveAch();
 		refreshAchPanel();
 		refreshComboBadge();
@@ -1799,7 +1828,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				name: '',
 				cat: TECH_COLORS[ev.key] || 'green',
 				req: false,
-				hold: ev.key.indexOf('flow') == 0 ? 750 : 1500
+				hold: /^tps/.test(ev.key) ? 1100 :
+					(ev.key.indexOf('flow') == 0 ? 750 : 1500)
 			};
 			techAch.push(ach);
 		}
@@ -1817,6 +1847,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	function techStep(facelet, prog) {
 		var sn = {prog: prog, t: $.now()};
 		techSteps++;
+		if (prog > techMaxProg) {
+			techMaxProg = prog;
+		}
+		// Smart cubes only send facelets, so use the state updates as turns.
+		// Virtual cubes send exact move events and must not double count.
+		if (!techUseMoves && isSmart) {
+			noteTurn(sn.t);
+		}
 		if (prog <= 3) {
 			var st = null;
 			try {
@@ -1842,7 +1880,61 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			}
 			onTechEvent(evs[i]);
 		}
+		// Require that no F2L pair was solved at the start, so a nearly
+		// solved start cannot fake "all four pairs + last layer".  The first
+		// observed state is usually progress 7; a cross skip reports 6.
+		if (prog == 0 && techUseMoves && !techRotated && !techNorotDone &&
+				techMaxProg >= 6) {
+			techNorotDone = true;
+			onTechEvent({key: 'norot'});
+		}
 		checkBasicPair(facelet);
+	}
+
+	/**
+	 * TPS burst: turns per second over the current run of moves.  A pause
+	 * longer than 350ms starts a new burst, so a fast pair of moves after
+	 * a long think does not read as a high TPS.  A tip is shown once per
+	 * tier, so a fast solve does not spam the toast.
+	 */
+	function noteTurn(t) {
+		var last = techMoveTs[techMoveTs.length - 1];
+		if (last && t - last > 350) {
+			techMoveTs = [];
+		}
+		techMoveTs.push(t);
+		if (techMoveTs.length > 10) {
+			techMoveTs.shift();
+		}
+		if (techMoveTs.length < 5) {
+			return;
+		}
+		var span = t - techMoveTs[0];
+		if (span < 200) {
+			return;
+		}
+		var tps = (techMoveTs.length - 1) * 1000 / span;
+		if (tps > techTpsMax) {
+			techTpsMax = tps;
+		}
+		var tier = tps >= 16 ? 16 : (tps >= 12 ? 12 : (tps >= 8 ? 8 : 0));
+		if (tier > techTpsTier) {
+			techTpsTier = tier;
+			onTechEvent({key: 'tps' + tier});
+		}
+	}
+
+	/** exact move info from the virtual cube: rotations vs face turns */
+	function onVirtualMove(move) {
+		if (!stageArmed) {
+			return;
+		}
+		if (/^[xyz](2|')?$/.test(move)) {
+			techRotated = true;
+			return;
+		}
+		techUseMoves = true;
+		noteTurn($.now());
 	}
 
 	/**
@@ -1887,11 +1979,21 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		techPairMask = 0;
 		techFlow = 0;
 		techBasic = 0;
+		techMoveTs = [];
+		techTpsMax = 0;
+		techTpsTier = 0;
+		techRotated = false;
+		techNorotDone = false;
+		techUseMoves = false;
+		techMaxProg = 0;
 		techSeedProg = (typeof seedProg == 'number') ? seedProg : -1;
 		if (techSeedProg < 0 && techSeedFacelet) {
 			try {
 				techSeedProg = cubeutil.getProgress(techSeedFacelet, 'cf4op');
 			} catch (e) {}
+		}
+		if (techSeedProg > techMaxProg) {
+			techMaxProg = techSeedProg;
 		}
 		techTracker.reset(techSeedProg);
 		stageTip.removeClass('cp-tip-on cp-tip-combo cp-tip-green cp-tip-gold cp-tip-blue cp-tip-new').text('');
@@ -2612,6 +2714,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			smartOri = null;
 			onFacelet(value[0], value[0]);
 			onStageFacelet(value[0]);
+		} else if (signal == 'virtualMove') {
+			onVirtualMove(value[0]);
 		} else if (signal == 'timerStatus') {
 			onTimerStatus(value);
 		} else if (signal == 'relaySolve') {
@@ -2710,6 +2814,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 		kernel.regListener('copilot', 'giikerState', procSignal);
 		kernel.regListener('copilot', 'virtualState', procSignal);
+		kernel.regListener('copilot', 'virtualMove', procSignal);
 		kernel.regListener('copilot', 'relaySolve', procSignal);
 		kernel.regListener('copilot', 'relayReset', procSignal);
 		kernel.regListener('copilot', 'timerStatus', procSignal);
