@@ -56,7 +56,7 @@ var server = http.createServer(function(req, res) {
 	});
 
 	var browser = await pw.chromium.launch();
-	var page = await browser.newPage();
+	var page = await browser.newPage({locale: 'en-US'});
 	var fatal = [];
 	page.on('pageerror', function(e) {
 		var msg = e.message || '';

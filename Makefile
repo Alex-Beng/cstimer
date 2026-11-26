@@ -187,11 +187,13 @@ clean:
 	rm -f $(cstimer) $(twisty) $(css) $(langJS) $(langPHP)
 
 local: all
-	mkdir -p $(dest)/local/js $(dest)/local/css
-	php -d include_path=$(dest) $(dest)/timer.php | sed "s/.*manifest.*//g" > $(dest)/local/index.html
+	mkdir -p $(dest)/local/js $(dest)/local/css $(dest)/local/lang
+	CSTIMER_STATIC_LANG=1 php -d include_path=$(dest) $(dest)/timer.php | sed "s/.*manifest.*//g" > $(dest)/local/index.html
 	cp $(dest)/js/jquery.min.js $(dest)/local/js/jquery.min.js
 	cp $(dest)/js/cstimer.js $(dest)/local/js/cstimer.js
 	cp $(dest)/js/twisty.js $(dest)/local/js/twisty.js
+	cp $(src)/js/langloader.js $(dest)/local/js/langloader.js
+	cp $(src)/lang/*.js $(dest)/local/lang/
 	cp $(dest)/css/style.css $(dest)/local/css/style.css
 
 # Build a runnable site straight from the unminified sources, without the
@@ -207,7 +209,7 @@ src_local:
 	cp $(dest)/js/jquery.min.js $(dest)/local/js/lib/jquery-1.8.0.js
 	@echo "Build Version: $(version)"
 	@sed -i 's/\$$version = "[^"]*"/\$$version = "$(version)"/g' $(dest)/local/lang/langDet.php
-	cd $(src) && php index.php | sed "s/.*manifest.*//g" > ../$(dest)/local/index.html
+	cd $(src) && CSTIMER_STATIC_LANG=1 php index.php | sed "s/.*manifest.*//g" > ../$(dest)/local/index.html
 	cp $(dest)/sw.js $(dest)/local/sw.js
 	@sed -i "s/'timer\.php'/'index.html'/" $(dest)/local/sw.js
 	@sed -i "/js\/twisty\.js/d" $(dest)/local/sw.js
