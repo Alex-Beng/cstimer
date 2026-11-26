@@ -168,6 +168,83 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	].join('\n');
 	$('<style id="copilotRelayStyle"/>').text(relayStyle).appendTo('head');
 
+	/* Live CFOP stage bar, meant for demoing a solve to non-cubers. */
+	var stageBar = $('<div id="copilotStageBar"/>');
+	var stageLabel = $('<span class="cp-stage-label"/>');
+	var stageChips = [];
+	var stagePlanKey = '';
+	var stageArmed = false;
+	var stageFacelet = null;
+	var stageIdx = 0;
+	var stagePopTid = 0;
+	var stageHideTid = 0;
+	var STAGE_PLANS = {
+		cf4op: {label: 'CFOP', names: ['Cross', 'F1', 'F2', 'F3', 'F4', 'OLL', 'PLL'], base: 7},
+		cfop: {label: 'CFOP', names: ['Cross', 'F2L', 'OLL', 'PLL'], base: 4},
+		cf4o2p2: {label: 'CFOP', names: ['Cross', 'F1', 'F2', 'F3', 'F4', 'EOLL', 'OLL', 'CPLL', 'PLL'], base: 9},
+		roux: {label: 'ROUX', names: ['FB', 'SB', 'CMLL', 'L6E'], base: 4}
+	};
+	var stageStyle = [
+		'#copilotStageBar {',
+		'    position: fixed;',
+		'    left: 50%;',
+		'    top: 7rem;',
+		'    z-index: 42;',
+		'    display: flex;',
+		'    flex-wrap: wrap;',
+		'    justify-content: center;',
+		'    align-items: center;',
+		'    max-width: 94vw;',
+		'    box-sizing: border-box;',
+		'    padding: 0.45rem 0.7rem;',
+		'    border-radius: 0.6rem;',
+		'    background: rgba(20, 20, 20, 0.55);',
+		'    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);',
+		'    font-family: Arial, sans-serif;',
+		'    font-size: 1rem;',
+		'    color: #fff;',
+		'    pointer-events: none;',
+		'    opacity: 0;',
+		'    transform: translate(-50%, -8px);',
+		'    transition: opacity 0.18s ease, transform 0.18s ease;',
+		'}',
+		'html.m #copilotStageBar { top: 8rem; font-size: 0.8rem; padding: 0.35rem 0.45rem; }',
+		'#copilotStageBar.cp-stage-on { opacity: 1; transform: translate(-50%, 0); }',
+		'.cp-stage-label {',
+		'    margin-right: 0.35rem;',
+		'    font-weight: bold;',
+		'    letter-spacing: 0.06em;',
+		'    color: #ffd54a;',
+		'}',
+		'.cp-stage-chip {',
+		'    margin: 0 0.15rem;',
+		'    min-width: 2.2em;',
+		'    padding: 0.15rem 0.45rem;',
+		'    border-radius: 0.3rem;',
+		'    background: rgba(255, 255, 255, 0.14);',
+		'    color: rgba(255, 255, 255, 0.5);',
+		'    text-align: center;',
+		'    white-space: nowrap;',
+		'    transition: background 0.15s, color 0.15s, transform 0.15s;',
+		'}',
+		'html.m .cp-stage-chip { min-width: 1.6em; margin: 0 0.08rem; padding: 0.1rem 0.2rem; }',
+		'.cp-stage-chip.cp-done { background: rgba(0, 185, 80, 0.9); color: #fff; }',
+		'.cp-stage-chip.cp-cur {',
+		'    background: #ffd54a;',
+		'    color: #222;',
+		'    font-weight: bold;',
+		'    transform: scale(1.12);',
+		'    box-shadow: 0 0 14px rgba(255, 213, 74, 0.85);',
+		'}',
+		'.cp-stage-chip.cp-pop { animation: copilotStagePop 520ms ease-out; }',
+		'@keyframes copilotStagePop {',
+		'    0% { transform: scale(1); box-shadow: none; }',
+		'    40% { transform: scale(1.3); box-shadow: 0 0 16px rgba(90, 255, 140, 0.95); }',
+		'    100% { transform: scale(1); box-shadow: none; }',
+		'}'
+	].join('\n');
+	$('<style id="copilotStageStyle"/>').text(stageStyle).appendTo('head');
+
 	/**
 	 * Language strings live as globals of the selected locale file, and most
 	 * locales predate this module, so every lookup must tolerate a missing
@@ -910,6 +987,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			lockedOri = null;
 			finishHint();
 		}
+		onStageStatus(status);
 	}
 
 	// ------------------------------------------------------ relay feedback
@@ -1021,6 +1099,175 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		setRelayFeedback(splitOk, cumulativeOk, depth);
 		if (relayFinished) {
 			scheduleRelayClear(1200);
+		}
+	}
+
+	// ------------------------------------------------------ solve stage bar
+
+	function stagePlan() {
+		if (!/^(333|r\d+)$/.test(kernel.getProp('scrType', '333'))) {
+			return '';
+		}
+		var mp = kernel.getProp('vrcMP', 'n');
+		return STAGE_PLANS[mp] ? mp : '';
+	}
+
+	function buildStageChips(plan) {
+		if (plan == stagePlanKey) {
+			return;
+		}
+		stagePlanKey = plan;
+		stageIdx = 0;
+		var def = STAGE_PLANS[plan];
+		stageBar.empty().append(stageLabel.text(def.label));
+		stageChips = [];
+		for (var i = 0; i < def.names.length; i++) {
+			stageChips.push($('<span class="cp-stage-chip"/>').text(def.names[i]).appendTo(stageBar));
+		}
+	}
+
+	function clearStageChips() {
+		stagePlanKey = '';
+		stageChips = [];
+		stageIdx = 0;
+		stageFacelet = null;
+		stageBar.empty();
+	}
+
+	function popStageChip(chip) {
+		chip.removeClass('cp-pop');
+		void chip[0].offsetWidth;
+		chip.addClass('cp-pop');
+		if (stagePopTid) {
+			clearTimeout(stagePopTid);
+		}
+		stagePopTid = setTimeout(function() {
+			stagePopTid = 0;
+			chip.removeClass('cp-pop');
+		}, 560);
+	}
+
+	function paintStage(idx) {
+		var n = stageChips.length;
+		var def = STAGE_PLANS[stagePlanKey];
+		var prev = stageIdx;
+		stageIdx = idx;
+		for (var i = 0; i < n; i++) {
+			stageChips[i]
+				.toggleClass('cp-done', i < idx)
+				.toggleClass('cp-cur', i == idx);
+		}
+		stageLabel.text(def && idx >= n ? 'SOLVED' : (def ? def.label : ''));
+		if (idx > prev && idx > 0 && idx <= n) {
+			popStageChip(stageChips[idx - 1]);
+		}
+	}
+
+	function paintStageProgress(facelet, plan) {
+		var base = STAGE_PLANS[plan].base;
+		var progress = cubeutil.getProgress(facelet, plan);
+		if (typeof progress != 'number' || !isFinite(progress)) {
+			return false;
+		}
+		paintStage(Math.max(0, Math.min(base, base - progress)));
+		return true;
+	}
+
+	// Sit just below the scramble, so the bar follows wrapped scramble text
+	// instead of covering the timer or the bottom toolbar.
+	function placeStageBar() {
+		var txt = $('#scrambleTxt');
+		var y = txt.length ? txt[0].getBoundingClientRect().bottom + 8 : 0;
+		if (!(y > 0)) {
+			y = 120;
+		}
+		stageBar.css('top', Math.min(y, $(window).height() * 0.45) + 'px');
+	}
+
+	function showStageBar() {
+		if (!stageChips.length) {
+			return;
+		}
+		if (stageHideTid) {
+			clearTimeout(stageHideTid);
+			stageHideTid = 0;
+		}
+		placeStageBar();
+		stageBar.addClass('cp-stage-on');
+	}
+
+	function hideStageBar(delay) {
+		if (stageHideTid) {
+			clearTimeout(stageHideTid);
+			stageHideTid = 0;
+		}
+		if (delay > 0) {
+			stageHideTid = setTimeout(function() {
+				stageHideTid = 0;
+				stageBar.removeClass('cp-stage-on');
+			}, delay);
+		} else {
+			stageBar.removeClass('cp-stage-on');
+		}
+	}
+
+	function onStageStatus(status) {
+		if (status >= 1) {
+			// Multi-phase timers count down through status values >= 1 on
+			// every completed phase; only the first one starts a new cube.
+			if (stageArmed) {
+				return;
+			}
+			stageArmed = true;
+			stageFacelet = null;
+			var plan = stagePlan();
+			if (plan) {
+				buildStageChips(plan);
+				paintStage(0);
+				showStageBar();
+			} else {
+				hideStageBar(0);
+			}
+			return;
+		}
+		var wasArmed = stageArmed;
+		stageArmed = false;
+		if (!wasArmed) {
+			return;
+		}
+		// keep a finished stepper visible for a moment, but never leave
+		// anything behind when the attempt is aborted
+		var solved = stageChips.length > 0 && stageIdx >= stageChips.length;
+		hideStageBar(solved ? 2600 : 0);
+	}
+
+	function onStageFacelet(facelet) {
+		var plan = stagePlan();
+		if (!plan || !stageArmed || !facelet || facelet.length != 54) {
+			return;
+		}
+		buildStageChips(plan);
+		stageFacelet = facelet;
+		if (paintStageProgress(facelet, plan)) {
+			showStageBar();
+		}
+	}
+
+	function refreshStage() {
+		var plan = stagePlan();
+		if (!plan) {
+			clearStageChips();
+			stageBar.empty().removeClass('cp-stage-on');
+			return;
+		}
+		buildStageChips(plan);
+		if (stageArmed && stageFacelet) {
+			paintStageProgress(stageFacelet, plan);
+		} else {
+			paintStage(0);
+		}
+		if (stageArmed) {
+			showStageBar();
 		}
 	}
 
@@ -1590,11 +1837,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (signal == 'giikerState') {
 			isSmart = true;
 			lastGiikerFacelet = value[0];
-			onFacelet(smartFacelet(value[0]), value[0]);
+			var gFacelet = smartFacelet(value[0]);
+			onFacelet(gFacelet, value[0]);
+			onStageFacelet(gFacelet);
 		} else if (signal == 'virtualState') {
 			isSmart = false;
 			smartOri = null;
 			onFacelet(value[0], value[0]);
+			onStageFacelet(value[0]);
 		} else if (signal == 'timerStatus') {
 			onTimerStatus(value);
 		} else if (signal == 'relaySolve') {
@@ -1620,6 +1870,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			} else if (value[0] == 'cpRelayTarget') {
 				relayFinished = false;
 				clearRelayFeedback();
+			} else if (value[0] == 'vrcMP' || value[0] == 'scrType') {
+				refreshStage();
 			}
 		} else if (signal == 'scramble' || signal == 'time') {
 			clearAll();
@@ -1678,9 +1930,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regListener('copilot', 'relaySolve', procSignal);
 		kernel.regListener('copilot', 'relayReset', procSignal);
 		kernel.regListener('copilot', 'timerStatus', procSignal);
-		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpMethod|cpColor|cpTimeout|cpLlmode|cpUndoMax|cpCustom|cpRelayTarget)$/);
+		kernel.regListener('copilot', 'property', procSignal, /^(cpEnabled|cpMethod|cpColor|cpTimeout|cpLlmode|cpUndoMax|cpCustom|cpRelayTarget|vrcMP|scrType)$/);
 		kernel.regListener('copilot', 'scramble', procSignal);
 		kernel.regListener('copilot', 'time', procSignal);
+		$(window).on('resize', function() {
+			if (stageBar.hasClass('cp-stage-on')) {
+				placeStageBar();
+			}
+		});
 
 		initProps();
 
@@ -1688,9 +1945,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		tools.regTool('copilot', L('TOOLS_COPILOT', 'Copilot'), toolExec);
 		relayGlow.appendTo('body');
 		relayFlash.appendTo('body');
+		stageBar.appendTo('body');
 		hintOverlay.appendTo('body');
 		chkEnable.prop('checked', isEnabled());
 		refreshStatus();
+		refreshStage();
 		startPolling();
 	});
 
