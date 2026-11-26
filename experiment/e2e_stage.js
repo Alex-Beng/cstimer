@@ -141,6 +141,7 @@ var server = http.createServer(function(req, res) {
 
 		var order = ['mixed', 'oll', 'pll', 'solved'];
 		var seen = [];
+		var regressed = null;
 		for (var i = 0; i < order.length; i++) {
 			pushFacelet(STATES[order[i]]);
 			await wait(40);
@@ -149,6 +150,13 @@ var server = http.createServer(function(req, res) {
 				state: barState(),
 				expect: expected(SHAPES.cf4op, 'cf4op', STATES[order[i]])
 			});
+			if (order[i] == 'oll') {
+				// a mid-alg facelet can show a temporarily broken cross;
+				// the stepper must keep the furthest stage reached
+				pushFacelet(STATES.mixed);
+				await wait(40);
+				regressed = barState();
+			}
 		}
 
 		// the phase countdown is not a new solve: the chips must not reset
@@ -202,6 +210,7 @@ var server = http.createServer(function(req, res) {
 			idle: idle,
 			armed: armed,
 			seen: seen,
+			regressed: regressed,
 			afterCountdown: afterCountdown,
 			switched: switched,
 			switchedExpect: switchedExpect,
@@ -266,6 +275,7 @@ var server = http.createServer(function(req, res) {
 	if (!(out.seen[0].expect == 0)) {
 		fail('a scrambled cube should start on Cross, got ' + out.seen[0].expect);
 	}
+	checkIdx('mid-alg rollback', out.regressed, out.seen[1].expect);
 
 	checkIdx('phase countdown', out.afterCountdown, out.seen[out.seen.length - 1].expect);
 

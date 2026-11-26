@@ -1114,7 +1114,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	function buildStageChips(plan) {
 		if (plan == stagePlanKey) {
-			return;
+			return false;
 		}
 		stagePlanKey = plan;
 		stageIdx = 0;
@@ -1124,6 +1124,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		for (var i = 0; i < def.names.length; i++) {
 			stageChips.push($('<span class="cp-stage-chip"/>').text(def.names[i]).appendTo(stageBar));
 		}
+		return true;
 	}
 
 	function clearStageChips() {
@@ -1163,13 +1164,21 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 	}
 
-	function paintStageProgress(facelet, plan) {
+	function stageIndexFor(plan, facelet) {
 		var base = STAGE_PLANS[plan].base;
 		var progress = cubeutil.getProgress(facelet, plan);
 		if (typeof progress != 'number' || !isFinite(progress)) {
+			return -1;
+		}
+		return Math.max(0, Math.min(base, base - progress));
+	}
+
+	function paintStageProgress(facelet, plan) {
+		var idx = stageIndexFor(plan, facelet);
+		if (idx < 0) {
 			return false;
 		}
-		paintStage(Math.max(0, Math.min(base, base - progress)));
+		paintStage(idx);
 		return true;
 	}
 
@@ -1248,9 +1257,17 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		buildStageChips(plan);
 		stageFacelet = facelet;
-		if (paintStageProgress(facelet, plan)) {
-			showStageBar();
+		var idx = stageIndexFor(plan, facelet);
+		if (idx < 0) {
+			return;
 		}
+		// One alg often breaks a finished stage for a move or two (an F2L
+		// insert turns cross edges out of the D layer).  The multi-phase
+		// timer never rolls back, so the stepper must not either.
+		if (idx > stageIdx) {
+			paintStage(idx);
+		}
+		showStageBar();
 	}
 
 	function refreshStage() {
