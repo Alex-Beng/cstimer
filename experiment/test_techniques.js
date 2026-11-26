@@ -168,6 +168,9 @@ check('Multislotting', has(multi, 'multi'));
 var lateMulti = run(7, [CROSS_ONLY, P1, P2, {prog: 3}, {prog: 2},
 	{prog: 4}, {prog: 2}]);
 check('no multislot after F2L completes', !has(lateMulti, 'multi'));
+var lastPair = run(7, [CROSS_ONLY, P1, P2, {prog: 3}, {prog: 4},
+	{prog: 3}, {prog: 2}, {prog: 4}, {prog: 2}]);
+check('no multislot while inserting the last pair', !has(lastPair, 'multi'));
 
 var regress = run(7, [P1, {prog: 7}, P1]);
 check('a broken cross does not re-fire XC', keys(regress).filter(function(k) {

@@ -2612,8 +2612,8 @@ function makeCubeCopilot() {
 			} else if (st.cross && prev > 6 && prog <= 6) {
 				// the cross was broken by an F2L alg and is back: resync
 				st.pairs = 6 - prog;
-			} else if (!st.f2l && st.cross && prev >= 2 && prev <= 6 &&
-					prog >= 2 && prog <= 6) {
+			} else if (!st.f2l && !st.pair3 && st.cross &&
+					prev >= 2 && prev <= 6 && prog >= 2 && prog <= 6) {
 				var nowPairs = 6 - prog;
 				if (nowPairs - st.pairs >= 2) {
 					ev.push({key: 'multi', n: nowPairs - st.pairs});
