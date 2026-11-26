@@ -179,10 +179,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var stageIdx = 0;
 	var stagePopTid = 0;
 	var stageHideTid = 0;
+	var techToast = $('<div id="copilotTechToast"/>');
+	var techToastLabel = $('<div class="cp-toast-label"/>');
+	var techToastDesc = $('<div class="cp-toast-desc"/>');
+	techToast.append($('<div class="cp-toast-star">★</div>'), techToastLabel, techToastDesc);
 	var techTracker = cubeCopilot.makeTechniqueTracker();
 	var techAch = [];
-	var techTipKey = '';
-	var techTipTid = 0;
+	var techToastKey = '';
+	var techToastTid = 0;
 	var techSeedFacelet = null;
 	var techSeedProg = -1;
 	var techF2LFacelet = null;
@@ -306,6 +310,56 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'@keyframes copilotTipIn {',
 		'    from { opacity: 0; transform: translateY(-4px); }',
 		'    to { opacity: 1; transform: none; }',
+		'}',
+		'#copilotTechToast {',
+		'    position: fixed;',
+		'    left: 50%;',
+		'    top: 12rem;',
+		'    z-index: 44;',
+		'    display: flex;',
+		'    flex-direction: column;',
+		'    align-items: center;',
+		'    padding: 0.6rem 1.15rem 0.7rem;',
+		'    border-radius: 0.8rem;',
+		'    background: rgba(15, 15, 15, 0.86);',
+		'    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4), inset 0 0 0 2px var(--cp-tip-accent), 0 0 26px var(--cp-tip-glow);',
+		'    font-family: Arial, sans-serif;',
+		'    color: #fff;',
+		'    pointer-events: none;',
+		'    opacity: 0;',
+		'    transform: translate(-50%, 0);',
+		'}',
+		'.cp-toast-star {',
+		'    font-size: 1.1rem;',
+		'    line-height: 1;',
+		'    color: var(--cp-tip-accent);',
+		'    margin-bottom: 0.2rem;',
+		'}',
+		'.cp-toast-label {',
+		'    font-size: 1.55rem;',
+		'    font-weight: bold;',
+		'    letter-spacing: 0.04em;',
+		'    color: var(--cp-tip-accent);',
+		'    white-space: nowrap;',
+		'}',
+		'.cp-toast-desc {',
+		'    margin-top: 0.1rem;',
+		'    font-size: 0.9rem;',
+		'    color: rgba(255, 255, 255, 0.88);',
+		'    white-space: nowrap;',
+		'}',
+		'html.m .cp-toast-label { font-size: 1.3rem; }',
+		'html.m .cp-toast-desc { font-size: 0.8rem; }',
+		'#copilotTechToast.cp-toast-in { animation: copilotToastIn 420ms cubic-bezier(.2, 1.5, .4, 1) forwards; }',
+		'#copilotTechToast.cp-toast-out { animation: copilotToastOut 440ms ease-in forwards; }',
+		'@keyframes copilotToastIn {',
+		'    0% { opacity: 0; transform: translate(-50%, 14px) scale(0.82); }',
+		'    60% { opacity: 1; transform: translate(-50%, -3px) scale(1.05); }',
+		'    100% { opacity: 1; transform: translate(-50%, 0) scale(1); }',
+		'}',
+		'@keyframes copilotToastOut {',
+		'    0% { opacity: 1; transform: translate(-50%, 0) scale(1); }',
+		'    100% { opacity: 0; transform: translate(-50%, -22px) scale(0.96); }',
 		'}'
 	].join('\n');
 	$('<style id="copilotStageStyle"/>').text(stageStyle).appendTo('head');
@@ -1270,49 +1324,118 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return parts.join(' → ');
 	}
 
-	function clearTechTipTid() {
-		if (techTipTid) {
-			clearTimeout(techTipTid);
-			techTipTid = 0;
+	function techParts(ach) {
+		var full = techLine(ach) || ach.label || '';
+		var sep = full.indexOf('·');
+		if (sep > 0) {
+			return {
+				label: full.slice(0, sep).trim(),
+				desc: full.slice(sep + 1).trim()
+			};
 		}
+		return {
+			label: ach.label + (ach.name ? ' ' + ach.name : ''),
+			desc: full
+		};
 	}
 
 	function renderTechCombo() {
-		clearTechTipTid();
-		techTipKey = '';
 		var txt = comboLine();
-		stageTip.removeClass('cp-tip-green cp-tip-gold cp-tip-blue cp-tip-new');
+		stageTip.removeClass('cp-tip-green cp-tip-gold cp-tip-blue');
 		if (!txt) {
-			stageTip.removeClass('cp-tip-on').text('');
+			stageTip.removeClass('cp-tip-on cp-tip-combo').text('');
 			return;
 		}
 		stageTip.text(txt).addClass('cp-tip-on cp-tip-combo');
 	}
 
-	function renderTechTip(ach) {
-		clearTechTipTid();
-		techTipKey = ach.key;
-		stageTip.text(techLine(ach))
-			.removeClass('cp-tip-combo cp-tip-green cp-tip-gold cp-tip-blue cp-tip-new')
-			.addClass('cp-tip-on cp-tip-' + ach.cat);
-		void stageTip[0].offsetWidth;
-		stageTip.addClass('cp-tip-new');
-		techTipTid = setTimeout(function() {
-			techTipTid = 0;
-			renderTechCombo();
-		}, 3000);
+	function techAccent(cat) {
+		return cat == 'gold' ? '#ffd54a' : (cat == 'blue' ? '#8fc8ff' : '#7ef29b');
+	}
+
+	function techGlow(cat) {
+		return cat == 'gold' ? 'rgba(255, 213, 74, 0.35)' :
+			(cat == 'blue' ? 'rgba(143, 200, 255, 0.3)' : 'rgba(126, 242, 155, 0.3)');
+	}
+
+	function positionTechToast() {
+		var rect = stageBar.length ? stageBar[0].getBoundingClientRect() : null;
+		var barBottom = (rect && rect.height) ? rect.bottom : $(window).height() * 0.18;
+		var top = barBottom + 10;
+		var left = '50%';
+		var width = techToast[0] ? techToast[0].offsetWidth : 180;
+		var height = techToast[0] ? techToast[0].offsetHeight : 80;
+		var cube = $('#container').find('canvas, .touchcube').first();
+		var cr = cube.length ? cube[0].getBoundingClientRect() : null;
+		var stats = $('#stats')[0];
+		if (cr && cr.width > 0 && cr.height > 0) {
+			// On wide screens there is usually a free column between the stats
+			// panel and the cube; use it instead of covering the cube.
+			var gapLeft = (stats ? stats.getBoundingClientRect().right : 0) + 8;
+			var gapRight = cr.left - 8;
+			if (gapRight - gapLeft >= width + 8) {
+				left = Math.round((gapLeft + gapRight) / 2) + 'px';
+				top = Math.max(barBottom + 10, cr.top + cr.height * 0.06);
+			} else if (cr.top - (barBottom + 10) < height + 8 &&
+					$(window).height() - cr.bottom >= height + 70) {
+				top = cr.bottom + 12;
+			}
+		}
+		top = Math.max(60, Math.min(top, $(window).height() * 0.45));
+		techToast.css({
+			'left': left,
+			'top': Math.round(top) + 'px'
+		});
+	}
+
+	function showTechToast(ach) {
+		var parts = techParts(ach);
+		techToastKey = ach.key;
+		techToastLabel.text(parts.label);
+		techToastDesc.text(parts.desc);
+		positionTechToast();
+		techToast[0].style.setProperty('--cp-tip-accent', techAccent(ach.cat));
+		techToast[0].style.setProperty('--cp-tip-glow', techGlow(ach.cat));
+		techToast.removeClass('cp-toast-out cp-toast-in');
+		void techToast[0].offsetWidth;
+		techToast.addClass('cp-toast-in');
+		if (techToastTid) {
+			clearTimeout(techToastTid);
+			techToastTid = 0;
+		}
+		techToastTid = setTimeout(function() {
+			techToast.removeClass('cp-toast-in').addClass('cp-toast-out');
+			techToastTid = setTimeout(function() {
+				techToastTid = 0;
+				techToastKey = '';
+				techToast.removeClass('cp-toast-out');
+				techToastLabel.text('');
+				techToastDesc.text('');
+			}, 460);
+		}, 1700);
+	}
+
+	function hideTechToast() {
+		if (techToastTid) {
+			clearTimeout(techToastTid);
+			techToastTid = 0;
+		}
+		techToastKey = '';
+		techToast.removeClass('cp-toast-in cp-toast-out');
+		techToastLabel.text('');
+		techToastDesc.text('');
 	}
 
 	function refreshTechText() {
-		if (!techTipKey || !stageTip.hasClass('cp-tip-on')) {
-			if (techAch.length) {
-				renderTechCombo();
-			}
+		renderTechCombo();
+		if (!techToastKey) {
 			return;
 		}
 		for (var i = 0; i < techAch.length; i++) {
-			if (techAch[i].key == techTipKey) {
-				stageTip.text(techLine(techAch[i]));
+			if (techAch[i].key == techToastKey) {
+				var parts = techParts(techAch[i]);
+				techToastLabel.text(parts.label);
+				techToastDesc.text(parts.desc);
 				return;
 			}
 		}
@@ -1356,7 +1479,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			};
 			techAch.push(ach);
 		}
-		renderTechTip(ach);
+		renderTechCombo();
+		showTechToast(ach);
 		if (ev.key == 'zbll' || ev.key == 'coll' || ev.key == 'pll') {
 			requestTechName(ach, techF2LFacelet, ev.key == 'pll' ? 'op' : ev.key, ev.key);
 		}
@@ -1385,13 +1509,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 	}
 
-	function resetTech() {
-		clearTechTipTid();
-		techTipKey = '';
+	function resetTech(keepToast, seedProg) {
+		if (!keepToast) {
+			hideTechToast();
+		}
 		techAch = [];
 		techF2LFacelet = null;
-		techSeedProg = -1;
-		if (techSeedFacelet) {
+		techSeedProg = (typeof seedProg == 'number') ? seedProg : -1;
+		if (techSeedProg < 0 && techSeedFacelet) {
 			try {
 				techSeedProg = cubeutil.getProgress(techSeedFacelet, 'cf4op');
 			} catch (e) {}
@@ -1467,6 +1592,25 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		// anything behind when the attempt is aborted
 		var solved = stageChips.length > 0 && stageIdx >= stageChips.length;
 		hideStageBar(solved ? 2600 : 0);
+		if (!solved) {
+			hideTechToast();
+		}
+	}
+
+	/**
+	 * A relay moves to the next cube while the timer keeps running and the
+	 * next scramble is applied behind the scenes, so no virtualState arrives
+	 * until the first user move.  Reset here, or the stepper stays on the
+	 * previous cube's SOLVED/PLL state.
+	 */
+	function restartStageForNextCube() {
+		stageFacelet = null;
+		techSeedFacelet = null;
+		resetTech(true, 7);
+		if (stageChips.length) {
+			paintStage(0);
+			showStageBar();
+		}
 	}
 
 	function onStageFacelet(facelet) {
@@ -2097,9 +2241,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			onTimerStatus(value);
 		} else if (signal == 'relaySolve') {
 			onRelaySolve(value);
+			if (stageArmed && !value[4] && /^r\d+$/.test(kernel.getProp('scrType'))) {
+				restartStageForNextCube();
+			}
 		} else if (signal == 'relayReset') {
 			relayFinished = false;
 			clearRelayFeedback();
+			hideTechToast();
 		} else if (signal == 'property') {
 			if (/^(cpEnabled|cpMethod|cpTimeout|cpLlmode|cpUndoMax)$/.exec(value[0])) {
 				clearAll();
@@ -2186,6 +2334,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			if (stageBar.hasClass('cp-stage-on')) {
 				placeStageBar();
 			}
+			if (techToastKey) {
+				positionTechToast();
+			}
 		});
 
 		initProps();
@@ -2195,6 +2346,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		relayGlow.appendTo('body');
 		relayFlash.appendTo('body');
 		stageBar.appendTo('body');
+		techToast.appendTo('body');
 		hintOverlay.appendTo('body');
 		chkEnable.prop('checked', isEnabled());
 		refreshStatus();

@@ -2602,9 +2602,10 @@ function makeCubeCopilot() {
 
 			if (!st.cross && prog <= 6) {
 				st.cross = true;
-				st.pairs = 6 - prog;
-				// only a real 7 -> 5/4/3/2 transition is an extended cross
-				if ((prev > 6 || prev < 0) && st.pairs > 0) {
+				st.pairs = Math.min(4, 6 - prog);
+				// only a real 7 -> 5/4/3/2 transition is an extended cross;
+				// an unknown baseline must not invent one
+				if (prev > 6 && st.pairs > 0) {
 					ev.push({key: PAIR_KEYS[st.pairs]});
 				}
 			} else if (st.cross && prev > 6 && prog <= 6) {

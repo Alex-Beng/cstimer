@@ -8,6 +8,8 @@
 //  4. the multi-phase countdown does not reset the chips
 //  5. a finished solve lingers on SOLVED, an aborted one leaves nothing
 //  6. switching the multi-phase mode rebuilds the bar, leaving it hides it
+//  7. relay resets the stepper and achievements for every new cube
+//  8. achievements pop up as a toast, then fade while the combo line stays
 
 var http = require('http');
 var fs = require('fs');
@@ -206,6 +208,15 @@ var server = http.createServer(function(req, res) {
 		await wait(80);
 		var relay = barState();
 
+		// one cube done in a relay: the next cube starts from Cross again
+		pushFacelet(STATES.solved);
+		await wait(60);
+		var relaySolved = barState();
+		kernel.pushSignal('relaySolve', [1, 2, 5000, 5000, false]);
+		await wait(80);
+		var relayReset = barState();
+		var relayCombo = $('#copilotStageTip').text();
+
 		return {
 			idle: idle,
 			armed: armed,
@@ -221,6 +232,9 @@ var server = http.createServer(function(req, res) {
 			abortedAfter: abortedAfter,
 			singlePhase: singlePhase,
 			relay: relay,
+			relaySolved: relaySolved,
+			relayReset: relayReset,
+			relayCombo: relayCombo,
 			shapes: SHAPES
 		};
 	});
@@ -309,6 +323,16 @@ var server = http.createServer(function(req, res) {
 	if (!out.relay.on || out.relay.texts.length != out.shapes.cf4op.length) {
 		fail('relay scramble does not show the stepper: ' + JSON.stringify(out.relay));
 	}
+	if (!out.relaySolved.on || out.relaySolved.label != 'SOLVED') {
+		fail('relay cube did not reach SOLVED: ' + JSON.stringify(out.relaySolved));
+	}
+	if (!out.relayReset.on || out.relayReset.label != 'CFOP') {
+		fail('relay did not reset the stepper: ' + JSON.stringify(out.relayReset));
+	}
+	checkIdx('relay next cube', out.relayReset, 0);
+	if (out.relayCombo) {
+		fail('relay kept the previous cube technique combo: ' + out.relayCombo);
+	}
 
 	// ------------------------------------------------------- technique tips
 	var tech = await page.evaluate(async function() {
@@ -327,12 +351,29 @@ var server = http.createServer(function(req, res) {
 			cc.ori = 0;
 			return cc.toFaceCube();
 		}
-		function tipState() {
+		function comboState() {
 			var tip = $('#copilotStageTip');
 			return {
 				text: tip.text(),
 				on: tip.hasClass('cp-tip-on'),
 				combo: tip.hasClass('cp-tip-combo')
+			};
+		}
+		function toastState() {
+			var toast = $('#copilotTechToast');
+			return {
+				exists: toast.length > 0,
+				cls: toast.attr('class') || '',
+				label: toast.find('.cp-toast-label').text(),
+				desc: toast.find('.cp-toast-desc').text(),
+				open: toast.hasClass('cp-toast-in') && !toast.hasClass('cp-toast-out'),
+				faded: !toast.hasClass('cp-toast-in') && !toast.hasClass('cp-toast-out')
+			};
+		}
+		function state() {
+			return {
+				toast: toastState(),
+				combo: comboState()
 			};
 		}
 		function push(seq) {
@@ -358,12 +399,12 @@ var server = http.createServer(function(req, res) {
 		await wait(50);
 		kernel.pushSignal('timerStatus', 1);
 		await wait(80);
-		var before = tipState();
+		var before = state();
 		push(F.xc);
 		await wait(150);
-		var xc = tipState();
+		var xc = state();
 		await wait(3200);
-		var xcCombo = tipState();
+		var xcCombo = state();
 		push(F.p2);
 		await wait(60);
 		push(F.p3);
@@ -371,8 +412,8 @@ var server = http.createServer(function(req, res) {
 		push(F.sune);
 		await wait(60);
 		push(F.solved);
-		await wait(200);
-		var zbll = tipState();
+		await wait(600);
+		var zbll = state();
 
 		// a fresh solve: COLL + EPLL
 		kernel.pushSignal('timerStatus', -1);
@@ -392,8 +433,8 @@ var server = http.createServer(function(req, res) {
 		push(F.epll);
 		await wait(60);
 		push(F.solved);
-		await wait(200);
-		var coll = tipState();
+		await wait(600);
+		var coll = state();
 
 		// the next solve must start with no leftover tip
 		kernel.pushSignal('timerStatus', -1);
@@ -402,7 +443,7 @@ var server = http.createServer(function(req, res) {
 		await wait(50);
 		kernel.pushSignal('timerStatus', 1);
 		await wait(100);
-		var fresh = tipState();
+		var fresh = state();
 
 		return {
 			before: before,
@@ -415,22 +456,26 @@ var server = http.createServer(function(req, res) {
 	});
 	console.log('tech tips: ' + JSON.stringify(tech));
 
-	if (tech.before.on) {
-		fail('technique tip is visible before any achievement');
+	if (!tech.before.toast.exists || tech.before.toast.cls || tech.before.combo.on) {
+		fail('technique tip is visible before any achievement: ' + JSON.stringify(tech.before));
 	}
-	if (!tech.xc.on || tech.xc.text.indexOf('XC') < 0 || tech.xc.text.indexOf('XXC') >= 0) {
-		fail('XC tip: ' + JSON.stringify(tech.xc));
+	if (!tech.xc.toast.open || tech.xc.toast.label.indexOf('XC') < 0 ||
+			tech.xc.toast.label.indexOf('XXC') >= 0 || tech.xc.toast.desc.indexOf('cross') < 0) {
+		fail('XC achievement toast: ' + JSON.stringify(tech.xc));
 	}
-	if (!tech.xcCombo.on || !tech.xcCombo.combo || tech.xcCombo.text.indexOf('XC') < 0) {
-		fail('XC combo did not persist: ' + JSON.stringify(tech.xcCombo));
+	if (!tech.xc.combo.combo || tech.xc.combo.text.indexOf('XC') < 0) {
+		fail('XC combo did not update: ' + JSON.stringify(tech.xc.combo));
 	}
-	if (!tech.zbll.on || tech.zbll.text.indexOf('ZBLL') < 0) {
-		fail('ZBLL tip: ' + JSON.stringify(tech.zbll));
+	if (!tech.xcCombo.toast.faded || !tech.xcCombo.combo.on) {
+		fail('XC toast did not fade while the combo stayed: ' + JSON.stringify(tech.xcCombo));
 	}
-	if (!tech.coll.on || tech.coll.text.indexOf('COLL') < 0) {
-		fail('COLL tip: ' + JSON.stringify(tech.coll));
+	if (!tech.zbll.toast.open || tech.zbll.toast.label.indexOf('ZBLL') < 0) {
+		fail('ZBLL achievement toast: ' + JSON.stringify(tech.zbll));
 	}
-	if (tech.fresh.on) {
+	if (!tech.coll.toast.open || tech.coll.toast.label.indexOf('COLL') < 0) {
+		fail('COLL achievement toast: ' + JSON.stringify(tech.coll));
+	}
+	if (tech.fresh.toast.cls || tech.fresh.combo.on) {
 		fail('a new solve kept the previous technique tip: ' + JSON.stringify(tech.fresh));
 	}
 

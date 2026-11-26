@@ -91,6 +91,7 @@ check('XXXC', has(run(7, [{prog: 3}]), 'xxxc'));
 check('XXXXC', has(run(7, [{prog: 2}]), 'xxxxc'));
 check('cross only is not XC', !has(run(7, [CROSS_ONLY]), 'xc'));
 check('seeded cross does not re-fire XC', noEvents(run(6, [P1])));
+check('unknown baseline does not invent an extended cross', noEvents(run(-1, [SOLVED])));
 
 // ---------------------------------------------------------------- last slot
 var zbls = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false},
