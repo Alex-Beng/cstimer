@@ -155,7 +155,53 @@ var ollcpLate = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false, cp: 
 	{prog: 2, eo: false, co: false, cp: false},
 	{prog: 1, eo: true, co: true, cp: false},
 	{prog: 1, eo: true, co: true, cp: true}]);
-check('OLLCP is decided when OLL completes, not later', !has(ollcpLate, 'ollcp'));
+check('a bare corner-permutation step is not enough for OLLCP',
+	!has(ollcpLate, 'ollcp'));
+
+// Real OLLCP/COLL algorithms finish the orientation one or two moves before
+// the corner permutation.  The tip is held for one state and only confirmed
+// when an EPLL state follows.
+var ollcpLag = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false, cp: false},
+	{prog: 2, eo: false, co: false, cp: false},
+	{prog: 1, eo: true, co: true, cp: false},
+	{prog: 1, eo: true, co: true, cp: true},
+	{prog: 1, eo: true, co: true, cp: true}, SOLVED]);
+check('OLLCP when corner permutation lags the orientation', has(ollcpLag, 'ollcp'));
+check('lagging OLLCP is reported once', keys(ollcpLag).filter(function(k) {
+	return k == 'ollcp';
+}).length == 1);
+check('lagging OLLCP fires at the EPLL state', ollcpLag.per[7].some(function(e) {
+	return e.key == 'ollcp';
+}));
+check('lagging OLLCP still ends as EPLL', has(ollcpLag, 'epll'));
+
+// The EPLL algorithm usually breaks the F2L on its first move, which hides
+// the last layer for a sample or two; the candidate must survive that.
+var ollcpHidden = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false, cp: false},
+	{prog: 2, eo: false, co: false, cp: false},
+	{prog: 1, eo: true, co: true, cp: false},
+	{prog: 1, eo: true, co: true, cp: true},
+	{prog: 7},
+	{prog: 1, eo: true, co: true, cp: true}, SOLVED]);
+check('OLLCP survives a hidden last-layer sample', has(ollcpHidden, 'ollcp'));
+check('hidden OLLCP still ends as EPLL', has(ollcpHidden, 'epll'));
+
+var collLag = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: true, co: false, cp: false},
+	{prog: 2, eo: true, co: false, cp: false},
+	{prog: 1, eo: true, co: true, cp: false},
+	{prog: 1, eo: true, co: true, cp: true},
+	{prog: 1, eo: true, co: true, cp: true}, SOLVED]);
+check('COLL when corner permutation lags the orientation', has(collLag, 'coll'));
+check('lagging COLL is not OLLCP', !has(collLag, 'ollcp'));
+
+// A normal PLL whose corners are only placed on its final move must not be
+// mistaken for COLL/OLLCP because of that transient state.
+var pllG = run(7, [CROSS_ONLY, P1, P2, {prog: 2, eo: true, co: true, cp: false},
+	{prog: 1, eo: true, co: true, cp: false},
+	{prog: 1, eo: true, co: true, cp: true}, SOLVED]);
+check('a G-perm transient is not OLLCP', !has(pllG, 'ollcp'));
+check('a G-perm transient is not COLL', !has(pllG, 'coll'));
+check('a G-perm transient is still PLL', has(pllG, 'pll'));
 var pllLateSteps = [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false, cp: false},
 	{prog: 2, eo: false, co: false, cp: false},
 	{prog: 1, eo: true, co: true, cp: false}];
@@ -244,6 +290,120 @@ check('U perm with AUF: edges oriented', upermAuf.eo);
 var scrambled = faceletOf("R U F L D B R2 U2 F2");
 check('scrambled progress', cubeutil.getProgress(scrambled, 'cf4op') == 7);
 check('scrambled has no top cross', !copilot.techniqueState(scrambled).eo);
+
+// ---------------------------------------------------------------- real algs
+// Replay a real last-layer algorithm move by move, the way the app samples
+// it, from the state right after F2L.
+var UPERM = "R U' R U R U R U' R' U' R2";
+var TPERM = "R U R' U' R' F R2 U' R' U' R U R' F'";
+
+function invTok(m) {
+	if (m.slice(-1) == "'") {
+		return m.slice(0, -1);
+	}
+	return m.slice(-1) == '2' ? m : m + "'";
+}
+
+function invAlg(alg) {
+	return alg.trim().split(/\s+/).reverse().map(invTok).join(' ');
+}
+
+function replayAlg(setup, alg, tail, llEo) {
+	var cc = new mathlib.CubieCube();
+	(setup + ' ' + invAlg(alg)).trim().split(/\s+/).forEach(function(m) {
+		if (m) {
+			cc.selfMoveStr(m);
+		}
+	});
+	var caseState = copilot.techniqueState(cc.toFaceCube());
+	var t = copilot.makeTechniqueTracker();
+	t.reset(7);
+	t.step({prog: 3, eo: llEo, co: false});
+	t.step({prog: 2, eo: caseState.eo, co: caseState.co, cp: caseState.cp});
+	var keys = [];
+	(alg + ' ' + tail).trim().split(/\s+/).forEach(function(m) {
+		if (!m) {
+			return;
+		}
+		cc.selfMoveStr(m);
+		var facelet = cc.toFaceCube();
+		var prog = cubeutil.getProgress(facelet, 'cf4op');
+		var sn = {prog: prog};
+		if (prog <= 3) {
+			var st = copilot.techniqueState(facelet);
+			sn.eo = st.eo;
+			sn.co = st.co;
+			sn.cp = st.cp;
+		}
+		t.step(sn).forEach(function(e) {
+			keys.push(e.key);
+		});
+	});
+	return {keys: keys, st: caseState};
+}
+
+var realColl = {n: 0, miss: []};
+ctx.COLL_DATA.forEach(function(entry) {
+	var ix = entry.indexOf('|');
+	var r;
+	try {
+		r = replayAlg(UPERM, entry.slice(ix + 1), UPERM, true);
+	} catch (e) {
+		return;
+	}
+	if (r.st.cp) {
+		// the corners were already placed after F2L, so the algorithm only
+		// finished the orientation: a CP skip, not a COLL finish
+		return;
+	}
+	realColl.n++;
+	if (r.keys.indexOf('coll') < 0) {
+		realColl.miss.push(entry.slice(0, ix));
+	}
+});
+check('real COLL algorithms report COLL (' + realColl.n + ' checked' +
+	(realColl.miss.length ? ', missed ' + realColl.miss.join(' ') : '') + ')',
+	realColl.n > 20 && realColl.miss.length == 0);
+
+// An OLLCP finish: the corners are not oriented or placed after F2L and one
+// algorithm leaves an EPLL.  Every ALLL algorithm plus a U perm models one.
+var realOllcp = {n: 0, miss: []};
+ctx.ALLL_DATA.forEach(function(entry) {
+	var ix = entry.indexOf('|');
+	var r;
+	try {
+		r = replayAlg(UPERM, entry.slice(ix + 1), UPERM, false);
+	} catch (e) {
+		return;
+	}
+	if (r.st.eo || r.st.cp) {
+		// edges already oriented or corners already placed: not an OLLCP start
+		return;
+	}
+	realOllcp.n++;
+	if (r.keys.indexOf('ollcp') < 0) {
+		realOllcp.miss.push(entry.slice(0, ix));
+	}
+});
+check('real OLLCP finishes report OLLCP (' + realOllcp.n + ' checked' +
+	(realOllcp.miss.length ? ', missed ' + realOllcp.miss.slice(0, 8).join(' ') : '') + ')',
+	realOllcp.n > 4000 && realOllcp.miss.length == 0);
+
+var realNormal = {n: 0, bad: []};
+ctx.OLL_DATA.forEach(function(entry) {
+	var ix = entry.indexOf('|');
+	var r;
+	try {
+		r = replayAlg(TPERM, entry.slice(ix + 1), TPERM, false);
+	} catch (e) {
+		return;
+	}
+	realNormal.n++;
+	if (r.keys.indexOf('coll') >= 0 || r.keys.indexOf('ollcp') >= 0) {
+		realNormal.bad.push(entry.slice(0, ix));
+	}
+});
+check('a real OLL+PLL solve never reports COLL/OLLCP', realNormal.bad.length == 0);
 
 console.log(failures == 0 ? 'ALL OK' : ('FAILURES: ' + failures));
 process.exitCode = failures == 0 ? 0 : 1;

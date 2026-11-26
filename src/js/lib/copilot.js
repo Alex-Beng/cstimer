@@ -2588,6 +2588,8 @@ function makeCubeCopilot() {
 				llCp: false,
 				oriented: false,
 				orientedCp: false,
+				pendingTip: '',
+				llTipDone: false,
 				done: false
 			};
 			if (st.prev >= 2 && st.prev <= 6) {
@@ -2604,6 +2606,30 @@ function makeCubeCopilot() {
 				return ev;
 			}
 			var prev = st.prev;
+
+			// A lagging COLL/OLLCP completion is only accepted when a later
+			// state still shows an oriented last layer with the corners
+			// placed, i.e. an EPLL state.  A normal PLL also passes through
+			// such a state near its end, but it either ends there or breaks
+			// the placement again, so the candidate is dropped.
+			if (st.pendingTip) {
+				var pending = st.pendingTip;
+				if (prog > 3) {
+					// the last layer cannot be read while an algorithm breaks
+					// the F2L, so hold the candidate until the next state that
+					// actually shows the last layer
+				} else {
+					st.pendingTip = '';
+					if (prog > 0 && s && s.eo && s.co && s.cp) {
+						st.oriented = true;
+						st.orientedCp = true;
+						st.llTipDone = true;
+						ev.push({key: pending});
+					} else if (prog == 0) {
+						st.llTipDone = true;
+					}
+				}
+			}
 
 			if (!st.cross && prog <= 6) {
 				st.cross = true;
@@ -2656,17 +2682,29 @@ function makeCubeCopilot() {
 				}
 				st.oriented = st.llEo && st.llCo;
 				st.orientedCp = st.llCp;
-			} else if (st.f2l && prog > 0 && !st.oriented && s.eo && s.co) {
-				st.oriented = true;
-				st.orientedCp = !!s.cp;
-				// OLL is complete at this state.  When the corners are
-				// already placed as well, the algorithm solved the corner
-				// permutation too: COLL if the top cross was done after the
-				// last F2L pair, OLLCP otherwise.  Whether corners stay
-				// unpermuted here just means a normal OLL followed by PLL.
-				if (prog == 1 && st.orientedCp && !st.llCp &&
+			} else if (st.f2l && prog > 0 && s.eo && s.co) {
+				if (!st.oriented) {
+					// first orientation-complete state after F2L.  When the
+					// corners are already placed as well, the algorithm
+					// solved the corner permutation too: COLL if the top
+					// cross was done after the last F2L pair, OLLCP
+					// otherwise.  Corners still unpermuted here just means a
+					// normal OLL followed by PLL.
+					st.oriented = true;
+					st.orientedCp = !!s.cp;
+					if (prog == 1 && st.orientedCp && !st.llCp &&
+							!(st.llEo && st.llCo)) {
+						st.llTipDone = true;
+						ev.push({key: st.llEo ? 'coll' : 'ollcp'});
+					}
+				} else if (prog == 1 && s.cp && !st.orientedCp &&
+						!st.llTipDone && !st.llCp &&
 						!(st.llEo && st.llCo)) {
-					ev.push({key: st.llEo ? 'coll' : 'ollcp'});
+					// OLL algorithms finish the orientation a move or two
+					// before the corner permutation.  Hold the tip until the
+					// next state proves that an EPLL state follows; a normal
+					// PLL's final G-perm step jumps straight to solved.
+					st.pendingTip = st.llEo ? 'coll' : 'ollcp';
 				}
 			}
 
