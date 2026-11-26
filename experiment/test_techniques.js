@@ -143,6 +143,40 @@ check('COLL is not repeated when PLL dips through F2L', keys(collDip).filter(fun
 	return k == 'coll';
 }).length == 1);
 
+// ---------------------------------------------------------------- flow
+var flow = run(7, [
+	{prog: 6, t: 1000},                       // cross
+	{prog: 6, t: 1100, eo: true},             // next move within the pause
+	{prog: 5, t: 1300},                       // F1
+	{prog: 4, t: 1400},                       // F2
+	{prog: 3, t: 1500},                       // F3
+	{prog: 2, t: 1600},                       // F4
+	{prog: 1, t: 1700, eo: true, co: false},  // OLL starts
+	{prog: 1, t: 1800, eo: true, co: true},   // OLL done
+	{prog: 1, t: 1900, eo: true, co: true, cp: false},
+	SOLVED
+]);
+check('Cross->F1 flow', keys(flow).filter(function(k) {
+	return k == 'flowcf';
+}).length == 1);
+check('pair chains flow', keys(flow).filter(function(k) {
+	return k == 'flowff';
+}).length == 3);
+check('F2L->LL flow', has(flow, 'flowfl'));
+check('OLL->PLL flow', has(flow, 'flowop'));
+
+var slowFlow = run(7, [
+	{prog: 6, t: 1000},
+	{prog: 6, t: 4000},
+	{prog: 5, t: 4100},
+	{prog: 5, t: 8000}
+]);
+check('a long pause breaks the flow', !has(slowFlow, 'flowcf') &&
+	!has(slowFlow, 'flowff'));
+
+var jumpFlow = run(7, [{prog: 5, t: 1000}, {prog: 5, t: 1100}]);
+check('a skipped stage does not invent flow', !has(jumpFlow, 'flowcf'));
+
 var ollcp = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false, cp: false},
 	{prog: 2, eo: false, co: false, cp: false},
 	{prog: 1, eo: true, co: true, cp: true}, SOLVED]);
@@ -290,6 +324,13 @@ check('U perm with AUF: edges oriented', upermAuf.eo);
 var scrambled = faceletOf("R U F L D B R2 U2 F2");
 check('scrambled progress', cubeutil.getProgress(scrambled, 'cf4op') == 7);
 check('scrambled has no top cross', !copilot.techniqueState(scrambled).eo);
+
+var basicState = faceletOf("R U R'");
+check('basic F2L: joined pair in the U layer', copilot.basicPair(basicState, 0));
+check('basic F2L: split pairs are not basic',
+	!copilot.basicPair(faceletOf("R U F'"), 0));
+check('basic F2L: a solved pair is not a case',
+	!copilot.basicPair(faceletOf(''), 0));
 
 // ---------------------------------------------------------------- real algs
 // Replay a real last-layer algorithm move by move, the way the app samples

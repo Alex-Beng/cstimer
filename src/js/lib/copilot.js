@@ -476,6 +476,11 @@ function makeCubeCopilot() {
 		return n;
 	}
 
+	/** bitmask of solved F2L pairs, bit i = pair i */
+	function pairMask(facelet) {
+		return solvedPairMask(cubieFromFacelet(facelet));
+	}
+
 	/**
 	 * Where the pair's corner and edge currently are, plus the pruning
 	 * distance (the minimum number of moves needed to insert the pair).
@@ -537,6 +542,52 @@ function makeCubeCopilot() {
 
 	function pairInfo(facelet, pairIdx) {
 		return annotateColors(facelet, pairInfoOf(cubieFromFacelet(facelet), pairIdx));
+	}
+
+	function faceOfFacelet(idx) {
+		return ~~(idx / 9);
+	}
+
+	/**
+	 * A "basic" (standard) F2L case: the pair is already joined in the U
+	 * layer, so a three move trigger (R U R' and the like) inserts it.
+	 * Verified on random positions: every joined pair in the U layer can be
+	 * inserted in exactly three moves, while split pairs cannot.
+	 */
+	function basicPair(facelet, pairIdx) {
+		var pair = F2L_PAIRS[pairIdx];
+		if (!pair) {
+			return false;
+		}
+		var cc = cubieFromFacelet(facelet);
+		var cornerAt = -1;
+		for (var p = 0; p < 8; p++) {
+			if ((cc.ca[p] & 7) == pair.corner) {
+				cornerAt = p;
+				break;
+			}
+		}
+		var edgeAt = -1;
+		for (var q = 0; q < 12; q++) {
+			if ((cc.ea[q] >> 1) == pair.edge) {
+				edgeAt = q;
+				break;
+			}
+		}
+		// both pieces in the U layer
+		if (cornerAt < 0 || cornerAt > 3 || edgeAt < 0 || edgeAt > 3) {
+			return false;
+		}
+		var cf = mathlib.CubieCube.cFacelet[cornerAt];
+		var ef = mathlib.CubieCube.eFacelet[edgeAt];
+		// joined: the corner and the edge share a matching side sticker
+		for (var i = 1; i < 3; i++) {
+			if (faceOfFacelet(cf[i]) == faceOfFacelet(ef[1]) &&
+					facelet[cf[i]] == facelet[ef[1]]) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	function findPieceAt(facelet, facelets, key) {
@@ -2560,6 +2611,9 @@ function makeCubeCopilot() {
 	}
 
 	var PAIR_KEYS = ['', 'xc', 'xxc', 'xxxc', 'xxxxc'];
+	// a stage finished and the next move came within this pause, i.e. the
+	// solver went straight on instead of stopping to look for the next stage
+	var FLOW_MS = 520;
 
 	/**
 	 * State machine for the advanced-technique achievements.  It consumes the
@@ -2590,8 +2644,14 @@ function makeCubeCopilot() {
 				orientedCp: false,
 				pendingTip: '',
 				llTipDone: false,
+				ollFlowMarked: false,
+				mark: null,
+				bestProg: 7,
 				done: false
 			};
+			if (st.prev >= 0) {
+				st.bestProg = st.prev;
+			}
 			if (st.prev >= 2 && st.prev <= 6) {
 				st.cross = true;
 				st.pairs = 6 - st.prev;
@@ -2606,6 +2666,17 @@ function makeCubeCopilot() {
 				return ev;
 			}
 			var prev = st.prev;
+
+			// ---- connected stages
+			if (st.mark) {
+				var mark = st.mark;
+				st.mark = null;
+				if (typeof s.t == 'number' && typeof mark.t == 'number' &&
+						s.t >= mark.t && s.t - mark.t <= FLOW_MS &&
+						(mark.key != 'flowop' || prog > 0)) {
+					ev.push({key: mark.key});
+				}
+			}
 
 			// A lagging COLL/OLLCP completion is only accepted when a later
 			// state still shows an oriented last layer with the corners
@@ -2730,6 +2801,28 @@ function makeCubeCopilot() {
 			}
 
 			st.prev = prog;
+
+			// remember a finished stage: the next sampled state is the first
+			// move of the following stage, so its timestamp tells the pause
+			if (prog < st.bestProg) {
+				var drop = st.bestProg - prog;
+				st.bestProg = prog;
+				if (drop == 1 && prog >= 1 && prog <= 6 &&
+						typeof s.t == 'number') {
+					st.mark = {
+						t: s.t,
+						key: prog == 6 ? 'flowcf' :
+							(prog >= 3 ? 'flowff' : 'flowfl')
+					};
+				}
+			}
+			if (!st.ollFlowMarked && prog == 1 && s.eo && s.co &&
+					typeof s.t == 'number') {
+				st.ollFlowMarked = true;
+				if (!st.mark) {
+					st.mark = {t: s.t, key: 'flowop'};
+				}
+			}
 			return ev;
 		}
 
@@ -2744,10 +2837,10 @@ function makeCubeCopilot() {
 
 	var ACHIEVEMENT_KEYS = ['xc', 'xxc', 'xxxc', 'xxxxc', 'zbls', 'wv', 'ols',
 		'ollskip', 'zbll', 'coll', 'pll', 'epll', 'ollcp', 'llll', 'llskip',
-		'multi'];
+		'multi', 'flowcf', 'flowff', 'flowfl', 'flowop', 'basicf2l'];
 	// display order in the achievements panel
 	var ACHIEVEMENT_ORDER = ['hot3', 'zb3', 'coll3', 'slot3', 'xc3',
-		'fullhouse', 'triple', 'codex'];
+		'flow3', 'basic3', 'fullhouse', 'triple', 'codex'];
 	var ACHIEVEMENT_STREAKS = {
 		hot3: 'hot', zb3: 'zbll', coll3: 'coll', slot3: 'slot', xc3: 'xc'
 	};
@@ -2811,7 +2904,7 @@ function makeCubeCopilot() {
 			return n;
 		}
 
-		function step(keys) {
+		function step(keys, stats) {
 			var ev = [];
 			var has = {};
 			var uniq = [];
@@ -2839,6 +2932,8 @@ function makeCubeCopilot() {
 			unlock('codex', seenCount() >= ACHIEVEMENT_KEYS.length);
 			unlock('fullhouse', !!(has.zbls && has.zbll));
 			unlock('triple', uniq.length >= 3);
+			unlock('flow3', !!stats && ~~stats.flow >= 3);
+			unlock('basic3', !!stats && ~~stats.basic >= 3);
 			unlock('zb3', st.zbll >= 3);
 			unlock('coll3', st.coll >= 3);
 			unlock('slot3', st.slot >= 3);
@@ -2906,6 +3001,8 @@ function makeCubeCopilot() {
 			return getStage(cubieFromFacelet(facelet), method);
 		},
 		techniqueState: techniqueState,
+		basicPair: basicPair,
+		pairMask: pairMask,
 		makeTechniqueTracker: makeTechniqueTracker,
 		makeAchievementTracker: makeAchievementTracker,
 		solveCross: solveCross,

@@ -187,11 +187,16 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var techAch = [];
 	var techToastKey = '';
 	var techToastTid = 0;
+	var techToastQueue = [];
 	var techSeedFacelet = null;
 	var techSeedProg = -1;
 	var techF2LFacelet = null;
 	var techPllFacelet = null;
 	var techSteps = 0;
+	var techFacelets = [];
+	var techPairMask = 0;
+	var techFlow = 0;
+	var techBasic = 0;
 	var lastSolveSolved = false;
 	var achTracker = cubeCopilot.makeAchievementTracker();
 	var achToast = $('<div id="copilotAchToast"/>');
@@ -210,13 +215,16 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		zbls: 'ZBLS', wv: 'WV/SV', ols: 'OLS', ollskip: 'OLL Skip',
 		zbll: 'ZBLL', coll: 'COLL', pll: 'PLL', epll: 'EPLL',
 		ollcp: 'OLLCP', llll: '1LLL', llskip: 'LL Skip',
-		multi: 'Multislotting'
+		multi: 'Multislotting', basicf2l: 'Basic F2L',
+		flowcf: 'Cross→F1', flowff: 'F2F', flowfl: 'F→LL', flowop: 'OLL→PLL'
 	};
 	var TECH_COLORS = {
 		xc: 'green', xxc: 'green', xxxc: 'green', xxxxc: 'green',
 		zbls: 'green', wv: 'green', ols: 'green', ollskip: 'green', multi: 'green',
+		basicf2l: 'green', flowcf: 'green', flowff: 'green', flowfl: 'green',
 		zbll: 'gold', coll: 'gold',
-		pll: 'blue', epll: 'blue', ollcp: 'blue', llll: 'blue', llskip: 'gold'
+		pll: 'blue', epll: 'blue', ollcp: 'blue', llll: 'blue', llskip: 'gold',
+		flowop: 'blue'
 	};
 	var TECH_TEXT = {
 		xc: ['COPILOT_TIP_XC', 'XC · cross + 1 F2L pair at once'],
@@ -234,7 +242,12 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		ollcp: ['COPILOT_TIP_OLLCP', 'OLLCP · OLL + corner permutation at once'],
 		llll: ['COPILOT_TIP_1LLL', '1LLL · last layer in one algorithm'],
 		llskip: ['COPILOT_TIP_LLSKIP', 'LL skip · last layer already solved'],
-		multi: ['COPILOT_TIP_MULTI', 'Multislotting · two F2L pairs at once']
+		multi: ['COPILOT_TIP_MULTI', 'Multislotting · two F2L pairs at once'],
+		basicf2l: ['COPILOT_TIP_BASICF2L', 'Basic F2L · three move insert'],
+		flowcf: ['COPILOT_TIP_FLOWCF', 'Cross→F1 · straight on without a pause'],
+		flowff: ['COPILOT_TIP_FLOWFF', 'F2F · next pair without a pause'],
+		flowfl: ['COPILOT_TIP_FLOWFL', 'F→LL · straight into the last layer'],
+		flowop: ['COPILOT_TIP_FLOWOP', 'OLL→PLL · straight into PLL']
 	};
 	var ACH_META = {
 		hot3: ['COPILOT_ACH_HOT3', 'On Fire',
@@ -247,6 +260,10 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			'COPILOT_ACH_SLOT3_D', '3 OLS / ZBLS / WV solves in a row', 'purple'],
 		xc3: ['COPILOT_ACH_XC3', 'Cross Crusader',
 			'COPILOT_ACH_XC3_D', '3 XC-or-better solves in a row', 'blue'],
+		flow3: ['COPILOT_ACH_FLOW3', 'Flow State',
+			'COPILOT_ACH_FLOW3_D', '3 connected stage changes in one solve', 'purple'],
+		basic3: ['COPILOT_ACH_BASIC3', 'Back to Basics',
+			'COPILOT_ACH_BASIC3_D', '3 basic three-move F2L inserts in one solve', 'blue'],
 		fullhouse: ['COPILOT_ACH_FULLHOUSE', 'Full House',
 			'COPILOT_ACH_FULLHOUSE_D', 'ZBLS + ZBLL in one solve', 'gold'],
 		triple: ['COPILOT_ACH_TRIPLE', 'Triple Combo',
@@ -1520,6 +1537,30 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function showTechToast(ach) {
+		var flow = ach.key.indexOf('flow') == 0;
+		if (!flow) {
+			// a real technique tip outranks any flow tips still waiting
+			for (var i = techToastQueue.length - 1; i >= 0; i--) {
+				if (techToastQueue[i].key.indexOf('flow') == 0) {
+					techToastQueue.splice(i, 1);
+				}
+			}
+		}
+		techToastQueue.push(ach);
+		while (techToastQueue.length > 4) {
+			techToastQueue.shift();
+		}
+		pumpTechToast();
+	}
+
+	// Several techniques can land at the same moment (a COLL that flows
+	// straight into the PLL, two connected pair changes, ...).  Queue them so
+	// every one is shown instead of the last one winning.
+	function pumpTechToast() {
+		if (techToastTid || !techToastQueue.length) {
+			return;
+		}
+		var ach = techToastQueue.shift();
 		var parts = techParts(ach);
 		techToastKey = ach.key;
 		techToastLabel.text(parts.label);
@@ -1534,6 +1575,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			clearTimeout(techToastTid);
 			techToastTid = 0;
 		}
+		var hold = ach.hold || 1500;
 		techToastTid = setTimeout(function() {
 			techToast.removeClass('cp-toast-in').addClass('cp-toast-out');
 			techToastTid = setTimeout(function() {
@@ -1542,11 +1584,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				techToast.removeClass('cp-toast-out');
 				techToastLabel.text('');
 				techToastDesc.text('');
+				pumpTechToast();
 			}, 460);
-		}, 1700);
+		}, hold);
 	}
 
 	function hideTechToast() {
+		techToastQueue.length = 0;
 		if (techToastTid) {
 			clearTimeout(techToastTid);
 			techToastTid = 0;
@@ -1668,6 +1712,27 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		} catch (e) {}
 	}
 
+	function finishTechniques() {
+		if (!techSteps) {
+			return;
+		}
+		var plan = stagePlan();
+		if (!plan || plan == 'roux') {
+			return;
+		}
+		var keys = [];
+		for (var i = 0; i < techAch.length; i++) {
+			keys.push(techAch[i].key);
+		}
+		var evs = achTracker.step(keys, {flow: techFlow, basic: techBasic});
+		saveAch();
+		refreshAchPanel();
+		refreshComboBadge();
+		for (var j = 0; j < evs.length; j++) {
+			queueAch(evs[j].key);
+		}
+	}
+
 	function onSolveComplete(times) {
 		if (!lastSolveSolved || !techSteps) {
 			return;
@@ -1676,24 +1741,10 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (kernel.getProp('scrType', '333') != '333') {
 			return;
 		}
-		var plan = stagePlan();
-		if (!plan || plan == 'roux') {
-			return;
-		}
 		if (times && typeof times[0] == 'number' && times[0] < 0) {
 			return;
 		}
-		var keys = [];
-		for (var i = 0; i < techAch.length; i++) {
-			keys.push(techAch[i].key);
-		}
-		var evs = achTracker.step(keys);
-		saveAch();
-		refreshAchPanel();
-		refreshComboBadge();
-		for (var j = 0; j < evs.length; j++) {
-			queueAch(evs[j].key);
-		}
+		finishTechniques();
 	}
 
 	// ------------------------------------------------- end achievements
@@ -1747,7 +1798,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				label: TECH_LABELS[ev.key] || ev.key,
 				name: '',
 				cat: TECH_COLORS[ev.key] || 'green',
-				req: false
+				req: false,
+				hold: ev.key.indexOf('flow') == 0 ? 750 : 1500
 			};
 			techAch.push(ach);
 		}
@@ -1763,7 +1815,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function techStep(facelet, prog) {
-		var sn = {prog: prog};
+		var sn = {prog: prog, t: $.now()};
 		techSteps++;
 		if (prog <= 3) {
 			var st = null;
@@ -1785,7 +1837,39 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		var evs = techTracker.step(sn);
 		for (var i = 0; i < evs.length; i++) {
+			if (evs[i].key.indexOf('flow') == 0) {
+				techFlow++;
+			}
 			onTechEvent(evs[i]);
+		}
+		checkBasicPair(facelet);
+	}
+
+	/**
+	 * A three move F2L insert: the pair was already joined in the U layer
+	 * three moves before it landed.  Keep a short history of facelets so the
+	 * caller does not need to know the moves themselves.
+	 */
+	function checkBasicPair(facelet) {
+		var mask = 0;
+		try {
+			mask = cubeCopilot.pairMask(facelet);
+		} catch (e) {}
+		var added = mask & ~techPairMask;
+		if (added && techFacelets.length >= 3) {
+			var before = techFacelets[techFacelets.length - 3];
+			for (var i = 0; i < 4; i++) {
+				if ((added & (1 << i)) && cubeCopilot.basicPair(before, i)) {
+					techBasic++;
+					onTechEvent({key: 'basicf2l'});
+					break;
+				}
+			}
+		}
+		techPairMask = mask;
+		techFacelets.push(facelet);
+		if (techFacelets.length > 6) {
+			techFacelets.shift();
 		}
 	}
 
@@ -1799,6 +1883,10 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		techAch = [];
 		techF2LFacelet = null;
 		techPllFacelet = null;
+		techFacelets = [];
+		techPairMask = 0;
+		techFlow = 0;
+		techBasic = 0;
 		techSeedProg = (typeof seedProg == 'number') ? seedProg : -1;
 		if (techSeedProg < 0 && techSeedFacelet) {
 			try {
@@ -2528,8 +2616,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			onTimerStatus(value);
 		} else if (signal == 'relaySolve') {
 			onRelaySolve(value);
-			if (stageArmed && !value[4] && /^r\d+$/.test(kernel.getProp('scrType'))) {
-				restartStageForNextCube();
+			if (stageArmed && /^r\d+$/.test(kernel.getProp('scrType'))) {
+				// score the cube that just finished before its stepper resets
+				if (stageChips.length && stageIdx >= stageChips.length) {
+					finishTechniques();
+				}
+				if (!value[4]) {
+					restartStageForNextCube();
+				}
 			}
 		} else if (signal == 'relayReset') {
 			relayFinished = false;

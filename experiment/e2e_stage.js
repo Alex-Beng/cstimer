@@ -76,7 +76,6 @@ var server = http.createServer(function(req, res) {
 				setTimeout(resolve, ms);
 			});
 		}
-
 		var SHAPES = {
 			cf4op: ['Cross', 'F1', 'F2', 'F3', 'F4', 'OLL', 'PLL'],
 			cfop: ['Cross', 'F2L', 'OLL', 'PLL'],
@@ -342,6 +341,17 @@ var server = http.createServer(function(req, res) {
 				setTimeout(resolve, ms);
 			});
 		}
+		// queued technique tips may need a moment before the wanted one shows
+		async function waitToast(part, ms) {
+			var end = Date.now() + ms;
+			while (Date.now() < end) {
+				if ($('#copilotTechToast .cp-toast-label').text().indexOf(part) >= 0) {
+					return true;
+				}
+				await wait(50);
+			}
+			return false;
+		}
 		function faceletOf(seq) {
 			var cc = new mathlib.CubieCube();
 			seq.split(' ').forEach(function(m) {
@@ -439,7 +449,7 @@ var server = http.createServer(function(req, res) {
 		push(F.sune);
 		await wait(60);
 		push(F.solved);
-		await wait(600);
+		await waitToast('ZBLL', 12000);
 		var zbll = state();
 
 		// a fresh solve: COLL + EPLL
@@ -458,11 +468,22 @@ var server = http.createServer(function(req, res) {
 		push(F.collCase);
 		await wait(60);
 		push(F.collDone);
-		await wait(150);
+		await waitToast('COLL', 12000);
 		var collAtOll = state();
 		push(F.solved);
-		await wait(600);
+		await waitToast('EPLL', 12000);
 		var coll = state();
+
+		// a joined pair in the U layer, inserted by three moves
+		push("R U R'");
+		await wait(60);
+		push("R U R' R");
+		await wait(60);
+		push("R U R' R U'");
+		await wait(60);
+		push("R U R' R U' R'");
+		await wait(200);
+		var basic = state();
 
 		// the next solve must start with no leftover tip
 		kernel.pushSignal('timerStatus', -1);
@@ -484,6 +505,7 @@ var server = http.createServer(function(req, res) {
 			zbll: zbll,
 			collAtOll: collAtOll,
 			coll: coll,
+			basic: basic,
 			ach: ach,
 			fresh: fresh,
 			freshAch: freshAch
@@ -515,6 +537,9 @@ var server = http.createServer(function(req, res) {
 	if (!tech.collAtOll.toast.open || tech.collAtOll.toast.label.indexOf('COLL') < 0 ||
 			tech.collAtOll.combo.text.indexOf('COLL') < 0) {
 		fail('COLL did not pop when OLL completed: ' + JSON.stringify(tech.collAtOll));
+	}
+	if (tech.basic.combo.text.indexOf('Basic F2L') < 0) {
+		fail('basic F2L tip missing: ' + JSON.stringify(tech.basic));
 	}
 	if (tech.fresh.toast.cls || tech.fresh.combo.on) {
 		fail('a new solve kept the previous technique tip: ' + JSON.stringify(tech.fresh));
