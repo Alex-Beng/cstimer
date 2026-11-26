@@ -145,6 +145,23 @@ check('OLLCP fires when OLL completes', ollcp.per[5].some(function(e) {
 	return e.key == 'ollcp';
 }));
 
+var ollcpLate = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false, cp: false},
+	{prog: 2, eo: false, co: false, cp: false},
+	{prog: 1, eo: true, co: true, cp: false},
+	{prog: 1, eo: true, co: true, cp: true}]);
+check('OLLCP after a transient OLL state', has(ollcpLate, 'ollcp'));
+check('OLLCP fires when corners are permuted', ollcpLate.per[6].some(function(e) {
+	return e.key == 'ollcp';
+}));
+var pllLateSteps = [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false, cp: false},
+	{prog: 2, eo: false, co: false, cp: false},
+	{prog: 1, eo: true, co: true, cp: false}];
+for (var pc = 0; pc < 12; pc++) {
+	pllLateSteps.push({prog: 1, eo: true, co: true, cp: false});
+}
+pllLateSteps.push({prog: 1, eo: true, co: true, cp: true});
+check('a normal PLL does not turn into OLLCP', !has(run(7, pllLateSteps), 'ollcp'));
+
 var llll = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false, cp: false},
 	{prog: 2, eo: false, co: false, cp: false}, SOLVED]);
 check('1LLL', has(llll, '1lll'));

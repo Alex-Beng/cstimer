@@ -2584,6 +2584,8 @@ function makeCubeCopilot() {
 				oriented: false,
 				orientedCp: false,
 				ollSeen: false,
+				ollMoves: 0,
+				ollCpDone: false,
 				done: false
 			};
 			if (st.prev >= 2 && st.prev <= 6) {
@@ -2655,15 +2657,26 @@ function makeCubeCopilot() {
 				st.orientedCp = !!s.cp;
 			}
 
-			// COLL / OLLCP are achieved the moment OLL completes, not when
-			// the following EPLL/PLL is done.  Only inspect the 2 -> 1
-			// transition so intermediate PLL states cannot fire them.
-			if (!st.ollSeen && prev > 1 && prog == 1 && st.f2l) {
-				st.ollSeen = true;
-				if (st.oriented && st.orientedCp && !st.llCp &&
-						!(st.llEo && st.llCo)) {
-					ev.push({key: st.llEo ? 'coll' : 'ollcp'});
+			// Some OLLCP/COLL algorithms finish orientation a move or two
+			// before the corner permutation.  Keep watching for a short
+			// window after OLL completes, but stop before a normal PLL
+			// algorithm's late corner-permutation step can look like OLLCP.
+			if (prog == 1 && st.f2l) {
+				if (!st.ollSeen && prev > 1) {
+					st.ollSeen = true;
+					st.ollMoves = 0;
 				}
+				if (st.ollSeen && !st.ollCpDone && st.ollMoves <= 12) {
+					if (s.cp) {
+						st.orientedCp = true;
+					}
+					if (st.oriented && st.orientedCp && !st.llCp &&
+							!(st.llEo && st.llCo)) {
+						st.ollCpDone = true;
+						ev.push({key: st.llEo ? 'coll' : 'ollcp'});
+					}
+				}
+				st.ollMoves++;
 			}
 
 			if (prog == 0) {
