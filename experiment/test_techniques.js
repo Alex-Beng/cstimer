@@ -149,10 +149,7 @@ var ollcpLate = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false, cp: 
 	{prog: 2, eo: false, co: false, cp: false},
 	{prog: 1, eo: true, co: true, cp: false},
 	{prog: 1, eo: true, co: true, cp: true}]);
-check('OLLCP after a transient OLL state', has(ollcpLate, 'ollcp'));
-check('OLLCP fires when corners are permuted', ollcpLate.per[6].some(function(e) {
-	return e.key == 'ollcp';
-}));
+check('OLLCP is decided when OLL completes, not later', !has(ollcpLate, 'ollcp'));
 var pllLateSteps = [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false, cp: false},
 	{prog: 2, eo: false, co: false, cp: false},
 	{prog: 1, eo: true, co: true, cp: false}];

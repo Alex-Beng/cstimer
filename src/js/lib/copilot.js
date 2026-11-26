@@ -2583,9 +2583,6 @@ function makeCubeCopilot() {
 				llCp: false,
 				oriented: false,
 				orientedCp: false,
-				ollSeen: false,
-				ollMoves: 0,
-				ollCpDone: false,
 				done: false
 			};
 			if (st.prev >= 2 && st.prev <= 6) {
@@ -2655,28 +2652,15 @@ function makeCubeCopilot() {
 			} else if (st.f2l && prog > 0 && !st.oriented && s.eo && s.co) {
 				st.oriented = true;
 				st.orientedCp = !!s.cp;
-			}
-
-			// Some OLLCP/COLL algorithms finish orientation a move or two
-			// before the corner permutation.  Keep watching for a short
-			// window after OLL completes, but stop before a normal PLL
-			// algorithm's late corner-permutation step can look like OLLCP.
-			if (prog == 1 && st.f2l) {
-				if (!st.ollSeen && prev > 1) {
-					st.ollSeen = true;
-					st.ollMoves = 0;
+				// OLL is complete at this state.  When the corners are
+				// already placed as well, the algorithm solved the corner
+				// permutation too: COLL if the top cross was done after the
+				// last F2L pair, OLLCP otherwise.  Whether corners stay
+				// unpermuted here just means a normal OLL followed by PLL.
+				if (prog == 1 && st.orientedCp && !st.llCp &&
+						!(st.llEo && st.llCo)) {
+					ev.push({key: st.llEo ? 'coll' : 'ollcp'});
 				}
-				if (st.ollSeen && !st.ollCpDone && st.ollMoves <= 12) {
-					if (s.cp) {
-						st.orientedCp = true;
-					}
-					if (st.oriented && st.orientedCp && !st.llCp &&
-							!(st.llEo && st.llCo)) {
-						st.ollCpDone = true;
-						ev.push({key: st.llEo ? 'coll' : 'ollcp'});
-					}
-				}
-				st.ollMoves++;
 			}
 
 			if (prog == 0) {
