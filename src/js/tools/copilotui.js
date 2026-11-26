@@ -204,6 +204,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var techNorotDone = false;
 	var techUseMoves = false;
 	var techMaxProg = 0;
+	var techLastProg = -1;
 	var lastSolveSolved = false;
 	var achTracker = cubeCopilot.makeAchievementTracker();
 	var achToast = $('<div id="copilotAchToast"/>');
@@ -1762,15 +1763,31 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 	}
 
-	function onSolveComplete(times) {
-		if (!lastSolveSolved || !techSteps) {
-			return;
+	/**
+	 * Single-phase and Roux timers have no CFOP stepper, but a TPS solve is
+	 * still a TPS solve.  Score it without touching the technique keys.
+	 */
+	function finishSpeedAchievements() {
+		var evs = achTracker.step([], {tps: techTpsMax});
+		saveAch();
+		refreshAchPanel();
+		for (var i = 0; i < evs.length; i++) {
+			queueAch(evs[i].key);
 		}
+	}
+
+	function onSolveComplete(times) {
 		// relay cubes finish on relaySolve, not on time
 		if (kernel.getProp('scrType', '333') != '333') {
 			return;
 		}
 		if (times && typeof times[0] == 'number' && times[0] < 0) {
+			return;
+		}
+		if (!lastSolveSolved || !techSteps) {
+			if (!techSteps && techTpsMax > 0 && techLastProg == 0) {
+				finishSpeedAchievements();
+			}
 			return;
 		}
 		finishTechniques();
@@ -1849,11 +1866,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		techSteps++;
 		if (prog > techMaxProg) {
 			techMaxProg = prog;
-		}
-		// Smart cubes only send facelets, so use the state updates as turns.
-		// Virtual cubes send exact move events and must not double count.
-		if (!techUseMoves && isSmart) {
-			noteTurn(sn.t);
 		}
 		if (prog <= 3) {
 			var st = null;
@@ -1986,6 +1998,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		techNorotDone = false;
 		techUseMoves = false;
 		techMaxProg = 0;
+		techLastProg = -1;
 		techSeedProg = (typeof seedProg == 'number') ? seedProg : -1;
 		if (techSeedProg < 0 && techSeedFacelet) {
 			try {
@@ -2099,13 +2112,19 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			techSeedFacelet = facelet;
 			return;
 		}
+		var prog = cubeutil.getProgress(facelet, 'cf4op');
+		techLastProg = prog;
+		// Smart cubes only send facelets, so count each update as a turn,
+		// even when a stepper plan is not configured.
+		if (isSmart) {
+			noteTurn($.now());
+		}
 		var plan = stagePlan();
 		if (!plan) {
 			return;
 		}
 		buildStageChips(plan);
 		stageFacelet = facelet;
-		var prog = cubeutil.getProgress(facelet, 'cf4op');
 		if (plan != 'roux') {
 			techStep(facelet, prog);
 		}

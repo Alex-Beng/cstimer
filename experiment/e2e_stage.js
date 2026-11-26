@@ -628,12 +628,35 @@ var server = http.createServer(function(req, res) {
 		await wait(80);
 		kernel.pushSignal('time', [10000]);
 		await wait(500);
+		var fastCombo = combo();
+		var fastPanel = panel();
+
+		// a single-phase timer has no stepper, but still scores TPS
+		kernel.setProp('vrcMP', 'n');
+		await wait(120);
+		kernel.pushSignal('timerStatus', -1);
+		await wait(150);
+		kernel.pushSignal('virtualState', [faceletOf(scr)]);
+		await wait(40);
+		kernel.pushSignal('timerStatus', 1);
+		await wait(60);
+		for (var j = 0; j < 10; j++) {
+			kernel.pushSignal('virtualMove', ['R']);
+			await wait(40);
+		}
+		kernel.pushSignal('virtualState', [mathlib.SOLVED_FACELET]);
+		await wait(100);
+		kernel.pushSignal('timerStatus', -1);
+		await wait(80);
+		kernel.pushSignal('time', [10000]);
+		await wait(500);
 		return {
 			rotatedCombo: rotatedCombo,
 			rotatedPanel: rotatedPanel,
 			sawTps: sawTps,
-			combo: combo(),
-			panel: panel()
+			combo: fastCombo,
+			panel: fastPanel,
+			singlePanel: panel()
 		};
 	});
 	console.log('speed/norot: ' + JSON.stringify(speed));
@@ -655,6 +678,9 @@ var server = http.createServer(function(req, res) {
 	}
 	if (speed.panel.indexOf('Speed Demon1/3') < 0) {
 		fail('the fast solve did not count towards the TPS streak: ' + speed.panel);
+	}
+	if (speed.singlePanel.indexOf('Speed Demon2/3') < 0) {
+		fail('a single-phase solve did not count towards the TPS streak: ' + speed.singlePanel);
 	}
 
 	fatal.forEach(function(m) {
