@@ -431,7 +431,8 @@ var server = http.createServer(function(req, res) {
 		push(F.sune);
 		await wait(60);
 		push(F.epll);
-		await wait(60);
+		await wait(150);
+		var collAtOll = state();
 		push(F.solved);
 		await wait(600);
 		var coll = state();
@@ -450,6 +451,7 @@ var server = http.createServer(function(req, res) {
 			xc: xc,
 			xcCombo: xcCombo,
 			zbll: zbll,
+			collAtOll: collAtOll,
 			coll: coll,
 			fresh: fresh
 		};
@@ -474,6 +476,10 @@ var server = http.createServer(function(req, res) {
 	}
 	if (!tech.coll.toast.open || tech.coll.toast.label.indexOf('COLL') < 0) {
 		fail('COLL achievement toast: ' + JSON.stringify(tech.coll));
+	}
+	if (!tech.collAtOll.toast.open || tech.collAtOll.toast.label.indexOf('COLL') < 0 ||
+			tech.collAtOll.combo.text.indexOf('COLL') < 0) {
+		fail('COLL did not pop when OLL completed: ' + JSON.stringify(tech.collAtOll));
 	}
 	if (tech.fresh.toast.cls || tech.fresh.combo.on) {
 		fail('a new solve kept the previous technique tip: ' + JSON.stringify(tech.fresh));

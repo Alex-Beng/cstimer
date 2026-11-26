@@ -2653,6 +2653,14 @@ function makeCubeCopilot() {
 				st.orientedCp = !!s.cp;
 			}
 
+			// COLL / OLLCP are achieved the moment OLL completes, not when
+			// the following EPLL/PLL is done.  Only inspect the 2 -> 1
+			// transition so intermediate PLL states cannot fire them.
+			if (prev > 1 && prog == 1 && st.f2l && st.oriented &&
+					st.orientedCp && !st.llCp && !(st.llEo && st.llCo)) {
+				ev.push({key: st.llEo ? 'coll' : 'ollcp'});
+			}
+
 			if (prog == 0) {
 				st.done = true;
 				if (st.f2l) {
@@ -2664,12 +2672,6 @@ function makeCubeCopilot() {
 						ev.push({key: 'pll'});
 					} else if (!st.oriented) {
 						ev.push({key: st.llEo ? 'zbll' : '1lll'});
-					} else if (st.llEo) {
-						if (!st.llCo && st.orientedCp && !st.llCp) {
-							ev.push({key: 'coll'});
-						}
-					} else if (st.orientedCp && !st.llCp) {
-						ev.push({key: 'ollcp'});
 					}
 				}
 			}

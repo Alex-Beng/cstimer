@@ -121,11 +121,20 @@ var coll = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: true, co: false, cp: false}
 	{prog: 2, eo: true, co: false, cp: false},
 	{prog: 1, eo: true, co: true, cp: true}, SOLVED]);
 check('COLL', has(coll, 'coll'));
+check('COLL fires when OLL completes', coll.per[5].some(function(e) {
+	return e.key == 'coll';
+}));
+check('COLL is not repeated at PLL', !coll.per[6].some(function(e) {
+	return e.key == 'coll';
+}));
 
 var ollcp = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false, cp: false},
 	{prog: 2, eo: false, co: false, cp: false},
 	{prog: 1, eo: true, co: true, cp: true}, SOLVED]);
 check('OLLCP', has(ollcp, 'ollcp'));
+check('OLLCP fires when OLL completes', ollcp.per[5].some(function(e) {
+	return e.key == 'ollcp';
+}));
 
 var llll = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false, cp: false},
 	{prog: 2, eo: false, co: false, cp: false}, SOLVED]);
