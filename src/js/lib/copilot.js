@@ -2643,7 +2643,9 @@ function makeCubeCopilot() {
 						ev.push({key: 'zbls'});
 					}
 					if (!st.eo3 && st.llEo && st.llCo) {
-						ev.push({key: 'ollskip'});
+						// the last pair finished the whole last-layer
+						// orientation (edges and corners) while inserting
+						ev.push({key: 'ols'});
 					}
 					if (st.eo3 && st.llCo && !st.co3) {
 						ev.push({key: 'wv'});

@@ -118,6 +118,7 @@ var COPILOT_TIP_XXXC = 'XXXC · 十字 + 3 组 F2L 同时完成';
 var COPILOT_TIP_XXXXC = 'XXXXC · 十字 + 4 组 F2L 同时完成';
 var COPILOT_TIP_ZBLS = 'ZBLS · 最后一组 F2L 同时完成顶层十字';
 var COPILOT_TIP_WV = 'WV/SV · 最后一组 F2L 同时定向顶层角块';
+var COPILOT_TIP_OLS = 'OLS · 最后一组 F2L 同时完成顶层色相';
 var COPILOT_TIP_OLLSKIP = 'OLL skip · 顶层色相已自动完成';
 var COPILOT_TIP_ZBLL = 'ZBLL%s · 顶层一步复原';
 var COPILOT_TIP_COLL = 'COLL%s · 顶层角块一步归位';

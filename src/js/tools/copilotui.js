@@ -193,14 +193,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var techPllFacelet = null;
 	var TECH_LABELS = {
 		xc: 'XC', xxc: 'XXC', xxxc: 'XXXC', xxxxc: 'XXXXC',
-		zbls: 'ZBLS', wv: 'WV/SV', ollskip: 'OLL Skip',
+		zbls: 'ZBLS', wv: 'WV/SV', ols: 'OLS', ollskip: 'OLL Skip',
 		zbll: 'ZBLL', coll: 'COLL', pll: 'PLL', epll: 'EPLL',
 		ollcp: 'OLLCP', llll: '1LLL', llskip: 'LL Skip',
 		multi: 'Multislotting'
 	};
 	var TECH_COLORS = {
 		xc: 'green', xxc: 'green', xxxc: 'green', xxxxc: 'green',
-		zbls: 'green', wv: 'green', ollskip: 'green', multi: 'green',
+		zbls: 'green', wv: 'green', ols: 'green', ollskip: 'green', multi: 'green',
 		zbll: 'gold', coll: 'gold',
 		pll: 'blue', epll: 'blue', ollcp: 'blue', llll: 'blue', llskip: 'gold'
 	};
@@ -211,6 +211,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		xxxxc: ['COPILOT_TIP_XXXXC', 'XXXXC · cross + all 4 pairs at once'],
 		zbls: ['COPILOT_TIP_ZBLS', 'ZBLS · last F2L pair + top cross at once'],
 		wv: ['COPILOT_TIP_WV', 'WV/SV · last F2L pair + top corners oriented'],
+		ols: ['COPILOT_TIP_OLS', 'OLS · last F2L pair + top layer oriented'],
 		ollskip: ['COPILOT_TIP_OLLSKIP', 'OLL skip · top layer already oriented'],
 		zbll: ['COPILOT_TIP_ZBLL', 'ZBLL%s · last layer in one algorithm'],
 		coll: ['COPILOT_TIP_COLL', 'COLL%s · top corners in one algorithm'],
