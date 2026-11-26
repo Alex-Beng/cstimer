@@ -122,6 +122,7 @@ var COPILOT_TIP_OLLSKIP = 'OLL skip · 顶层色相已自动完成';
 var COPILOT_TIP_ZBLL = 'ZBLL%s · 顶层一步复原';
 var COPILOT_TIP_COLL = 'COLL%s · 顶层角块一步归位';
 var COPILOT_TIP_PLL = 'PLL%s · 顶层一步复原';
+var COPILOT_TIP_EPLL = 'EPLL%s · 顶层仅复原棱块位置';
 var COPILOT_TIP_OLLCP = 'OLLCP · 顶层色相 + 角块一次完成';
 var COPILOT_TIP_1LLL = '1LLL · 顶层一步复原';
 var COPILOT_TIP_LLSKIP = 'LL skip · 顶层已直接复原';

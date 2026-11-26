@@ -190,10 +190,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var techSeedFacelet = null;
 	var techSeedProg = -1;
 	var techF2LFacelet = null;
+	var techPllFacelet = null;
 	var TECH_LABELS = {
 		xc: 'XC', xxc: 'XXC', xxxc: 'XXXC', xxxxc: 'XXXXC',
 		zbls: 'ZBLS', wv: 'WV/SV', ollskip: 'OLL Skip',
-		zbll: 'ZBLL', coll: 'COLL', pll: 'PLL',
+		zbll: 'ZBLL', coll: 'COLL', pll: 'PLL', epll: 'EPLL',
 		ollcp: 'OLLCP', llll: '1LLL', llskip: 'LL Skip',
 		multi: 'Multislotting'
 	};
@@ -201,7 +202,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		xc: 'green', xxc: 'green', xxxc: 'green', xxxxc: 'green',
 		zbls: 'green', wv: 'green', ollskip: 'green', multi: 'green',
 		zbll: 'gold', coll: 'gold',
-		pll: 'blue', ollcp: 'blue', llll: 'blue', llskip: 'gold'
+		pll: 'blue', epll: 'blue', ollcp: 'blue', llll: 'blue', llskip: 'gold'
 	};
 	var TECH_TEXT = {
 		xc: ['COPILOT_TIP_XC', 'XC · cross + 1 F2L pair at once'],
@@ -214,6 +215,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		zbll: ['COPILOT_TIP_ZBLL', 'ZBLL%s · last layer in one algorithm'],
 		coll: ['COPILOT_TIP_COLL', 'COLL%s · top corners in one algorithm'],
 		pll: ['COPILOT_TIP_PLL', 'PLL%s · top layer in one algorithm'],
+		epll: ['COPILOT_TIP_EPLL', 'EPLL%s · top edges in one algorithm'],
 		ollcp: ['COPILOT_TIP_OLLCP', 'OLLCP · OLL + corner permutation at once'],
 		llll: ['COPILOT_TIP_1LLL', '1LLL · last layer in one algorithm'],
 		llskip: ['COPILOT_TIP_LLSKIP', 'LL skip · last layer already solved'],
@@ -1483,6 +1485,10 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		showTechToast(ach);
 		if (ev.key == 'zbll' || ev.key == 'coll' || ev.key == 'pll') {
 			requestTechName(ach, techF2LFacelet, ev.key == 'pll' ? 'op' : ev.key, ev.key);
+		} else if (ev.key == 'epll') {
+			var tst = techTracker.state();
+			var facelet = (tst && tst.llEo && tst.llCo) ? techF2LFacelet : techPllFacelet;
+			requestTechName(ach, facelet || techF2LFacelet, 'op', 'pll');
 		}
 	}
 
@@ -1503,6 +1509,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (prog <= 2 && !techF2LFacelet) {
 			techF2LFacelet = facelet;
 		}
+		if (prog == 1 && sn.eo && sn.co && sn.cp && !techPllFacelet) {
+			techPllFacelet = facelet;
+		}
 		var evs = techTracker.step(sn);
 		for (var i = 0; i < evs.length; i++) {
 			onTechEvent(evs[i]);
@@ -1515,6 +1524,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		techAch = [];
 		techF2LFacelet = null;
+		techPllFacelet = null;
 		techSeedProg = (typeof seedProg == 'number') ? seedProg : -1;
 		if (techSeedProg < 0 && techSeedFacelet) {
 			try {

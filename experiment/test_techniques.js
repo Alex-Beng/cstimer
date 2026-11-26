@@ -168,6 +168,20 @@ var pll = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: true, co: false, cp: false},
 check('PLL', has(pll, 'pll'));
 check('PLL is not ZBLL', !has(pll, 'zbll'));
 
+var epll = run(7, [CROSS_ONLY, P1, P2, {prog: 2, eo: true, co: true, cp: true}, SOLVED]);
+check('EPLL when the corners are already placed', has(epll, 'epll'));
+check('EPLL is not reported as PLL', !has(epll, 'pll'));
+
+var ollcpEpll = run(7, [CROSS_ONLY, P1, P2, {prog: 2, eo: false, co: false, cp: false},
+	{prog: 1, eo: true, co: true, cp: true}, SOLVED]);
+check('EPLL after OLLCP', has(ollcpEpll, 'epll'));
+check('OLLCP is not EPLL', has(ollcpEpll, 'ollcp'));
+
+var collEpll = run(7, [CROSS_ONLY, P1, P2, {prog: 2, eo: true, co: false, cp: false},
+	{prog: 1, eo: true, co: true, cp: true}, SOLVED]);
+check('EPLL after COLL', has(collEpll, 'epll'));
+check('COLL is not EPLL', has(collEpll, 'coll'));
+
 var llskip = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: true, co: false, cp: false}, SOLVED]);
 check('LL skip', has(llskip, 'llskip'));
 

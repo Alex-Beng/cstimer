@@ -122,6 +122,7 @@ var COPILOT_TIP_OLLSKIP = 'OLL skip · top layer already oriented';
 var COPILOT_TIP_ZBLL = 'ZBLL%s · last layer in one algorithm';
 var COPILOT_TIP_COLL = 'COLL%s · top corners in one algorithm';
 var COPILOT_TIP_PLL = 'PLL%s · top layer in one algorithm';
+var COPILOT_TIP_EPLL = 'EPLL%s · top edges in one algorithm';
 var COPILOT_TIP_OLLCP = 'OLLCP · OLL + corner permutation at once';
 var COPILOT_TIP_1LLL = '1LLL · last layer in one algorithm';
 var COPILOT_TIP_LLSKIP = 'LL skip · last layer already solved';

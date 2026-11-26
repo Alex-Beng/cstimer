@@ -474,8 +474,10 @@ var server = http.createServer(function(req, res) {
 	if (!tech.zbll.toast.open || tech.zbll.toast.label.indexOf('ZBLL') < 0) {
 		fail('ZBLL achievement toast: ' + JSON.stringify(tech.zbll));
 	}
-	if (!tech.coll.toast.open || tech.coll.toast.label.indexOf('COLL') < 0) {
-		fail('COLL achievement toast: ' + JSON.stringify(tech.coll));
+	if (!tech.coll.toast.open || tech.coll.toast.label.indexOf('EPLL') < 0 ||
+			tech.coll.combo.text.indexOf('COLL') < 0 ||
+			tech.coll.combo.text.indexOf('EPLL') < 0) {
+		fail('EPLL achievement toast after COLL: ' + JSON.stringify(tech.coll));
 	}
 	if (!tech.collAtOll.toast.open || tech.collAtOll.toast.label.indexOf('COLL') < 0 ||
 			tech.collAtOll.combo.text.indexOf('COLL') < 0) {

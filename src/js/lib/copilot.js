@@ -2670,8 +2670,14 @@ function makeCubeCopilot() {
 						ev.push({key: 'llskip'});
 					} else if (st.llEo && st.llCo) {
 						// the last layer was already oriented after F2L: a
-						// one-look PLL, not a ZBLL
-						ev.push({key: 'pll'});
+						// one-look PLL, not a ZBLL; when the corners were
+						// placed as well, only the edges were left
+						ev.push({key: st.llCp ? 'epll' : 'pll'});
+					} else if (st.oriented && st.orientedCp) {
+						// OLL (or COLL/OLLCP) finished with the corners
+						// already placed, so the final algorithm only had to
+						// permute the edges
+						ev.push({key: 'epll'});
 					} else if (!st.oriented) {
 						ev.push({key: st.llEo ? 'zbll' : '1lll'});
 					}
