@@ -220,7 +220,7 @@ function faceletOf(seq) {
 var sune = copilot.techniqueState(faceletOf("R U R' U R U2 R'"));
 check('Sune: EO done', sune.eo);
 check('Sune: corners unoriented', !sune.co);
-check('Sune: corners unpermuted', !sune.cp);
+check('Sune: corners placed up to AUF', sune.cp);
 
 var tperm = copilot.techniqueState(faceletOf("R U R' U' R' F R2 U' R' U' R U R' F'"));
 check('T perm: EO done', tperm.eo);
@@ -229,6 +229,11 @@ check('T perm: corners unpermuted', !tperm.cp);
 
 var uperm = copilot.techniqueState(faceletOf("R U' R U R U R U' R' U' R2"));
 check('U perm: corners placed', uperm.cp);
+
+var upermAuf = copilot.techniqueState(faceletOf("R U' R U R U R U' R' U' R2 U"));
+check('U perm with AUF: corners still placed', upermAuf.cp);
+check('U perm with AUF: corners still oriented', upermAuf.co);
+check('U perm with AUF: edges oriented', upermAuf.eo);
 
 var scrambled = faceletOf("R U F L D B R2 U2 F2");
 check('scrambled progress', cubeutil.getProgress(scrambled, 'cf4op') == 7);

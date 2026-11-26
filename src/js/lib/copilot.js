@@ -143,10 +143,15 @@ function makeCubeCopilot() {
 		return true;
 	}
 
-	/** corner permutation only: every U corner is in its own slot */
+	/**
+	 * corner permutation only, ignoring a whole-layer AUF: the four U corners
+	 * must sit in a cyclic shift of their own slots, so the relative order of
+	 * the corners is what matters
+	 */
 	function cornersPermuted(cc) {
+		var shift = (cc.ca[0] & 7) % 4;
 		for (var i = 0; i < 4; i++) {
-			if ((cc.ca[i] & 7) != i) {
+			if ((cc.ca[i] & 7) != (i + shift) % 4) {
 				return false;
 			}
 		}

@@ -351,6 +351,14 @@ var server = http.createServer(function(req, res) {
 			cc.ori = 0;
 			return cc.toFaceCube();
 		}
+		function invAlg(alg) {
+			return alg.trim().split(/\s+/).reverse().map(function(m) {
+				if (m.slice(-1) == "'") {
+					return m.slice(0, -1);
+				}
+				return m.slice(-1) == '2' ? m : m + "'";
+			}).join(' ');
+		}
 		function comboState() {
 			var tip = $('#copilotStageTip');
 			return {
@@ -379,13 +387,17 @@ var server = http.createServer(function(req, res) {
 		function push(seq) {
 			kernel.pushSignal('virtualState', [faceletOf(seq)]);
 		}
+		// a real COLL case (AS 2): EO done after F2L, corners twisted and permuted
+		var collAlg = "R2 D R' U R D' R' U R' U' R U' R'";
+		var epllAlg = "R U' R U R U R U' R' U' R2";
 		var F = {
 			scr: 'R U F L D B R2 U2 F2',                 // prog 7
 			xc: "B' B B' U2 F2 U2 B",                     // prog 5: cross + 1 pair
 			p2: "U B U2 B2 U2 B U'",                      // prog 4
 			p3: "U R U'",                                 // prog 3
 			sune: "R U R' U R U2 R'",                     // prog 2, EO done
-			epll: "R U' R U R U R U' R' U' R2",           // OLL done, corners placed
+			collCase: epllAlg + ' ' + invAlg(collAlg),    // prog 2, EO done
+			collDone: epllAlg,                            // corners placed, EPLL left
 			solved: mathlib.SOLVED_FACELET
 		};
 
@@ -428,9 +440,9 @@ var server = http.createServer(function(req, res) {
 		await wait(60);
 		push(F.p3);
 		await wait(60);
-		push(F.sune);
+		push(F.collCase);
 		await wait(60);
-		push(F.epll);
+		push(F.collDone);
 		await wait(150);
 		var collAtOll = state();
 		push(F.solved);
