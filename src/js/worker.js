@@ -123,6 +123,10 @@ var csTimerWorker = execBoth(ISCSTIMER && function() {
 		},
 		warmUp: function() {
 			cubeCopilot.buildAlllLut();
+			// the technique tips ask for ZBLL / COLL case names right after a
+			// solve, so build those small tables up front as well
+			cubeCopilot.buildZbllLut();
+			cubeCopilot.buildCollLut();
 			return cubeCopilot.warmUp();
 		}
 	};

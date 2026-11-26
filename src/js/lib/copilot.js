@@ -113,6 +113,46 @@ function makeCubeCopilot() {
 		return true;
 	}
 
+	/** orientation of the four U-layer edge pieces, wherever they sit */
+	function llEdgesOriented(cc) {
+		for (var p = 0; p < 4; p++) {
+			for (var i = 0; i < 12; i++) {
+				if ((cc.ea[i] >> 1) == p) {
+					if (cc.ea[i] & 1) {
+						return false;
+					}
+					break;
+				}
+			}
+		}
+		return true;
+	}
+
+	/** orientation of the four U-layer corner pieces, wherever they sit */
+	function llCornersOriented(cc) {
+		for (var p = 0; p < 4; p++) {
+			for (var i = 0; i < 8; i++) {
+				if ((cc.ca[i] & 7) == p) {
+					if ((cc.ca[i] >> 3) != 0) {
+						return false;
+					}
+					break;
+				}
+			}
+		}
+		return true;
+	}
+
+	/** corner permutation only: every U corner is in its own slot */
+	function cornersPermuted(cc) {
+		for (var i = 0; i < 4; i++) {
+			if ((cc.ca[i] & 7) != i) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	/** both Roux blocks (everything except the M slice and U layer) */
 	function isF2BDone(cc) {
 		for (var c = 4; c < 8; c++) {
@@ -2503,10 +2543,155 @@ function makeCubeCopilot() {
 		return cc.isEqual(mathlib.CubieCube.SOLVED);
 	}
 
+	/** cheap per-move snapshot used by the technique tips */
+	function techniqueState(facelet) {
+		var cc = cubieFromFacelet(facelet);
+		return {
+			eo: llEdgesOriented(cc),
+			co: llCornersOriented(cc),
+			cp: cornersPermuted(cc),
+			solved: cc.isEqual(mathlib.CubieCube.SOLVED)
+		};
+	}
+
+	var PAIR_KEYS = ['', 'xc', 'xxc', 'xxxc', 'xxxxc'];
+
+	/**
+	 * State machine for the advanced-technique achievements.  It consumes the
+	 * cf4op progress of every move, plus the last-layer snapshot while the
+	 * solve is close to the end, and reports the techniques just completed.
+	 * Keeping it pure makes every rule unit-testable without a cube UI.
+	 *
+	 * step() input: {prog, eo, co, cp, solved}
+	 *   prog: 7 nothing, 6 cross, 5..2 F2L pairs, 1 OLL, 0 solved
+	 *   eo/co/cp/solved are only read while prog <= 3
+	 */
+	function makeTechniqueTracker() {
+		var st;
+
+		function reset(seedProg) {
+			st = {
+				prev: (typeof seedProg == 'number') ? seedProg : -1,
+				cross: false,
+				pairs: 0,
+				pair3: false,
+				eo3: false,
+				co3: false,
+				f2l: false,
+				llEo: false,
+				llCo: false,
+				llCp: false,
+				oriented: false,
+				orientedCp: false,
+				done: false
+			};
+			if (st.prev >= 2 && st.prev <= 6) {
+				st.cross = true;
+				st.pairs = 6 - st.prev;
+			}
+		}
+		reset();
+
+		function step(s) {
+			var ev = [];
+			var prog = (s && typeof s.prog == 'number') ? s.prog : -1;
+			if (prog < 0 || st.done) {
+				return ev;
+			}
+			var prev = st.prev;
+
+			if (!st.cross && prog <= 6) {
+				st.cross = true;
+				st.pairs = 6 - prog;
+				// only a real 7 -> 5/4/3/2 transition is an extended cross
+				if ((prev > 6 || prev < 0) && st.pairs > 0) {
+					ev.push({key: PAIR_KEYS[st.pairs]});
+				}
+			} else if (st.cross && prev > 6 && prog <= 6) {
+				// the cross was broken by an F2L alg and is back: resync
+				st.pairs = 6 - prog;
+			} else if (st.cross && prev >= 2 && prev <= 6 && prog >= 2 && prog <= 6) {
+				var nowPairs = 6 - prog;
+				if (nowPairs - st.pairs >= 2) {
+					ev.push({key: 'multi', n: nowPairs - st.pairs});
+				}
+				st.pairs = nowPairs;
+			}
+
+			// remember the last-layer state right after the third pair, i.e.
+			// before the work on the last slot starts
+			if (st.cross && prog == 3 && !st.pair3) {
+				st.pair3 = true;
+				st.eo3 = !!s.eo;
+				st.co3 = !!s.co;
+			}
+
+			if (!st.f2l && st.cross && prev > 2 && prog <= 2) {
+				st.f2l = true;
+				st.llEo = !!s.eo;
+				st.llCo = !!s.co;
+				st.llCp = !!s.cp;
+				if (st.pair3) {
+					if (!st.eo3 && st.llEo && !st.llCo) {
+						ev.push({key: 'zbls'});
+					}
+					if (!st.eo3 && st.llEo && st.llCo) {
+						ev.push({key: 'ollskip'});
+					}
+					if (st.eo3 && st.llCo && !st.co3) {
+						ev.push({key: 'wv'});
+					}
+					if (st.eo3 && st.llCo && st.co3) {
+						ev.push({key: 'ollskip'});
+					}
+				}
+				st.oriented = st.llEo && st.llCo;
+				st.orientedCp = st.llCp;
+			} else if (st.f2l && prog > 0 && !st.oriented && s.eo && s.co) {
+				st.oriented = true;
+				st.orientedCp = !!s.cp;
+			}
+
+			if (prog == 0) {
+				st.done = true;
+				if (st.f2l) {
+					if (prev > 2) {
+						ev.push({key: 'llskip'});
+					} else if (st.llEo && st.llCo) {
+						// the last layer was already oriented after F2L: a
+						// one-look PLL, not a ZBLL
+						ev.push({key: 'pll'});
+					} else if (!st.oriented) {
+						ev.push({key: st.llEo ? 'zbll' : '1lll'});
+					} else if (st.llEo) {
+						if (!st.llCo && st.orientedCp && !st.llCp) {
+							ev.push({key: 'coll'});
+						}
+					} else if (st.orientedCp && !st.llCp) {
+						ev.push({key: 'ollcp'});
+					}
+				}
+			}
+
+			st.prev = prog;
+			return ev;
+		}
+
+		return {
+			reset: reset,
+			step: step,
+			state: function() {
+				return st;
+			}
+		};
+	}
+
 	return {
 		getStage: function(facelet, method) {
 			return getStage(cubieFromFacelet(facelet), method);
 		},
+		techniqueState: techniqueState,
+		makeTechniqueTracker: makeTechniqueTracker,
 		solveCross: solveCross,
 		minPair: minPair,
 		pairInfo: pairInfo,

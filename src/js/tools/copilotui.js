@@ -171,6 +171,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	/* Live CFOP stage bar, meant for demoing a solve to non-cubers. */
 	var stageBar = $('<div id="copilotStageBar"/>');
 	var stageLabel = $('<span class="cp-stage-label"/>');
+	var stageTip = $('<span id="copilotStageTip" class="cp-stage-tip"/>');
 	var stageChips = [];
 	var stagePlanKey = '';
 	var stageArmed = false;
@@ -178,6 +179,42 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var stageIdx = 0;
 	var stagePopTid = 0;
 	var stageHideTid = 0;
+	var techTracker = cubeCopilot.makeTechniqueTracker();
+	var techAch = [];
+	var techTipKey = '';
+	var techTipTid = 0;
+	var techSeedFacelet = null;
+	var techSeedProg = -1;
+	var techF2LFacelet = null;
+	var TECH_LABELS = {
+		xc: 'XC', xxc: 'XXC', xxxc: 'XXXC', xxxxc: 'XXXXC',
+		zbls: 'ZBLS', wv: 'WV/SV', ollskip: 'OLL Skip',
+		zbll: 'ZBLL', coll: 'COLL', pll: 'PLL',
+		ollcp: 'OLLCP', llll: '1LLL', llskip: 'LL Skip',
+		multi: 'Multislotting'
+	};
+	var TECH_COLORS = {
+		xc: 'green', xxc: 'green', xxxc: 'green', xxxxc: 'green',
+		zbls: 'green', wv: 'green', ollskip: 'green', multi: 'green',
+		zbll: 'gold', coll: 'gold',
+		pll: 'blue', ollcp: 'blue', llll: 'blue', llskip: 'gold'
+	};
+	var TECH_TEXT = {
+		xc: ['COPILOT_TIP_XC', 'XC · cross + 1 F2L pair at once'],
+		xxc: ['COPILOT_TIP_XXC', 'XXC · cross + 2 F2L pairs at once'],
+		xxxc: ['COPILOT_TIP_XXXC', 'XXXC · cross + 3 F2L pairs at once'],
+		xxxxc: ['COPILOT_TIP_XXXXC', 'XXXXC · cross + all 4 pairs at once'],
+		zbls: ['COPILOT_TIP_ZBLS', 'ZBLS · last F2L pair + top cross at once'],
+		wv: ['COPILOT_TIP_WV', 'WV/SV · last F2L pair + top corners oriented'],
+		ollskip: ['COPILOT_TIP_OLLSKIP', 'OLL skip · top layer already oriented'],
+		zbll: ['COPILOT_TIP_ZBLL', 'ZBLL%s · last layer in one algorithm'],
+		coll: ['COPILOT_TIP_COLL', 'COLL%s · top corners in one algorithm'],
+		pll: ['COPILOT_TIP_PLL', 'PLL%s · top layer in one algorithm'],
+		ollcp: ['COPILOT_TIP_OLLCP', 'OLLCP · OLL + corner permutation at once'],
+		llll: ['COPILOT_TIP_1LLL', '1LLL · last layer in one algorithm'],
+		llskip: ['COPILOT_TIP_LLSKIP', 'LL skip · last layer already solved'],
+		multi: ['COPILOT_TIP_MULTI', 'Multislotting · two F2L pairs at once']
+	};
 	var STAGE_PLANS = {
 		cf4op: {label: 'CFOP', names: ['Cross', 'F1', 'F2', 'F3', 'F4', 'OLL', 'PLL'], base: 7},
 		cfop: {label: 'CFOP', names: ['Cross', 'F2L', 'OLL', 'PLL'], base: 4},
@@ -241,6 +278,34 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'    0% { transform: scale(1); box-shadow: none; }',
 		'    40% { transform: scale(1.3); box-shadow: 0 0 16px rgba(90, 255, 140, 0.95); }',
 		'    100% { transform: scale(1); box-shadow: none; }',
+		'}',
+		'.cp-stage-tip {',
+		'    flex-basis: 100%;',
+		'    margin-top: 0.15rem;',
+		'    text-align: center;',
+		'    font-size: 1em;',
+		'    font-weight: bold;',
+		'    line-height: 1.25;',
+		'    color: #7ef29b;',
+		'    white-space: nowrap;',
+		'    overflow: hidden;',
+		'    text-overflow: ellipsis;',
+		'    display: none;',
+		'}',
+		'.cp-stage-tip.cp-tip-on { display: block; }',
+		'.cp-stage-tip.cp-tip-combo {',
+		'    color: rgba(255, 255, 255, 0.7);',
+		'    font-size: 0.85em;',
+		'    font-weight: normal;',
+		'}',
+		'.cp-stage-tip.cp-tip-green { color: #7ef29b; }',
+		'.cp-stage-tip.cp-tip-gold { color: #ffd54a; }',
+		'.cp-stage-tip.cp-tip-blue { color: #8fc8ff; }',
+		'html.m .cp-stage-tip { font-size: 1.05em; }',
+		'.cp-stage-tip.cp-tip-new { animation: copilotTipIn 280ms ease-out; }',
+		'@keyframes copilotTipIn {',
+		'    from { opacity: 0; transform: translateY(-4px); }',
+		'    to { opacity: 1; transform: none; }',
 		'}'
 	].join('\n');
 	$('<style id="copilotStageStyle"/>').text(stageStyle).appendTo('head');
@@ -1124,6 +1189,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		for (var i = 0; i < def.names.length; i++) {
 			stageChips.push($('<span class="cp-stage-chip"/>').text(def.names[i]).appendTo(stageBar));
 		}
+		stageBar.append(stageTip);
 		return true;
 	}
 
@@ -1182,6 +1248,158 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return true;
 	}
 
+	// --------------------------------------------------- technique tips
+
+	function techLine(ach) {
+		var txt = TECH_TEXT[ach.key];
+		if (!txt) {
+			return ach.label;
+		}
+		var str = L(txt[0], txt[1]);
+		if (str.indexOf('%s') >= 0) {
+			str = str.replace('%s', ach.name ? ' ' + ach.name : '');
+		}
+		return str;
+	}
+
+	function comboLine() {
+		var parts = [];
+		for (var i = 0; i < techAch.length; i++) {
+			parts.push(techAch[i].label + (techAch[i].name ? ' ' + techAch[i].name : ''));
+		}
+		return parts.join(' → ');
+	}
+
+	function clearTechTipTid() {
+		if (techTipTid) {
+			clearTimeout(techTipTid);
+			techTipTid = 0;
+		}
+	}
+
+	function renderTechCombo() {
+		clearTechTipTid();
+		techTipKey = '';
+		var txt = comboLine();
+		stageTip.removeClass('cp-tip-green cp-tip-gold cp-tip-blue cp-tip-new');
+		if (!txt) {
+			stageTip.removeClass('cp-tip-on').text('');
+			return;
+		}
+		stageTip.text(txt).addClass('cp-tip-on cp-tip-combo');
+	}
+
+	function renderTechTip(ach) {
+		clearTechTipTid();
+		techTipKey = ach.key;
+		stageTip.text(techLine(ach))
+			.removeClass('cp-tip-combo cp-tip-green cp-tip-gold cp-tip-blue cp-tip-new')
+			.addClass('cp-tip-on cp-tip-' + ach.cat);
+		void stageTip[0].offsetWidth;
+		stageTip.addClass('cp-tip-new');
+		techTipTid = setTimeout(function() {
+			techTipTid = 0;
+			renderTechCombo();
+		}, 3000);
+	}
+
+	function refreshTechText() {
+		if (!techTipKey || !stageTip.hasClass('cp-tip-on')) {
+			if (techAch.length) {
+				renderTechCombo();
+			}
+			return;
+		}
+		for (var i = 0; i < techAch.length; i++) {
+			if (techAch[i].key == techTipKey) {
+				stageTip.text(techLine(techAch[i]));
+				return;
+			}
+		}
+	}
+
+	function requestTechName(ach, facelet, mode, wantKind) {
+		if (ach.req || ach.name || !facelet || !workerUsable()) {
+			return;
+		}
+		ach.req = true;
+		try {
+			csTimerWorker.getHint(facelet, {
+				method: 'cfop',
+				llMode: mode,
+				timeLimit: 2000
+			}, function(hint) {
+				if (!hint || hint.kind != wantKind || !hint.name) {
+					return;
+				}
+				ach.name = hint.name;
+				refreshTechText();
+			});
+		} catch (e) {}
+	}
+
+	function onTechEvent(ev) {
+		var ach = null;
+		for (var i = 0; i < techAch.length; i++) {
+			if (techAch[i].key == ev.key) {
+				ach = techAch[i];
+				break;
+			}
+		}
+		if (!ach) {
+			ach = {
+				key: ev.key,
+				label: TECH_LABELS[ev.key] || ev.key,
+				name: '',
+				cat: TECH_COLORS[ev.key] || 'green',
+				req: false
+			};
+			techAch.push(ach);
+		}
+		renderTechTip(ach);
+		if (ev.key == 'zbll' || ev.key == 'coll' || ev.key == 'pll') {
+			requestTechName(ach, techF2LFacelet, ev.key == 'pll' ? 'op' : ev.key, ev.key);
+		}
+	}
+
+	function techStep(facelet, prog) {
+		var sn = {prog: prog};
+		if (prog <= 3) {
+			var st = null;
+			try {
+				st = cubeCopilot.techniqueState(facelet);
+			} catch (e) {}
+			if (st) {
+				sn.eo = st.eo;
+				sn.co = st.co;
+				sn.cp = st.cp;
+				sn.solved = st.solved;
+			}
+		}
+		if (prog <= 2 && !techF2LFacelet) {
+			techF2LFacelet = facelet;
+		}
+		var evs = techTracker.step(sn);
+		for (var i = 0; i < evs.length; i++) {
+			onTechEvent(evs[i]);
+		}
+	}
+
+	function resetTech() {
+		clearTechTipTid();
+		techTipKey = '';
+		techAch = [];
+		techF2LFacelet = null;
+		techSeedProg = -1;
+		if (techSeedFacelet) {
+			try {
+				techSeedProg = cubeutil.getProgress(techSeedFacelet, 'cf4op');
+			} catch (e) {}
+		}
+		techTracker.reset(techSeedProg);
+		stageTip.removeClass('cp-tip-on cp-tip-combo cp-tip-green cp-tip-gold cp-tip-blue cp-tip-new').text('');
+	}
+
 	// Sit just below the scramble, so the bar follows wrapped scramble text
 	// instead of covering the timer or the bottom toolbar.
 	function placeStageBar() {
@@ -1229,6 +1447,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			}
 			stageArmed = true;
 			stageFacelet = null;
+			resetTech();
 			var plan = stagePlan();
 			if (plan) {
 				buildStageChips(plan);
@@ -1251,12 +1470,24 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function onStageFacelet(facelet) {
+		if (!facelet || facelet.length != 54) {
+			return;
+		}
+		if (!stageArmed) {
+			// remember the scrambled state so the first move can be judged
+			techSeedFacelet = facelet;
+			return;
+		}
 		var plan = stagePlan();
-		if (!plan || !stageArmed || !facelet || facelet.length != 54) {
+		if (!plan) {
 			return;
 		}
 		buildStageChips(plan);
 		stageFacelet = facelet;
+		var prog = cubeutil.getProgress(facelet, 'cf4op');
+		if (plan != 'roux') {
+			techStep(facelet, prog);
+		}
 		var idx = stageIndexFor(plan, facelet);
 		if (idx < 0) {
 			return;
@@ -1893,6 +2124,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		} else if (signal == 'scramble' || signal == 'time') {
 			clearAll();
 			if (signal == 'scramble') {
+				techSeedFacelet = null;
 				if (!relayActive()) {
 					relayFinished = false;
 					clearRelayFeedback();

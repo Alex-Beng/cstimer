@@ -310,6 +310,130 @@ var server = http.createServer(function(req, res) {
 		fail('relay scramble does not show the stepper: ' + JSON.stringify(out.relay));
 	}
 
+	// ------------------------------------------------------- technique tips
+	var tech = await page.evaluate(async function() {
+		function wait(ms) {
+			return new Promise(function(resolve) {
+				setTimeout(resolve, ms);
+			});
+		}
+		function faceletOf(seq) {
+			var cc = new mathlib.CubieCube();
+			seq.split(' ').forEach(function(m) {
+				if (m) {
+					cc.selfMoveStr(m);
+				}
+			});
+			cc.ori = 0;
+			return cc.toFaceCube();
+		}
+		function tipState() {
+			var tip = $('#copilotStageTip');
+			return {
+				text: tip.text(),
+				on: tip.hasClass('cp-tip-on'),
+				combo: tip.hasClass('cp-tip-combo')
+			};
+		}
+		function push(seq) {
+			kernel.pushSignal('virtualState', [faceletOf(seq)]);
+		}
+		var F = {
+			scr: 'R U F L D B R2 U2 F2',                 // prog 7
+			xc: "B' B B' U2 F2 U2 B",                     // prog 5: cross + 1 pair
+			p2: "U B U2 B2 U2 B U'",                      // prog 4
+			p3: "U R U'",                                 // prog 3
+			sune: "R U R' U R U2 R'",                     // prog 2, EO done
+			epll: "R U' R U R U R U' R' U' R2",           // OLL done, corners placed
+			solved: mathlib.SOLVED_FACELET
+		};
+
+		kernel.setProp('scrType', '333');
+		kernel.setProp('vrcMP', 'cf4op');
+		kernel.pushSignal('timerStatus', -1);
+		await wait(200);
+
+		// XC, then a ZBLL finish
+		push(F.scr);
+		await wait(50);
+		kernel.pushSignal('timerStatus', 1);
+		await wait(80);
+		var before = tipState();
+		push(F.xc);
+		await wait(150);
+		var xc = tipState();
+		await wait(3200);
+		var xcCombo = tipState();
+		push(F.p2);
+		await wait(60);
+		push(F.p3);
+		await wait(60);
+		push(F.sune);
+		await wait(60);
+		push(F.solved);
+		await wait(200);
+		var zbll = tipState();
+
+		// a fresh solve: COLL + EPLL
+		kernel.pushSignal('timerStatus', -1);
+		await wait(150);
+		push(F.scr);
+		await wait(50);
+		kernel.pushSignal('timerStatus', 1);
+		await wait(80);
+		push(F.xc);
+		await wait(60);
+		push(F.p2);
+		await wait(60);
+		push(F.p3);
+		await wait(60);
+		push(F.sune);
+		await wait(60);
+		push(F.epll);
+		await wait(60);
+		push(F.solved);
+		await wait(200);
+		var coll = tipState();
+
+		// the next solve must start with no leftover tip
+		kernel.pushSignal('timerStatus', -1);
+		await wait(150);
+		push(F.scr);
+		await wait(50);
+		kernel.pushSignal('timerStatus', 1);
+		await wait(100);
+		var fresh = tipState();
+
+		return {
+			before: before,
+			xc: xc,
+			xcCombo: xcCombo,
+			zbll: zbll,
+			coll: coll,
+			fresh: fresh
+		};
+	});
+	console.log('tech tips: ' + JSON.stringify(tech));
+
+	if (tech.before.on) {
+		fail('technique tip is visible before any achievement');
+	}
+	if (!tech.xc.on || tech.xc.text.indexOf('XC') < 0 || tech.xc.text.indexOf('XXC') >= 0) {
+		fail('XC tip: ' + JSON.stringify(tech.xc));
+	}
+	if (!tech.xcCombo.on || !tech.xcCombo.combo || tech.xcCombo.text.indexOf('XC') < 0) {
+		fail('XC combo did not persist: ' + JSON.stringify(tech.xcCombo));
+	}
+	if (!tech.zbll.on || tech.zbll.text.indexOf('ZBLL') < 0) {
+		fail('ZBLL tip: ' + JSON.stringify(tech.zbll));
+	}
+	if (!tech.coll.on || tech.coll.text.indexOf('COLL') < 0) {
+		fail('COLL tip: ' + JSON.stringify(tech.coll));
+	}
+	if (tech.fresh.on) {
+		fail('a new solve kept the previous technique tip: ' + JSON.stringify(tech.fresh));
+	}
+
 	fatal.forEach(function(m) {
 		fail('page error: ' + m);
 	});
