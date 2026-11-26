@@ -191,6 +191,20 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var techSeedProg = -1;
 	var techF2LFacelet = null;
 	var techPllFacelet = null;
+	var techSteps = 0;
+	var lastSolveSolved = false;
+	var achTracker = cubeCopilot.makeAchievementTracker();
+	var achToast = $('<div id="copilotAchToast"/>');
+	var achKicker = $('<div class="cp-ach-kicker"/>');
+	var achLabel = $('<div class="cp-ach-label"/>');
+	var achDesc = $('<div class="cp-ach-desc"/>');
+	achToast.append(achKicker, achLabel, achDesc);
+	var achQueue = [];
+	var achShowing = false;
+	var achTid = 0;
+	var achPanel = $('<div id="copilotAchPanel"/>');
+	var achRows = {};
+	var comboBadge = $('<span class="cp-stage-combo"/>');
 	var TECH_LABELS = {
 		xc: 'XC', xxc: 'XXC', xxxc: 'XXXC', xxxxc: 'XXXXC',
 		zbls: 'ZBLS', wv: 'WV/SV', ols: 'OLS', ollskip: 'OLL Skip',
@@ -221,6 +235,24 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		llll: ['COPILOT_TIP_1LLL', '1LLL · last layer in one algorithm'],
 		llskip: ['COPILOT_TIP_LLSKIP', 'LL skip · last layer already solved'],
 		multi: ['COPILOT_TIP_MULTI', 'Multislotting · two F2L pairs at once']
+	};
+	var ACH_META = {
+		hot3: ['COPILOT_ACH_HOT3', 'On Fire',
+			'COPILOT_ACH_HOT3_D', 'Trigger a technique in 3 solves in a row', 'gold'],
+		zb3: ['COPILOT_ACH_ZB3', 'ZB Maniac',
+			'COPILOT_ACH_ZB3_D', '3 ZBLL solves in a row', 'gold'],
+		coll3: ['COPILOT_ACH_COLL3', 'COLL Harvester',
+			'COPILOT_ACH_COLL3_D', '3 COLL solves in a row', 'purple'],
+		slot3: ['COPILOT_ACH_SLOT3', 'Slot Artist',
+			'COPILOT_ACH_SLOT3_D', '3 OLS / ZBLS / WV solves in a row', 'purple'],
+		xc3: ['COPILOT_ACH_XC3', 'Cross Crusader',
+			'COPILOT_ACH_XC3_D', '3 XC-or-better solves in a row', 'blue'],
+		fullhouse: ['COPILOT_ACH_FULLHOUSE', 'Full House',
+			'COPILOT_ACH_FULLHOUSE_D', 'ZBLS + ZBLL in one solve', 'gold'],
+		triple: ['COPILOT_ACH_TRIPLE', 'Triple Combo',
+			'COPILOT_ACH_TRIPLE_D', '3 techniques in one solve', 'purple'],
+		codex: ['COPILOT_ACH_CODEX', 'Codex Master',
+			'COPILOT_ACH_CODEX_D', 'Collect every technique', 'gold']
 	};
 	var STAGE_PLANS = {
 		cf4op: {label: 'CFOP', names: ['Cross', 'F1', 'F2', 'F3', 'F4', 'OLL', 'PLL'], base: 7},
@@ -363,7 +395,101 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'@keyframes copilotToastOut {',
 		'    0% { opacity: 1; transform: translate(-50%, 0) scale(1); }',
 		'    100% { opacity: 0; transform: translate(-50%, -22px) scale(0.96); }',
-		'}'
+		'}',
+		'.cp-stage-combo {',
+		'    display: none;',
+		'    margin-left: 0.8em;',
+		'    padding: 0.06em 0.55em;',
+		'    border-radius: 999px;',
+		'    background: rgba(255, 213, 74, 0.14);',
+		'    color: #ffd54a;',
+		'    font-size: 0.72em;',
+		'    font-weight: bold;',
+		'    vertical-align: middle;',
+		'}',
+		'.cp-stage-combo.cp-combo-on { display: inline-block; }',
+		'.cp-stage-combo.cp-combo-hot {',
+		'    animation: copilotComboPulse 1.3s ease-in-out infinite;',
+		'}',
+		'@keyframes copilotComboPulse {',
+		'    0%, 100% { box-shadow: 0 0 0 rgba(255, 213, 74, 0); }',
+		'    50% { box-shadow: 0 0 12px rgba(255, 213, 74, 0.7); }',
+		'}',
+		'#copilotAchToast {',
+		'    position: fixed;',
+		'    left: 50%;',
+		'    top: 36%;',
+		'    z-index: 46;',
+		'    display: flex;',
+		'    flex-direction: column;',
+		'    align-items: center;',
+		'    padding: 0.8rem 1.7rem 0.9rem;',
+		'    border-radius: 1rem;',
+		'    background: linear-gradient(160deg, rgba(36, 24, 56, 0.96), rgba(12, 12, 16, 0.94));',
+		'    box-shadow: 0 0 0 2px var(--cp-ach-accent), 0 0 32px var(--cp-ach-glow), 0 18px 52px rgba(0, 0, 0, 0.55);',
+		'    font-family: Arial, sans-serif;',
+		'    color: #fff;',
+		'    pointer-events: none;',
+		'    opacity: 0;',
+		'    transform: translate(-50%, -50%) scale(0.86);',
+		'}',
+		'.cp-ach-kicker {',
+		'    font-size: 0.72rem;',
+		'    letter-spacing: 0.28em;',
+		'    text-transform: uppercase;',
+		'    color: var(--cp-ach-accent);',
+		'    margin-bottom: 0.25rem;',
+		'}',
+		'.cp-ach-label {',
+		'    font-size: 2.05rem;',
+		'    font-weight: bold;',
+		'    letter-spacing: 0.03em;',
+		'    color: var(--cp-ach-accent);',
+		'    text-shadow: 0 0 20px var(--cp-ach-glow);',
+		'    white-space: nowrap;',
+		'}',
+		'.cp-ach-desc {',
+		'    margin-top: 0.25rem;',
+		'    font-size: 0.95rem;',
+		'    color: rgba(255, 255, 255, 0.86);',
+		'    white-space: nowrap;',
+		'}',
+		'html.m .cp-ach-label { font-size: 1.6rem; }',
+		'html.m .cp-ach-desc { font-size: 0.8rem; }',
+		'#copilotAchToast.cp-ach-in {',
+		'    animation: copilotAchIn 560ms cubic-bezier(.2, 1.5, .4, 1) forwards;',
+		'}',
+		'#copilotAchToast.cp-ach-out {',
+		'    animation: copilotAchOut 480ms ease-in forwards;',
+		'}',
+		'@keyframes copilotAchIn {',
+		'    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.72); }',
+		'    55% { opacity: 1; transform: translate(-50%, -52%) scale(1.08); }',
+		'    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }',
+		'}',
+		'@keyframes copilotAchOut {',
+		'    0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }',
+		'    100% { opacity: 0; transform: translate(-50%, -62%) scale(0.94); }',
+		'}',
+		'#copilotAchPanel {',
+		'    margin-top: 0.6rem;',
+		'    padding-top: 0.5rem;',
+		'    border-top: 1px solid rgba(255, 255, 255, 0.15);',
+		'    font-size: 0.85em;',
+		'}',
+		'.cp-ach-panel-title {',
+		'    color: #ffd54a;',
+		'    font-weight: bold;',
+		'    margin-bottom: 0.3rem;',
+		'}',
+		'.cp-ach-row {',
+		'    display: flex;',
+		'    justify-content: space-between;',
+		'    gap: 0.8rem;',
+		'    opacity: 0.6;',
+		'}',
+		'.cp-ach-row.cp-ach-done { opacity: 1; color: #ffd54a; }',
+		'.cp-ach-prog { font-family: Monospace; }'
 	].join('\n');
 	$('<style id="copilotStageStyle"/>').text(stageStyle).appendTo('head');
 
@@ -1247,6 +1373,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			stageChips.push($('<span class="cp-stage-chip"/>').text(def.names[i]).appendTo(stageBar));
 		}
 		stageBar.append(stageTip);
+		stageBar.append(comboBadge);
+		refreshComboBadge();
 		return true;
 	}
 
@@ -1429,6 +1557,147 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		techToastDesc.text('');
 	}
 
+	// ------------------------------------------------------- achievements
+
+	function achAccent(cat) {
+		return cat == 'purple' ? '#c79bff' : (cat == 'blue' ? '#8fc8ff' : '#ffd54a');
+	}
+
+	function achGlow(cat) {
+		return cat == 'purple' ? 'rgba(199, 155, 255, 0.4)' :
+			(cat == 'blue' ? 'rgba(143, 200, 255, 0.35)' : 'rgba(255, 213, 74, 0.45)');
+	}
+
+	function achMeta(key) {
+		return ACH_META[key] || ['', key, '', ''];
+	}
+
+	function showAchToast(key) {
+		var meta = achMeta(key);
+		achKicker.text(L('COPILOT_ACH_UNLOCK', 'ACHIEVEMENT UNLOCKED'));
+		achLabel.text(L(meta[0], meta[1]));
+		achDesc.text(L(meta[2], meta[3]));
+		achToast[0].style.setProperty('--cp-ach-accent', achAccent(meta[4]));
+		achToast[0].style.setProperty('--cp-ach-glow', achGlow(meta[4]));
+		achToast.removeClass('cp-ach-out cp-ach-in');
+		void achToast[0].offsetWidth;
+		achToast.addClass('cp-ach-in');
+	}
+
+	function pumpAchToast() {
+		if (achShowing || !achQueue.length) {
+			return;
+		}
+		achShowing = true;
+		showAchToast(achQueue.shift());
+		achTid = setTimeout(function() {
+			achToast.removeClass('cp-ach-in').addClass('cp-ach-out');
+			achTid = setTimeout(function() {
+				achTid = 0;
+				achShowing = false;
+				achToast.removeClass('cp-ach-out');
+				pumpAchToast();
+			}, 480);
+		}, 2300);
+	}
+
+	function queueAch(key) {
+		achQueue.push(key);
+		pumpAchToast();
+	}
+
+	function hideAchToast() {
+		if (achTid) {
+			clearTimeout(achTid);
+			achTid = 0;
+		}
+		achQueue = [];
+		achShowing = false;
+		achToast.removeClass('cp-ach-in cp-ach-out');
+	}
+
+	function buildAchPanel() {
+		achPanel.empty().append(
+			$('<div class="cp-ach-panel-title"/>').text(L('COPILOT_ACH_TITLE', 'Achievements'))
+		);
+		achRows = {};
+		achTracker.list().forEach(function(key) {
+			var meta = achMeta(key);
+			var row = $('<div class="cp-ach-row"/>');
+			var prog = $('<span class="cp-ach-prog"/>');
+			row.append($('<span class="cp-ach-name"/>').text(L(meta[0], meta[1])), prog);
+			achRows[key] = {row: row, prog: prog};
+			achPanel.append(row);
+		});
+	}
+
+	function refreshAchPanel() {
+		achTracker.list().forEach(function(key) {
+			if (!achRows[key]) {
+				return;
+			}
+			var unlocked = !!achTracker.state().unlocked[key];
+			var pr = achTracker.progress(key);
+			achRows[key].row.toggleClass('cp-ach-done', unlocked);
+			achRows[key].prog.text(unlocked ? '✓' : pr.cur + '/' + pr.target);
+		});
+	}
+
+	function refreshComboBadge() {
+		var hot = achTracker.state().hot;
+		var on = hot >= 2;
+		comboBadge.toggleClass('cp-combo-on', on)
+			.toggleClass('cp-combo-hot', hot >= 3)
+			.text(on ? L('COPILOT_COMBO', 'Combo ×%s').replace('%s', hot) : '');
+	}
+
+	function loadAch() {
+		var raw = kernel.getProp('cpAch', '{}');
+		try {
+			achTracker.load(JSON.parse(raw));
+		} catch (e) {
+			achTracker.load(null);
+		}
+		refreshAchPanel();
+		refreshComboBadge();
+	}
+
+	function saveAch() {
+		try {
+			kernel.setProp('cpAch', JSON.stringify(achTracker.serialize()));
+		} catch (e) {}
+	}
+
+	function onSolveComplete(times) {
+		if (!lastSolveSolved || !techSteps) {
+			return;
+		}
+		// relay cubes finish on relaySolve, not on time
+		if (kernel.getProp('scrType', '333') != '333') {
+			return;
+		}
+		var plan = stagePlan();
+		if (!plan || plan == 'roux') {
+			return;
+		}
+		if (times && typeof times[0] == 'number' && times[0] < 0) {
+			return;
+		}
+		var keys = [];
+		for (var i = 0; i < techAch.length; i++) {
+			keys.push(techAch[i].key);
+		}
+		var evs = achTracker.step(keys);
+		saveAch();
+		refreshAchPanel();
+		refreshComboBadge();
+		for (var j = 0; j < evs.length; j++) {
+			queueAch(evs[j].key);
+		}
+	}
+
+	// ------------------------------------------------- end achievements
+
 	function refreshTechText() {
 		renderTechCombo();
 		if (!techToastKey) {
@@ -1495,6 +1764,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	function techStep(facelet, prog) {
 		var sn = {prog: prog};
+		techSteps++;
 		if (prog <= 3) {
 			var st = null;
 			try {
@@ -1523,6 +1793,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (!keepToast) {
 			hideTechToast();
 		}
+		hideAchToast();
+		techSteps = 0;
+		lastSolveSolved = false;
 		techAch = [];
 		techF2LFacelet = null;
 		techPllFacelet = null;
@@ -1583,6 +1856,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			}
 			stageArmed = true;
 			stageFacelet = null;
+			lastSolveSolved = false;
 			resetTech();
 			var plan = stagePlan();
 			if (plan) {
@@ -1602,9 +1876,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		// keep a finished stepper visible for a moment, but never leave
 		// anything behind when the attempt is aborted
 		var solved = stageChips.length > 0 && stageIdx >= stageChips.length;
+		lastSolveSolved = solved;
 		hideStageBar(solved ? 2600 : 0);
 		if (!solved) {
 			hideTechToast();
+			hideAchToast();
 		}
 	}
 
@@ -2281,6 +2557,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				refreshStage();
 			}
 		} else if (signal == 'scramble' || signal == 'time') {
+			if (signal == 'time') {
+				onSolveComplete(value);
+			}
 			clearAll();
 			if (signal == 'scramble') {
 				techSeedFacelet = null;
@@ -2312,6 +2591,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			L('COPILOT_LL_OFF', 'Off')
 		]], 1);
 		kernel.regProp('copilot', 'cpCustom', ~5, 'Copilot custom algorithms', ['{}'], 1);
+		kernel.regProp('copilot', 'cpAch', ~5, 'Copilot achievements', ['{}'], 1);
 	}
 
 	$(function() {
@@ -2321,7 +2601,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			statusSpan,
 			$('<div/>').append(btnHint, ' ', btnClear),
 			makeCustomRow(),
-			hintSpan
+			hintSpan,
+			achPanel
 		);
 		btnHint.click(function() {
 			if (curFacelet) {
@@ -2351,6 +2632,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		});
 
 		initProps();
+		buildAchPanel();
+		loadAch();
 
 		kernel.addWindow('copilot', L('COPILOT_BUTTON', 'HINT'), div, false, false, 5);
 		tools.regTool('copilot', L('TOOLS_COPILOT', 'Copilot'), toolExec);
@@ -2358,6 +2641,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		relayFlash.appendTo('body');
 		stageBar.appendTo('body');
 		techToast.appendTo('body');
+		achToast.appendTo('body');
 		hintOverlay.appendTo('body');
 		chkEnable.prop('checked', isEnabled());
 		refreshStatus();

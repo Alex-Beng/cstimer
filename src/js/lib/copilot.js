@@ -2704,12 +2704,172 @@ function makeCubeCopilot() {
 		};
 	}
 
+	var ACHIEVEMENT_KEYS = ['xc', 'xxc', 'xxxc', 'xxxxc', 'zbls', 'wv', 'ols',
+		'ollskip', 'zbll', 'coll', 'pll', 'epll', 'ollcp', 'llll', 'llskip',
+		'multi'];
+	// display order in the achievements panel
+	var ACHIEVEMENT_ORDER = ['hot3', 'zb3', 'coll3', 'slot3', 'xc3',
+		'fullhouse', 'triple', 'codex'];
+	var ACHIEVEMENT_STREAKS = {
+		hot3: 'hot', zb3: 'zbll', coll3: 'coll', slot3: 'slot', xc3: 'xc'
+	};
+
+	/**
+	 * Cross-solve achievement state.  step() receives the set of technique
+	 * keys earned in one solve and returns the achievements that were just
+	 * unlocked.  The state is plain data so it can be stored in a csTimer
+	 * property and round-tripped through JSON.
+	 */
+	function makeAchievementTracker() {
+		var st;
+
+		function freshState() {
+			return {
+				solves: 0,
+				hot: 0,
+				zbll: 0,
+				coll: 0,
+				slot: 0,
+				xc: 0,
+				seen: {},
+				unlocked: {}
+			};
+		}
+
+		function load(obj) {
+			st = freshState();
+			if (!obj || typeof obj != 'object') {
+				return;
+			}
+			st.solves = Math.max(0, ~~obj.solves);
+			st.hot = Math.max(0, ~~obj.hot);
+			st.zbll = Math.max(0, ~~obj.zbll);
+			st.coll = Math.max(0, ~~obj.coll);
+			st.slot = Math.max(0, ~~obj.slot);
+			st.xc = Math.max(0, ~~obj.xc);
+			ACHIEVEMENT_KEYS.forEach(function(key) {
+				if (obj.seen && obj.seen[key]) {
+					st.seen[key] = Math.max(0, ~~obj.seen[key]);
+				}
+			});
+			ACHIEVEMENT_ORDER.forEach(function(key) {
+				if (obj.unlocked && obj.unlocked[key]) {
+					st.unlocked[key] = 1;
+				}
+			});
+		}
+
+		function bump(name, ok) {
+			st[name] = ok ? st[name] + 1 : 0;
+		}
+
+		function seenCount() {
+			var n = 0;
+			ACHIEVEMENT_KEYS.forEach(function(key) {
+				if (st.seen[key]) {
+					n++;
+				}
+			});
+			return n;
+		}
+
+		function step(keys) {
+			var ev = [];
+			var has = {};
+			var uniq = [];
+			(keys || []).forEach(function(key) {
+				if (typeof key == 'string' && !has[key]) {
+					has[key] = true;
+					uniq.push(key);
+					st.seen[key] = (st.seen[key] || 0) + 1;
+				}
+			});
+			st.solves++;
+			bump('hot', uniq.length > 0);
+			bump('zbll', !!has.zbll);
+			bump('coll', !!has.coll);
+			bump('slot', !!(has.zbls || has.ols || has.wv));
+			bump('xc', !!(has.xc || has.xxc || has.xxxc || has.xxxxc));
+
+			function unlock(key, ok) {
+				if (ok && !st.unlocked[key]) {
+					st.unlocked[key] = 1;
+					ev.push({key: key});
+				}
+			}
+			// rarer / more specific achievements first so they lead the toast
+			unlock('codex', seenCount() >= ACHIEVEMENT_KEYS.length);
+			unlock('fullhouse', !!(has.zbls && has.zbll));
+			unlock('triple', uniq.length >= 3);
+			unlock('zb3', st.zbll >= 3);
+			unlock('coll3', st.coll >= 3);
+			unlock('slot3', st.slot >= 3);
+			unlock('xc3', st.xc >= 3);
+			unlock('hot3', st.hot >= 3);
+			return ev;
+		}
+
+		function progress(key) {
+			if (ACHIEVEMENT_STREAKS[key]) {
+				var cur = st[ACHIEVEMENT_STREAKS[key]];
+				return {cur: Math.min(cur, 3), target: 3};
+			}
+			if (key == 'codex') {
+				return {cur: seenCount(), target: ACHIEVEMENT_KEYS.length};
+			}
+			return {cur: st.unlocked[key] ? 1 : 0, target: 1};
+		}
+
+		function serialize() {
+			var seen = {};
+			var unlocked = {};
+			ACHIEVEMENT_KEYS.forEach(function(key) {
+				if (st.seen[key]) {
+					seen[key] = st.seen[key];
+				}
+			});
+			ACHIEVEMENT_ORDER.forEach(function(key) {
+				if (st.unlocked[key]) {
+					unlocked[key] = 1;
+				}
+			});
+			return {
+				solves: st.solves,
+				hot: st.hot,
+				zbll: st.zbll,
+				coll: st.coll,
+				slot: st.slot,
+				xc: st.xc,
+				seen: seen,
+				unlocked: unlocked
+			};
+		}
+
+		load(null);
+		return {
+			load: load,
+			step: step,
+			state: function() {
+				return st;
+			},
+			progress: progress,
+			serialize: serialize,
+			list: function() {
+				return ACHIEVEMENT_ORDER.slice();
+			},
+			requiredKeys: function() {
+				return ACHIEVEMENT_KEYS.slice();
+			}
+		};
+	}
+
 	return {
 		getStage: function(facelet, method) {
 			return getStage(cubieFromFacelet(facelet), method);
 		},
 		techniqueState: techniqueState,
 		makeTechniqueTracker: makeTechniqueTracker,
+		makeAchievementTracker: makeAchievementTracker,
 		solveCross: solveCross,
 		minPair: minPair,
 		pairInfo: pairInfo,

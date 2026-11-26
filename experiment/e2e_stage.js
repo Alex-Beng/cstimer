@@ -10,6 +10,7 @@
 //  6. switching the multi-phase mode rebuilds the bar, leaving it hides it
 //  7. relay resets the stepper and achievements for every new cube
 //  8. achievements pop up as a toast, then fade while the combo line stays
+//  9. a completed solve unlocks a cross-solve achievement and updates the panel
 
 var http = require('http');
 var fs = require('fs');
@@ -384,6 +385,20 @@ var server = http.createServer(function(req, res) {
 				combo: comboState()
 			};
 		}
+		function achState() {
+			var toast = $('#copilotAchToast');
+			return {
+				toast: {
+					exists: toast.length > 0,
+					cls: toast.attr('class') || '',
+					label: toast.find('.cp-ach-label').text(),
+					desc: toast.find('.cp-ach-desc').text(),
+					open: toast.hasClass('cp-ach-in') && !toast.hasClass('cp-ach-out')
+				},
+				panel: $('#copilotAchPanel').text(),
+				comboBadge: $('#copilotStageBar .cp-stage-combo').text()
+			};
+		}
 		function push(seq) {
 			kernel.pushSignal('virtualState', [faceletOf(seq)]);
 		}
@@ -452,11 +467,15 @@ var server = http.createServer(function(req, res) {
 		// the next solve must start with no leftover tip
 		kernel.pushSignal('timerStatus', -1);
 		await wait(150);
+		kernel.pushSignal('time', [10000]);
+		await wait(400);
+		var ach = achState();
 		push(F.scr);
 		await wait(50);
 		kernel.pushSignal('timerStatus', 1);
 		await wait(100);
 		var fresh = state();
+		var freshAch = achState();
 
 		return {
 			before: before,
@@ -465,7 +484,9 @@ var server = http.createServer(function(req, res) {
 			zbll: zbll,
 			collAtOll: collAtOll,
 			coll: coll,
-			fresh: fresh
+			ach: ach,
+			fresh: fresh,
+			freshAch: freshAch
 		};
 	});
 	console.log('tech tips: ' + JSON.stringify(tech));
@@ -497,6 +518,16 @@ var server = http.createServer(function(req, res) {
 	}
 	if (tech.fresh.toast.cls || tech.fresh.combo.on) {
 		fail('a new solve kept the previous technique tip: ' + JSON.stringify(tech.fresh));
+	}
+	if (!tech.ach.toast.open || tech.ach.toast.label.indexOf('Triple Combo') < 0) {
+		fail('achievement toast did not pop: ' + JSON.stringify(tech.ach));
+	}
+	if (tech.ach.panel.indexOf('Triple Combo') < 0 ||
+			tech.ach.panel.indexOf('✓') < 0) {
+		fail('achievement panel was not updated: ' + JSON.stringify(tech.ach));
+	}
+	if (tech.freshAch.toast.open || tech.freshAch.toast.cls) {
+		fail('a new solve kept the previous achievement toast: ' + JSON.stringify(tech.freshAch));
 	}
 
 	fatal.forEach(function(m) {
