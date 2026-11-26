@@ -163,6 +163,35 @@ check('图鉴大师 after every technique kind', has(codex, 'codex'));
 check('图鉴大师 is not repeated', !has(step(t, ['xc']), 'codex'));
 check('codex progress is complete', t.progress('codex').cur == t.progress('codex').target);
 
+// -------------------------------------------------- tips as achievements
+t = tracker();
+t.step(['zbll', 'tps16'], {tps: 16});
+check('a technique card is collected', t.progress('zbll').cur == 1 &&
+	t.progress('zbll').target == 1);
+check('a TPS tip is collected too', t.progress('tps16').cur == 1);
+check('a TPS tip does not inflate the combo', t.state().hot == 1);
+check('a TPS tip does not inflate the codex', t.progress('codex').cur == 1);
+check('catalog exposes technique groups', t.catalog().some(function(def) {
+	return def.key == 'zbll' && def.group == 'technique';
+}));
+
+// ------------------------------------------------- custom achievement API
+copilot.registerAchievement({
+	key: 'solve10',
+	group: 'challenge',
+	stat: 'solves',
+	target: 10
+});
+t = tracker();
+for (var si = 0; si < 9; si++) {
+	step(t, []);
+}
+check('a custom achievement unlocks through its config',
+	has(step(t, []), 'solve10'));
+check('a custom achievement has progress', t.progress('solve10').cur == 10);
+check('a custom achievement joins the panel order',
+	t.list().indexOf('solve10') >= 0);
+
 // ------------------------------------------------------------- persistence
 t = tracker();
 step(t, ['zbll']);

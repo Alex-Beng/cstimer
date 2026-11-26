@@ -683,6 +683,103 @@ var server = http.createServer(function(req, res) {
 		fail('a single-phase solve did not count towards the TPS streak: ' + speed.singlePanel);
 	}
 
+	// ---------------------------------------------------- achievement browser
+	var book = await page.evaluate(async function() {
+		function wait(ms) {
+			return new Promise(function(resolve) {
+				setTimeout(resolve, ms);
+			});
+		}
+		async function waitToast(part, ms) {
+			var end = Date.now() + ms;
+			while (Date.now() < end) {
+				if ($('#copilotTechToast .cp-toast-label').text().indexOf(part) >= 0) {
+					return true;
+				}
+				await wait(50);
+			}
+			return false;
+		}
+		function snapshot() {
+			var box = $('#copilotAchBook');
+			return {
+				open: box.hasClass('cp-book-open'),
+				count: box.find('.cp-book-card').length,
+				names: box.find('.cp-book-card-name').map(function() {
+					return $(this).text();
+				}).get(),
+				groups: box.find('.cp-book-group-title').map(function() {
+					return $(this).text();
+				}).get(),
+				countText: box.find('.cp-book-count').text(),
+				filter: box.find('.cp-book-tab-on').text()
+			};
+		}
+		$('.cp-ach-browse').click();
+		await wait(180);
+		var all = snapshot();
+		$('#copilotAchBook .cp-book-tab[data-filter="technique"]').click();
+		await wait(100);
+		var tech = snapshot();
+		$('#copilotAchBook .cp-book-card[data-key="zbll"]').click();
+		var sawZbll = await waitToast('ZBLL', 8000);
+		var techPreview = $('#copilotTechToast .cp-toast-label').text();
+		$('#copilotAchBook .cp-book-tab[data-filter="speed"]').click();
+		await wait(100);
+		$('#copilotAchBook .cp-book-card[data-key="speed"]').click();
+		await wait(120);
+		var metaPreview = {
+			label: $('#copilotAchToast .cp-ach-label').text(),
+			kicker: $('#copilotAchToast .cp-ach-kicker').text(),
+			open: $('#copilotAchToast').hasClass('cp-ach-in')
+		};
+		$('#copilotAchBook .cp-book-close').click();
+		await wait(100);
+		return {
+			all: all,
+			tech: tech,
+			sawZbll: sawZbll,
+			techPreview: techPreview,
+			metaPreview: metaPreview,
+			closed: !$('#copilotAchBook').hasClass('cp-book-open')
+		};
+	});
+	console.log('achievement book: ' + JSON.stringify(book));
+
+	if (!book.all.open) {
+		fail('achievement browser did not open');
+	}
+	if (book.all.count < 30) {
+		fail('achievement browser is missing cards: ' + book.all.count);
+	}
+	if (book.all.groups.join('|').indexOf('Advanced techniques') < 0 ||
+			book.all.groups.join('|').indexOf('Combos') < 0 ||
+			book.all.groups.join('|').indexOf('Speed') < 0 ||
+			book.all.groups.join('|').indexOf('Challenges') < 0) {
+		fail('achievement browser groups: ' + book.all.groups.join('|'));
+	}
+	['ZBLL', 'TPS 16', 'Lightspeed', 'Four-Way F2L'].forEach(function(name) {
+		if (book.all.names.indexOf(name) < 0) {
+			fail('achievement browser is missing ' + name);
+		}
+	});
+	if (!/^\d+\/\d+$/.test(book.all.countText)) {
+		fail('achievement browser count: ' + book.all.countText);
+	}
+	if (book.tech.filter != 'Advanced techniques' || book.tech.count != 21) {
+		fail('technique filter: ' + JSON.stringify(book.tech));
+	}
+	if (!book.sawZbll || book.techPreview.indexOf('ZBLL') < 0) {
+		fail('technique preview: ' + JSON.stringify(book));
+	}
+	if (!book.metaPreview.open || book.metaPreview.label != 'Lightspeed' ||
+			book.metaPreview.kicker.toLowerCase().indexOf('preview') < 0) {
+		fail('achievement preview: ' + JSON.stringify(book.metaPreview));
+	}
+	if (!book.closed) {
+		fail('achievement browser did not close');
+	}
+
 	fatal.forEach(function(m) {
 		fail('page error: ' + m);
 	});

@@ -2764,13 +2764,12 @@ function makeCubeCopilot() {
 					st.oriented = true;
 					st.orientedCp = !!s.cp;
 					if (prog == 1 && st.orientedCp && !st.llCp &&
-							!(st.llEo && st.llCo)) {
+							!st.llCo) {
 						st.llTipDone = true;
 						ev.push({key: st.llEo ? 'coll' : 'ollcp'});
 					}
 				} else if (prog == 1 && s.cp && !st.orientedCp &&
-						!st.llTipDone && !st.llCp &&
-						!(st.llEo && st.llCo)) {
+						!st.llTipDone && !st.llCp && !st.llCo) {
 					// OLL algorithms finish the orientation a move or two
 					// before the corner permutation.  Hold the tip until the
 					// next state proves that an EPLL state follows; a normal
@@ -2835,27 +2834,243 @@ function makeCubeCopilot() {
 		};
 	}
 
-	var ACHIEVEMENT_KEYS = ['xc', 'xxc', 'xxxc', 'xxxxc', 'zbls', 'wv', 'ols',
+	// Techniques collected by the codex.  The first time one of these tips
+	// fires it also appears as a collected card in the achievement browser.
+	var TECHNIQUE_KEYS = ['xc', 'xxc', 'xxxc', 'xxxxc', 'zbls', 'wv', 'ols',
 		'ollskip', 'zbll', 'coll', 'pll', 'epll', 'ollcp', 'llll', 'llskip',
-		'multi', 'flowcf', 'flowff', 'flowfl', 'flowop', 'basicf2l',
-		'tps8', 'tps12', 'tps16'];
-	// display order in the achievements panel
-	var ACHIEVEMENT_ORDER = ['hot3', 'zb3', 'coll3', 'slot3', 'xc3',
+		'multi', 'flowcf', 'flowff', 'flowfl', 'flowop', 'basicf2l'];
+	// Speed tips are collectible too, but they are not solving techniques:
+	// they do not count towards the codex or the per-solve combo.
+	var SPEED_TIP_KEYS = ['tps8', 'tps12', 'tps16'];
+
+	// Compact-panel display order.  Custom achievements are appended.
+	var ACHIEVEMENT_PANEL_ORDER = ['hot3', 'zb3', 'coll3', 'slot3', 'xc3',
 		'flow3', 'basic3', 'tps3', 'speed', 'norot', 'fullhouse', 'triple',
 		'codex'];
-	var ACHIEVEMENT_STREAKS = {
-		hot3: 'hot', zb3: 'zbll', coll3: 'coll', slot3: 'slot', xc3: 'xc',
-		tps3: 'tps'
-	};
-	// Speed markers are shown as tips but are not solving techniques, so
-	// they do not count towards the codex or the per-solve combo.
-	var ACHIEVEMENT_TIP_KEYS = {tps8: 1, tps12: 1, tps16: 1};
+	// Toast priority: rarer/more specific achievements lead.
+	var ACHIEVEMENT_UNLOCK_ORDER = [];
+	var ACHIEVEMENT_DEFS = [];
+	var ACHIEVEMENT_DEF_MAP = {};
+
+	/**
+	 * Add one achievement.  `check(ctx)` decides whether it unlocks and
+	 * `progress(st)` supplies {cur, target} for the browser.  A definition
+	 * may instead use `stat` + `target` for a simple streak.
+	 *
+	 * Example:
+	 *   registerAchievement({
+	 *     key: 'sub10', group: 'challenge',
+	 *     check: function(ctx) { return ctx.st.solves >= 1000; },
+	 *     progress: function(st) { return {cur: st.solves, target: 1000}; }
+	 *   });
+	 *
+	 * ctx = {st, has, uniq, comboKeys, stats, seenCount, requiredCount}
+	 *   st:      raw tracker state
+	 *   has:     technique keys earned in this solve
+	 *   uniq:    the same keys without duplicates
+	 *   comboKeys: keys that count towards combo/streak achievements
+	 *   stats:   per-solve extras (flow, basic, tps, norot)
+	 */
+	function registerAchievement(def) {
+		if (!def || typeof def.key != 'string' || !def.key) {
+			return null;
+		}
+		def.group = def.group || 'challenge';
+		if (typeof def.check != 'function') {
+			def.check = def.stat ? (function(stat, target) {
+				return function(ctx) {
+					return (ctx.st[stat] || 0) >= target;
+				};
+			})(def.stat, def.target || 3) : function() {
+				return false;
+			};
+		}
+		var old = ACHIEVEMENT_DEF_MAP[def.key];
+		if (old) {
+			for (var i = 0; i < ACHIEVEMENT_DEFS.length; i++) {
+				if (ACHIEVEMENT_DEFS[i].key == def.key) {
+					ACHIEVEMENT_DEFS[i] = def;
+					break;
+				}
+			}
+		} else {
+			ACHIEVEMENT_DEFS.push(def);
+		}
+		ACHIEVEMENT_DEF_MAP[def.key] = def;
+		if (!def.tip && !def.silent) {
+			if (ACHIEVEMENT_UNLOCK_ORDER.indexOf(def.key) < 0) {
+				ACHIEVEMENT_UNLOCK_ORDER.push(def.key);
+			}
+			if (ACHIEVEMENT_PANEL_ORDER.indexOf(def.key) < 0) {
+				ACHIEVEMENT_PANEL_ORDER.push(def.key);
+			}
+		}
+		return def;
+	}
+
+	function achievementDef(key) {
+		return ACHIEVEMENT_DEF_MAP[key];
+	}
+
+	function seenTechniqueCount(st) {
+		var n = 0;
+		TECHNIQUE_KEYS.forEach(function(key) {
+			if (st.seen[key]) {
+				n++;
+			}
+		});
+		return n;
+	}
 
 	function achievementRequiredKeys() {
-		return ACHIEVEMENT_KEYS.filter(function(key) {
-			return !ACHIEVEMENT_TIP_KEYS[key];
-		});
+		return TECHNIQUE_KEYS.slice();
 	}
+
+	// ---------------------------------------------------- built-in catalog
+	// Registration order is also the toast priority.
+	registerAchievement({
+		key: 'codex',
+		group: 'challenge',
+		check: function(ctx) {
+			return ctx.seenCount >= ctx.requiredCount;
+		},
+		progress: function(st) {
+			return {cur: seenTechniqueCount(st), target: TECHNIQUE_KEYS.length};
+		}
+	});
+	registerAchievement({
+		key: 'fullhouse',
+		group: 'challenge',
+		check: function(ctx) {
+			return !!(ctx.has.zbls && ctx.has.zbll);
+		}
+	});
+	registerAchievement({
+		key: 'triple',
+		group: 'combo',
+		check: function(ctx) {
+			return ctx.comboKeys.length >= 3;
+		}
+	});
+	registerAchievement({
+		key: 'flow3',
+		group: 'combo',
+		check: function(ctx) {
+			return !!ctx.stats && ~~ctx.stats.flow >= 3;
+		}
+	});
+	registerAchievement({
+		key: 'basic3',
+		group: 'combo',
+		check: function(ctx) {
+			return !!ctx.stats && ~~ctx.stats.basic >= 3;
+		}
+	});
+	registerAchievement({
+		key: 'speed',
+		group: 'speed',
+		check: function(ctx) {
+			return !!ctx.stats && ~~ctx.stats.tps >= 16;
+		}
+	});
+	registerAchievement({
+		key: 'norot',
+		group: 'challenge',
+		check: function(ctx) {
+			return !!ctx.stats && !!ctx.stats.norot;
+		}
+	});
+	registerAchievement({
+		key: 'tps3',
+		group: 'speed',
+		stat: 'tps',
+		target: 3
+	});
+	registerAchievement({
+		key: 'zb3',
+		group: 'combo',
+		stat: 'zbll',
+		target: 3
+	});
+	registerAchievement({
+		key: 'coll3',
+		group: 'combo',
+		stat: 'coll',
+		target: 3
+	});
+	registerAchievement({
+		key: 'slot3',
+		group: 'combo',
+		stat: 'slot',
+		target: 3
+	});
+	registerAchievement({
+		key: 'xc3',
+		group: 'combo',
+		stat: 'xc',
+		target: 3
+	});
+	registerAchievement({
+		key: 'hot3',
+		group: 'combo',
+		stat: 'hot',
+		target: 3
+	});
+
+	// Technique tips are collectible cards.  They unlock silently because
+	// the tip toast itself is the reward.
+	TECHNIQUE_KEYS.forEach(function(key) {
+		registerAchievement({
+			key: key,
+			group: 'technique',
+			tip: true,
+			silent: true,
+			collect: true,
+			check: function(ctx) {
+				return !!ctx.st.seen[key];
+			},
+			progress: function(st) {
+				return {cur: st.seen[key] ? 1 : 0, target: 1};
+			}
+		});
+	});
+	SPEED_TIP_KEYS.forEach(function(key) {
+		registerAchievement({
+			key: key,
+			group: 'speed',
+			tip: true,
+			silent: true,
+			combo: false,
+			check: function(ctx) {
+				return !!ctx.st.seen[key];
+			},
+			progress: function(st) {
+				return {cur: st.seen[key] ? 1 : 0, target: 1};
+			}
+		});
+	});
+
+	// Each rule bumps a per-solve streak counter.  A failed rule resets it.
+	var ACHIEVEMENT_BUMPS = [
+		{stat: 'hot', test: function(ctx) {
+			return ctx.comboKeys.length > 0;
+		}},
+		{stat: 'zbll', test: function(ctx) {
+			return !!ctx.has.zbll;
+		}},
+		{stat: 'coll', test: function(ctx) {
+			return !!ctx.has.coll;
+		}},
+		{stat: 'slot', test: function(ctx) {
+			return !!(ctx.has.zbls || ctx.has.ols || ctx.has.wv);
+		}},
+		{stat: 'xc', test: function(ctx) {
+			return !!(ctx.has.xc || ctx.has.xxc || ctx.has.xxxc || ctx.has.xxxxc);
+		}},
+		{stat: 'tps', test: function(ctx) {
+			return !!ctx.stats && ~~ctx.stats.tps >= 12;
+		}}
+	];
 
 	/**
 	 * Cross-solve achievement state.  step() receives the set of technique
@@ -2892,81 +3107,74 @@ function makeCubeCopilot() {
 			st.slot = Math.max(0, ~~obj.slot);
 			st.xc = Math.max(0, ~~obj.xc);
 			st.tps = Math.max(0, ~~obj.tps);
-			ACHIEVEMENT_KEYS.forEach(function(key) {
-				if (obj.seen && obj.seen[key]) {
-					st.seen[key] = Math.max(0, ~~obj.seen[key]);
-				}
-			});
-			ACHIEVEMENT_ORDER.forEach(function(key) {
-				if (obj.unlocked && obj.unlocked[key]) {
-					st.unlocked[key] = 1;
-				}
-			});
-		}
-
-		function bump(name, ok) {
-			st[name] = ok ? st[name] + 1 : 0;
-		}
-
-		function seenCount() {
-			var n = 0;
-			ACHIEVEMENT_KEYS.forEach(function(key) {
-				if (st.seen[key] && !ACHIEVEMENT_TIP_KEYS[key]) {
-					n++;
-				}
-			});
-			return n;
+			if (obj.seen && typeof obj.seen == 'object') {
+				Object.keys(obj.seen).forEach(function(key) {
+					if (ACHIEVEMENT_DEF_MAP[key] && obj.seen[key]) {
+						st.seen[key] = Math.max(0, ~~obj.seen[key]);
+					}
+				});
+			}
+			if (obj.unlocked && typeof obj.unlocked == 'object') {
+				Object.keys(obj.unlocked).forEach(function(key) {
+					if (ACHIEVEMENT_DEF_MAP[key] && obj.unlocked[key]) {
+						st.unlocked[key] = 1;
+					}
+				});
+			}
 		}
 
 		function step(keys, stats) {
 			var ev = [];
 			var has = {};
-			var uniq = [];
+			var all = [];
 			(keys || []).forEach(function(key) {
 				if (typeof key == 'string' && !has[key]) {
 					has[key] = true;
-					uniq.push(key);
+					all.push(key);
 					st.seen[key] = (st.seen[key] || 0) + 1;
 				}
 			});
+			var comboKeys = all.filter(function(key) {
+				var def = ACHIEVEMENT_DEF_MAP[key];
+				return !def || def.combo !== false;
+			});
 			st.solves++;
-			bump('hot', uniq.length > 0);
-			bump('zbll', !!has.zbll);
-			bump('coll', !!has.coll);
-			bump('slot', !!(has.zbls || has.ols || has.wv));
-			bump('xc', !!(has.xc || has.xxc || has.xxxc || has.xxxxc));
-			bump('tps', !!stats && ~~stats.tps >= 12);
-
-			function unlock(key, ok) {
-				if (ok && !st.unlocked[key]) {
+			var ctx = {
+				st: st,
+				has: has,
+				uniq: all,
+				comboKeys: comboKeys,
+				stats: stats || {},
+				seenCount: seenTechniqueCount(st),
+				requiredCount: TECHNIQUE_KEYS.length
+			};
+			ACHIEVEMENT_BUMPS.forEach(function(rule) {
+				st[rule.stat] = rule.test(ctx) ? st[rule.stat] + 1 : 0;
+			});
+			ACHIEVEMENT_UNLOCK_ORDER.forEach(function(key) {
+				var def = ACHIEVEMENT_DEF_MAP[key];
+				if (def && !st.unlocked[key] && def.check(ctx)) {
 					st.unlocked[key] = 1;
 					ev.push({key: key});
 				}
-			}
-			// rarer / more specific achievements first so they lead the toast
-			unlock('codex', seenCount() >= achievementRequiredKeys().length);
-			unlock('fullhouse', !!(has.zbls && has.zbll));
-			unlock('triple', uniq.length >= 3);
-			unlock('flow3', !!stats && ~~stats.flow >= 3);
-			unlock('basic3', !!stats && ~~stats.basic >= 3);
-			unlock('speed', !!stats && ~~stats.tps >= 16);
-			unlock('norot', !!stats && !!stats.norot);
-			unlock('tps3', st.tps >= 3);
-			unlock('zb3', st.zbll >= 3);
-			unlock('coll3', st.coll >= 3);
-			unlock('slot3', st.slot >= 3);
-			unlock('xc3', st.xc >= 3);
-			unlock('hot3', st.hot >= 3);
+			});
 			return ev;
 		}
 
 		function progress(key) {
-			if (ACHIEVEMENT_STREAKS[key]) {
-				var cur = st[ACHIEVEMENT_STREAKS[key]];
-				return {cur: Math.min(cur, 3), target: 3};
+			var def = achievementDef(key);
+			if (!def) {
+				return {cur: 0, target: 1};
 			}
-			if (key == 'codex') {
-				return {cur: seenCount(), target: achievementRequiredKeys().length};
+			if (typeof def.progress == 'function') {
+				return def.progress(st);
+			}
+			if (def.stat) {
+				var target = def.target || 3;
+				return {
+					cur: Math.min(st[def.stat] || 0, target),
+					target: target
+				};
 			}
 			return {cur: st.unlocked[key] ? 1 : 0, target: 1};
 		}
@@ -2974,14 +3182,14 @@ function makeCubeCopilot() {
 		function serialize() {
 			var seen = {};
 			var unlocked = {};
-			ACHIEVEMENT_KEYS.forEach(function(key) {
+			TECHNIQUE_KEYS.concat(SPEED_TIP_KEYS).forEach(function(key) {
 				if (st.seen[key]) {
 					seen[key] = st.seen[key];
 				}
 			});
-			ACHIEVEMENT_ORDER.forEach(function(key) {
-				if (st.unlocked[key]) {
-					unlocked[key] = 1;
+			ACHIEVEMENT_DEFS.forEach(function(def) {
+				if (st.unlocked[def.key]) {
+					unlocked[def.key] = 1;
 				}
 			});
 			return {
@@ -3007,10 +3215,13 @@ function makeCubeCopilot() {
 			progress: progress,
 			serialize: serialize,
 			list: function() {
-				return ACHIEVEMENT_ORDER.slice();
+				return ACHIEVEMENT_PANEL_ORDER.slice();
 			},
 			requiredKeys: function() {
 				return achievementRequiredKeys();
+			},
+			catalog: function() {
+				return ACHIEVEMENT_DEFS.slice();
 			}
 		};
 	}
@@ -3024,6 +3235,12 @@ function makeCubeCopilot() {
 		pairMask: pairMask,
 		makeTechniqueTracker: makeTechniqueTracker,
 		makeAchievementTracker: makeAchievementTracker,
+		registerAchievement: registerAchievement,
+		achievementCatalog: function() {
+			return ACHIEVEMENT_DEFS.slice();
+		},
+		techniqueKeys: TECHNIQUE_KEYS.slice(),
+		speedTipKeys: SPEED_TIP_KEYS.slice(),
 		solveCross: solveCross,
 		minPair: minPair,
 		pairInfo: pairInfo,

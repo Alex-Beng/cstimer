@@ -228,6 +228,24 @@ var collLag = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: true, co: false, cp: fal
 check('COLL when corner permutation lags the orientation', has(collLag, 'coll'));
 check('lagging COLL is not OLLCP', !has(collLag, 'ollcp'));
 
+// Corners already oriented after F2L (CO done) means the following algorithm
+// is not doing OLL, so it cannot be OLLCP even when it also fixes CP.
+var coFirst = run(7, [CROSS_ONLY, P1, P2,
+	{prog: 3, eo: false, co: true, cp: false},
+	{prog: 2, eo: false, co: true, cp: false},
+	{prog: 1, eo: true, co: true, cp: true}, SOLVED]);
+check('CO-complete start is not OLLCP', !has(coFirst, 'ollcp'));
+check('CO-complete start is not COLL', !has(coFirst, 'coll'));
+check('CO-complete start still ends as EPLL', has(coFirst, 'epll'));
+
+var coFirstLag = run(7, [CROSS_ONLY, P1, P2,
+	{prog: 3, eo: false, co: true, cp: false},
+	{prog: 2, eo: false, co: true, cp: false},
+	{prog: 1, eo: true, co: true, cp: false},
+	{prog: 1, eo: true, co: true, cp: true},
+	{prog: 1, eo: true, co: true, cp: true}, SOLVED]);
+check('CO-complete start with lagging CP is not OLLCP', !has(coFirstLag, 'ollcp'));
+
 // A normal PLL whose corners are only placed on its final move must not be
 // mistaken for COLL/OLLCP because of that transient state.
 var pllG = run(7, [CROSS_ONLY, P1, P2, {prog: 2, eo: true, co: true, cp: false},
@@ -392,9 +410,9 @@ ctx.COLL_DATA.forEach(function(entry) {
 	} catch (e) {
 		return;
 	}
-	if (r.st.cp) {
-		// the corners were already placed after F2L, so the algorithm only
-		// finished the orientation: a CP skip, not a COLL finish
+	if (r.st.cp || r.st.co) {
+		// the corners were already placed or oriented after F2L, so the
+		// algorithm did not do COLL
 		return;
 	}
 	realColl.n++;
@@ -417,8 +435,9 @@ ctx.ALLL_DATA.forEach(function(entry) {
 	} catch (e) {
 		return;
 	}
-	if (r.st.eo || r.st.cp) {
-		// edges already oriented or corners already placed: not an OLLCP start
+	if (r.st.eo || r.st.co || r.st.cp) {
+		// edges already oriented or corners already oriented/placed:
+		// not an OLLCP start
 		return;
 	}
 	realOllcp.n++;
@@ -428,7 +447,7 @@ ctx.ALLL_DATA.forEach(function(entry) {
 });
 check('real OLLCP finishes report OLLCP (' + realOllcp.n + ' checked' +
 	(realOllcp.miss.length ? ', missed ' + realOllcp.miss.slice(0, 8).join(' ') : '') + ')',
-	realOllcp.n > 4000 && realOllcp.miss.length == 0);
+	realOllcp.n > 3000 && realOllcp.miss.length == 0);
 
 var realNormal = {n: 0, bad: []};
 ctx.OLL_DATA.forEach(function(entry) {

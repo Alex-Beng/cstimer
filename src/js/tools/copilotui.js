@@ -217,6 +217,12 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var achTid = 0;
 	var achPanel = $('<div id="copilotAchPanel"/>');
 	var achRows = {};
+	var browseAchBtn = $('<span class="cp-ach-browse click"/>');
+	var achBook = null;
+	var achBookGrid = null;
+	var achBookCount = null;
+	var achBookTabs = null;
+	var achBookFilter = 'all';
 	var comboBadge = $('<span class="cp-stage-combo"/>');
 	var TECH_LABELS = {
 		xc: 'XC', xxc: 'XXC', xxxc: 'XXXC', xxxxc: 'XXXXC',
@@ -264,7 +270,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		norot: ['COPILOT_TIP_NOROT',
 			'No Rotation · all 4 F2L pairs and the whole last layer without turning the cube']
 	};
-	var TECH_TIP_ONLY = {tps8: 1, tps12: 1, tps16: 1};
 	var ACH_META = {
 		hot3: ['COPILOT_ACH_HOT3', 'On Fire',
 			'COPILOT_ACH_HOT3_D', 'Trigger a technique in 3 solves in a row', 'gold'],
@@ -527,9 +532,142 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'    justify-content: space-between;',
 		'    gap: 0.8rem;',
 		'    opacity: 0.6;',
+		'    cursor: pointer;',
 		'}',
 		'.cp-ach-row.cp-ach-done { opacity: 1; color: #ffd54a; }',
-		'.cp-ach-prog { font-family: Monospace; }'
+		'.cp-ach-prog { font-family: Monospace; }',
+		'.cp-ach-panel-head {',
+		'    display: flex;',
+		'    justify-content: space-between;',
+		'    align-items: center;',
+		'    gap: 0.8rem;',
+		'}',
+		'.cp-ach-browse {',
+		'    color: #8fc8ff;',
+		'    cursor: pointer;',
+		'    white-space: nowrap;',
+		'    font-size: 0.9em;',
+		'}',
+		'.cp-ach-browse:hover { text-decoration: underline; }',
+		'#copilotAchBook {',
+		'    position: fixed;',
+		'    inset: 0;',
+		'    z-index: 60;',
+		'    display: none;',
+		'    font-family: Arial, sans-serif;',
+		'}',
+		'#copilotAchBook.cp-book-open { display: block; }',
+		'.cp-book-backdrop {',
+		'    position: absolute;',
+		'    inset: 0;',
+		'    background: rgba(0, 0, 0, 0.62);',
+		'}',
+		'.cp-book-window {',
+		'    position: absolute;',
+		'    left: 50%;',
+		'    top: 50%;',
+		'    transform: translate(-50%, -50%);',
+		'    width: min(92vw, 880px);',
+		'    height: min(86vh, 720px);',
+		'    display: flex;',
+		'    flex-direction: column;',
+		'    overflow: hidden;',
+		'    border-radius: 14px;',
+		'    background: linear-gradient(160deg, #241838, #0c0c10);',
+		'    color: #fff;',
+		'    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 24px 80px rgba(0, 0, 0, 0.7);',
+		'}',
+		'.cp-book-head {',
+		'    display: flex;',
+		'    align-items: center;',
+		'    gap: 0.8rem;',
+		'    padding: 0.75rem 1rem;',
+		'    border-bottom: 1px solid rgba(255, 255, 255, 0.1);',
+		'}',
+		'.cp-book-title { flex: 1; font-size: 1.15rem; font-weight: bold; color: #ffd54a; }',
+		'.cp-book-count { font-family: Monospace; color: rgba(255, 255, 255, 0.7); }',
+		'.cp-book-close {',
+		'    cursor: pointer;',
+		'    padding: 0 0.25rem;',
+		'    font-size: 1.6rem;',
+		'    line-height: 1;',
+		'    opacity: 0.75;',
+		'}',
+		'.cp-book-close:hover { opacity: 1; }',
+		'.cp-book-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0.6rem 1rem 0; }',
+		'.cp-book-tab {',
+		'    cursor: pointer;',
+		'    padding: 0.2rem 0.65rem;',
+		'    border-radius: 999px;',
+		'    background: rgba(255, 255, 255, 0.08);',
+		'    color: rgba(255, 255, 255, 0.65);',
+		'    font-size: 0.9rem;',
+		'}',
+		'.cp-book-tab.cp-book-tab-on {',
+		'    background: rgba(255, 213, 74, 0.2);',
+		'    color: #ffd54a;',
+		'    box-shadow: inset 0 0 0 1px rgba(255, 213, 74, 0.5);',
+		'}',
+		'.cp-book-grid {',
+		'    flex: 1;',
+		'    overflow: auto;',
+		'    overscroll-behavior: contain;',
+		'    padding: 0.7rem 1rem 1.2rem;',
+		'    display: grid;',
+		'    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));',
+		'    gap: 0.65rem;',
+		'    align-content: start;',
+		'}',
+		'.cp-book-group-title {',
+		'    grid-column: 1 / -1;',
+		'    margin-top: 0.35rem;',
+		'    color: rgba(255, 255, 255, 0.55);',
+		'    font-size: 0.78rem;',
+		'    letter-spacing: 0.12em;',
+		'    text-transform: uppercase;',
+		'}',
+		'.cp-book-card {',
+		'    position: relative;',
+		'    cursor: pointer;',
+		'    padding: 0.65rem 0.75rem 2rem;',
+		'    border-radius: 0.7rem;',
+		'    background: rgba(255, 255, 255, 0.06);',
+		'    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);',
+		'    opacity: 0.62;',
+		'    transition: opacity 0.15s, box-shadow 0.15s, transform 0.15s;',
+		'    overflow: hidden;',
+		'}',
+		'.cp-book-card::before {',
+		'    content: "";',
+		'    position: absolute;',
+		'    left: 0;',
+		'    top: 0;',
+		'    bottom: 0;',
+		'    width: 3px;',
+		'    background: var(--cp-card-accent);',
+		'    opacity: 0.75;',
+		'}',
+		'.cp-book-card:hover {',
+		'    opacity: 1;',
+		'    transform: translateY(-1px);',
+		'    box-shadow: inset 0 0 0 1px var(--cp-card-accent), 0 8px 22px rgba(0, 0, 0, 0.35);',
+		'}',
+		'.cp-book-card.cp-book-done {',
+		'    opacity: 1;',
+		'    box-shadow: inset 0 0 0 1px var(--cp-card-accent), 0 0 18px rgba(255, 213, 74, 0.12);',
+		'}',
+		'.cp-book-card-name { font-weight: bold; color: var(--cp-card-accent); margin-bottom: 0.15rem; }',
+		'.cp-book-card-desc { font-size: 0.82rem; line-height: 1.3; color: rgba(255, 255, 255, 0.75); }',
+		'.cp-book-card-prog {',
+		'    position: absolute;',
+		'    right: 0.7rem;',
+		'    bottom: 0.55rem;',
+		'    font-family: Monospace;',
+		'    font-size: 0.8rem;',
+		'    color: rgba(255, 255, 255, 0.75);',
+		'}',
+		'html.m .cp-book-window { width: 94vw; height: 88vh; }',
+		'html.m .cp-book-grid { grid-template-columns: 1fr; }'
 	].join('\n');
 	$('<style id="copilotStageStyle"/>').text(stageStyle).appendTo('head');
 
@@ -1636,16 +1774,63 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function achMeta(key) {
-		return ACH_META[key] || ['', key, '', ''];
+		return ACH_META[key] || ['', key, '', '', 'gold'];
 	}
 
-	function showAchToast(key) {
+	/**
+	 * Presentation for an achievement registered at runtime.  `meta` uses
+	 * the same [nameKey, fallback, descKey, fallback, color] shape as
+	 * ACH_META, so custom achievements can be added without touching the UI.
+	 */
+	function registerAchievementUi(key, meta) {
+		if (!key || !meta) {
+			return;
+		}
+		ACH_META[key] = meta;
+		buildAchPanel();
+		refreshAchPanel();
+		if (achBookGrid) {
+			renderAchBook();
+		}
+	}
+
+	/** unified presentation info for meta achievements and technique tips */
+	function achUiInfo(key) {
+		var meta = ACH_META[key];
+		if (meta) {
+			return {
+				name: L(meta[0], meta[1]),
+				desc: L(meta[2], meta[3]),
+				color: meta[4] || 'gold',
+				tip: false
+			};
+		}
+		if (TECH_TEXT[key]) {
+			var parts = techParts({
+				key: key,
+				label: TECH_LABELS[key] || key,
+				name: ''
+			});
+			return {
+				name: parts.label || TECH_LABELS[key] || key,
+				desc: parts.desc,
+				color: TECH_COLORS[key] || 'green',
+				tip: true
+			};
+		}
+		return {name: key, desc: '', color: 'green', tip: false};
+	}
+
+	function showAchToast(key, preview) {
 		var meta = achMeta(key);
-		achKicker.text(L('COPILOT_ACH_UNLOCK', 'ACHIEVEMENT UNLOCKED'));
+		achKicker.text(preview ?
+			L('COPILOT_ACH_PREVIEW', 'ACHIEVEMENT PREVIEW') :
+			L('COPILOT_ACH_UNLOCK', 'ACHIEVEMENT UNLOCKED'));
 		achLabel.text(L(meta[0], meta[1]));
 		achDesc.text(L(meta[2], meta[3]));
 		achToast[0].style.setProperty('--cp-ach-accent', achAccent(meta[4]));
 		achToast[0].style.setProperty('--cp-ach-glow', achGlow(meta[4]));
+		achToast.toggleClass('cp-ach-preview', !!preview);
 		achToast.removeClass('cp-ach-out cp-ach-in');
 		void achToast[0].offsetWidth;
 		achToast.addClass('cp-ach-in');
@@ -1684,9 +1869,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function buildAchPanel() {
-		achPanel.empty().append(
-			$('<div class="cp-ach-panel-title"/>').text(L('COPILOT_ACH_TITLE', 'Achievements'))
+		var head = $('<div class="cp-ach-panel-head"/>');
+		browseAchBtn.text(L('COPILOT_ACH_BROWSE', 'Browse all'));
+		head.append(
+			$('<div class="cp-ach-panel-title"/>').text(L('COPILOT_ACH_TITLE', 'Achievements')),
+			browseAchBtn
 		);
+		achPanel.empty().append(head);
 		achRows = {};
 		achTracker.list().forEach(function(key) {
 			var meta = achMeta(key);
@@ -1695,10 +1884,25 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			row.append($('<span class="cp-ach-name"/>').text(L(meta[0], meta[1])), prog);
 			achRows[key] = {row: row, prog: prog};
 			achPanel.append(row);
+			row.on('click', function() {
+				previewAch(key);
+			});
 		});
+		browseAchBtn.off('click').on('click', openAchBook);
 	}
 
 	function refreshAchPanel() {
+		var missing = false;
+		achTracker.list().forEach(function(key) {
+			if (!achRows[key]) {
+				missing = true;
+			}
+		});
+		if (missing) {
+			// a custom achievement was registered after the panel was built
+			buildAchPanel();
+			return;
+		}
 		achTracker.list().forEach(function(key) {
 			if (!achRows[key]) {
 				return;
@@ -1735,6 +1939,182 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		} catch (e) {}
 	}
 
+	// ---------------------------------------------------- achievement browser
+
+	function achGroupLabel(group) {
+		if (group == 'technique') {
+			return L('COPILOT_ACH_GROUP_TECH', 'Advanced techniques');
+		}
+		if (group == 'combo') {
+			return L('COPILOT_ACH_GROUP_COMBO', 'Combos');
+		}
+		if (group == 'speed') {
+			return L('COPILOT_ACH_GROUP_SPEED', 'Speed');
+		}
+		return L('COPILOT_ACH_GROUP_CHALLENGE', 'Challenges');
+	}
+
+	function previewAch(key) {
+		if (!key) {
+			return;
+		}
+		var info = achUiInfo(key);
+		// the browser sits above the normal overlays, so lift the preview
+		achToast.css('z-index', 70);
+		techToast.css('z-index', 70);
+		if (info.tip) {
+			showTechToast({
+				key: key,
+				label: TECH_LABELS[key] || key,
+				name: '',
+				cat: TECH_COLORS[key] || 'green',
+				req: false,
+				hold: 1700
+			});
+			return;
+		}
+		if (achTid) {
+			clearTimeout(achTid);
+			achTid = 0;
+		}
+		achQueue = [];
+		achShowing = true;
+		showAchToast(key, true);
+		achTid = setTimeout(function() {
+			achToast.removeClass('cp-ach-in').addClass('cp-ach-out');
+			achTid = setTimeout(function() {
+				achTid = 0;
+				achShowing = false;
+				achToast.removeClass('cp-ach-out');
+				pumpAchToast();
+			}, 480);
+		}, 2300);
+	}
+
+	function renderAchBook() {
+		if (!achBook) {
+			return;
+		}
+		achBookTabs.find('.cp-book-tab').each(function() {
+			$(this).toggleClass('cp-book-tab-on',
+				$(this).attr('data-filter') == achBookFilter);
+		});
+		achBookGrid.empty();
+		var defs = achTracker.catalog();
+		var total = 0;
+		var done = 0;
+		defs.forEach(function(def) {
+			var pr = achTracker.progress(def.key);
+			total++;
+			if (pr.cur >= pr.target) {
+				done++;
+			}
+		});
+		achBookCount.text(done + '/' + total);
+		var groups = ['technique', 'combo', 'speed', 'challenge'];
+		if (achBookFilter != 'all') {
+			groups = [achBookFilter];
+		}
+		groups.forEach(function(group) {
+			var list = defs.filter(function(def) {
+				return (def.group || 'challenge') == group;
+			});
+			if (!list.length) {
+				return;
+			}
+			achBookGrid.append(
+				$('<div class="cp-book-group-title"/>').text(achGroupLabel(group))
+			);
+			list.forEach(function(def) {
+				var info = achUiInfo(def.key);
+				var pr = achTracker.progress(def.key);
+				var ok = pr.cur >= pr.target;
+				achBookGrid.append(
+					$('<div class="cp-book-card"/>')
+						.attr('data-key', def.key)
+						.toggleClass('cp-book-done', ok)
+						.toggleClass('cp-book-tip', !!info.tip)
+						.css('--cp-card-accent', achAccent(info.color))
+						.append(
+							$('<div class="cp-book-card-name"/>').text(info.name),
+							$('<div class="cp-book-card-desc"/>').text(info.desc),
+							$('<div class="cp-book-card-prog"/>').text(
+								ok ? '✓' : pr.cur + '/' + pr.target
+							)
+						)
+				);
+			});
+		});
+	}
+
+	function ensureAchBook() {
+		if (achBook) {
+			return;
+		}
+		achBook = $('<div id="copilotAchBook"/>');
+		var backdrop = $('<div class="cp-book-backdrop"/>');
+		var win = $('<div class="cp-book-window"/>');
+		var head = $('<div class="cp-book-head"/>');
+		achBookCount = $('<span class="cp-book-count"/>');
+		var close = $('<span class="cp-book-close click"/>')
+			.attr('title', L('COPILOT_ACH_CLOSE', 'Close'))
+			.html('&times;');
+		head.append(
+			$('<div class="cp-book-title"/>').text(L('COPILOT_ACH_BROWSE', 'Achievements')),
+			achBookCount,
+			close
+		);
+		achBookTabs = $('<div class="cp-book-tabs"/>');
+		[
+			['all', L('COPILOT_ACH_ALL', 'All')],
+			['technique', L('COPILOT_ACH_GROUP_TECH', 'Techniques')],
+			['combo', L('COPILOT_ACH_GROUP_COMBO', 'Combos')],
+			['speed', L('COPILOT_ACH_GROUP_SPEED', 'Speed')],
+			['challenge', L('COPILOT_ACH_GROUP_CHALLENGE', 'Challenges')]
+		].forEach(function(tab) {
+			achBookTabs.append(
+				$('<span class="cp-book-tab click"/>')
+					.attr('data-filter', tab[0])
+					.text(tab[1])
+			);
+		});
+		achBookGrid = $('<div class="cp-book-grid"/>');
+		win.append(head, achBookTabs, achBookGrid);
+		achBook.append(backdrop, win).appendTo('body');
+		backdrop.on('click', closeAchBook);
+		close.on('click', closeAchBook);
+		achBook.on('click', '.cp-book-tab', function() {
+			achBookFilter = $(this).attr('data-filter') || 'all';
+			renderAchBook();
+		});
+		achBook.on('click', '.cp-book-card', function() {
+			previewAch($(this).attr('data-key'));
+		});
+		$(document).on('keydown.cpachbook', function(e) {
+			if (achBook.hasClass('cp-book-open') &&
+					(e.key == 'Escape' || e.keyCode == 27)) {
+				closeAchBook();
+				e.stopPropagation();
+			}
+		});
+	}
+
+	function openAchBook() {
+		ensureAchBook();
+		achBookFilter = 'all';
+		renderAchBook();
+		achBook.addClass('cp-book-open');
+	}
+
+	function closeAchBook() {
+		if (!achBook) {
+			return;
+		}
+		achBook.removeClass('cp-book-open');
+		achToast.css('z-index', '');
+		techToast.css('z-index', '');
+	}
+
 	function finishTechniques() {
 		if (!techSteps) {
 			return;
@@ -1745,7 +2125,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		var keys = [];
 		for (var i = 0; i < techAch.length; i++) {
-			if (techAch[i].key != 'norot' && !TECH_TIP_ONLY[techAch[i].key]) {
+			if (techAch[i].key != 'norot') {
 				keys.push(techAch[i].key);
 			}
 		}
@@ -2868,6 +3248,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	});
 
 	return {
+		registerAchievementUi: registerAchievementUi,
+		openAchievements: openAchBook,
 		onFacelet: onFacelet,
 		requestHint: function() {
 			if (curFacelet) {
