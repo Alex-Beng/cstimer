@@ -715,6 +715,12 @@ var server = http.createServer(function(req, res) {
 				filter: box.find('.cp-book-tab-on').text()
 			};
 		}
+		var summary = $('#copilotAchPanel .cp-ach-summary').text();
+		var browse = $('#copilotAchPanel .cp-ach-browse').length;
+		var toolOptions = $('#toolsDiv select option').map(function() {
+			return $(this).text();
+		}).get();
+		var api = typeof copilotUI.openAchievements;
 		$('.cp-ach-browse').click();
 		await wait(180);
 		var all = snapshot();
@@ -736,6 +742,10 @@ var server = http.createServer(function(req, res) {
 		$('#copilotAchBook .cp-book-close').click();
 		await wait(100);
 		return {
+			summary: summary,
+			browse: browse,
+			toolOptions: toolOptions,
+			api: api,
 			all: all,
 			tech: tech,
 			sawZbll: sawZbll,
@@ -748,6 +758,18 @@ var server = http.createServer(function(req, res) {
 
 	if (!book.all.open) {
 		fail('achievement browser did not open');
+	}
+	if (!/\d+\/\d+/.test(book.summary)) {
+		fail('achievement summary is missing: ' + book.summary);
+	}
+	if (book.browse != 1) {
+		fail('achievement browse button is missing');
+	}
+	if (book.toolOptions.join('|').indexOf('Copilot achievements') < 0) {
+		fail('Tools menu has no achievements entry: ' + book.toolOptions.join('|'));
+	}
+	if (book.api != 'function') {
+		fail('openAchievements API is missing');
 	}
 	if (book.all.count < 30) {
 		fail('achievement browser is missing cards: ' + book.all.count);

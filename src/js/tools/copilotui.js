@@ -218,11 +218,14 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var achPanel = $('<div id="copilotAchPanel"/>');
 	var achRows = {};
 	var browseAchBtn = $('<span class="cp-ach-browse click"/>');
+	var achSummary = $('<span class="cp-ach-summary"/>');
 	var achBook = null;
 	var achBookGrid = null;
 	var achBookCount = null;
 	var achBookTabs = null;
 	var achBookFilter = 'all';
+	var toolAchBtn = null;
+	var toolAchSpan = null;
 	var comboBadge = $('<span class="cp-stage-combo"/>');
 	var TECH_LABELS = {
 		xc: 'XC', xxc: 'XXC', xxxc: 'XXXC', xxxxc: 'XXXXC',
@@ -523,9 +526,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'    font-size: 0.85em;',
 		'}',
 		'.cp-ach-panel-title {',
+		'    flex: 1;',
 		'    color: #ffd54a;',
 		'    font-weight: bold;',
-		'    margin-bottom: 0.3rem;',
 		'}',
 		'.cp-ach-row {',
 		'    display: flex;',
@@ -547,8 +550,17 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'    cursor: pointer;',
 		'    white-space: nowrap;',
 		'    font-size: 0.9em;',
+		'    padding: 0.08rem 0.55rem;',
+		'    border: 1px solid rgba(143, 200, 255, 0.45);',
+		'    border-radius: 999px;',
 		'}',
 		'.cp-ach-browse:hover { text-decoration: underline; }',
+		'.cp-ach-summary {',
+		'    font-family: Monospace;',
+		'    font-size: 0.85em;',
+		'    color: rgba(255, 255, 255, 0.62);',
+		'    white-space: nowrap;',
+		'}',
 		'#copilotAchBook {',
 		'    position: fixed;',
 		'    inset: 0;',
@@ -1777,6 +1789,25 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return ACH_META[key] || ['', key, '', '', 'gold'];
 	}
 
+	function achTotals() {
+		var total = 0;
+		var done = 0;
+		achTracker.catalog().forEach(function(def) {
+			var pr = achTracker.progress(def.key);
+			total++;
+			if (pr.cur >= pr.target) {
+				done++;
+			}
+		});
+		return {done: done, total: total};
+	}
+
+	function achSummaryText(totals) {
+		return L('COPILOT_ACH_SUMMARY', 'Collected %s/%s')
+			.replace('%s', totals.done)
+			.replace('%s', totals.total);
+	}
+
 	/**
 	 * Presentation for an achievement registered at runtime.  `meta` uses
 	 * the same [nameKey, fallback, descKey, fallback, color] shape as
@@ -1873,6 +1904,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		browseAchBtn.text(L('COPILOT_ACH_BROWSE', 'Browse all'));
 		head.append(
 			$('<div class="cp-ach-panel-title"/>').text(L('COPILOT_ACH_TITLE', 'Achievements')),
+			achSummary,
 			browseAchBtn
 		);
 		achPanel.empty().append(head);
@@ -1888,6 +1920,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				previewAch(key);
 			});
 		});
+		var summary = achSummaryText(achTotals());
+		achSummary.text(summary);
+		if (toolAchSpan) {
+			toolAchSpan.text(summary);
+		}
 		browseAchBtn.off('click').on('click', openAchBook);
 	}
 
@@ -1912,6 +1949,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			achRows[key].row.toggleClass('cp-ach-done', unlocked);
 			achRows[key].prog.text(unlocked ? '✓' : pr.cur + '/' + pr.target);
 		});
+		var summary = achSummaryText(achTotals());
+		achSummary.text(summary);
+		if (toolAchSpan) {
+			toolAchSpan.text(summary);
+		}
 	}
 
 	function refreshComboBadge() {
@@ -2001,16 +2043,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		});
 		achBookGrid.empty();
 		var defs = achTracker.catalog();
-		var total = 0;
-		var done = 0;
-		defs.forEach(function(def) {
-			var pr = achTracker.progress(def.key);
-			total++;
-			if (pr.cur >= pr.target) {
-				done++;
-			}
-		});
-		achBookCount.text(done + '/' + total);
+		var totals = achTotals();
+		achBookCount.text(totals.done + '/' + totals.total);
 		var groups = ['technique', 'combo', 'speed', 'challenge'];
 		if (achBookFilter != 'all') {
 			groups = [achBookFilter];
@@ -3064,6 +3098,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (fdiv === undefined) {
 			toolHintSpan = toolStatusSpan = null;
 			toolChkEnable = toolBtnHint = toolBtnClear = null;
+			toolAchBtn = toolAchSpan = null;
 			return;
 		}
 		fdiv.empty();
@@ -3071,6 +3106,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		toolChkEnable = $('<input type="checkbox">');
 		toolBtnHint = $('<input type="button">').val(L('COPILOT_HINT', 'Hint'));
 		toolBtnClear = $('<input type="button">').val(L('COPILOT_CLEAR', 'Clear'));
+		toolAchBtn = $('<input type="button">').val(L('COPILOT_ACH_BROWSE', 'Achievements'));
+		toolAchSpan = $('<span/>').css({'margin-left': '0.5em', 'opacity': 0.75});
 		toolHintSpan = $('<div/>').css({'font-family': 'Monospace', 'white-space': 'pre-wrap'});
 		fdiv.append(
 			$('<div/>').css({'font-size': '0.85em', 'margin-bottom': '0.4em'}).html(
@@ -3078,9 +3115,12 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			$('<div/>').append($('<label>').append(toolChkEnable, ' ' + L('COPILOT_ENABLED', 'Enable Copilot'))),
 			toolStatusSpan,
 			$('<div/>').append(toolBtnHint, ' ', toolBtnClear),
+			$('<div/>').css('margin-top', '0.4em').append(toolAchBtn, toolAchSpan),
 			makeCustomRow(),
 			toolHintSpan
 		);
+		toolAchBtn.click(openAchBook);
+		toolAchSpan.text(achSummaryText(achTotals()));
 		toolChkEnable.change(function() {
 			kernel.setProp('cpEnabled', this.checked);
 		});
@@ -3097,6 +3137,27 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		refreshStatus();
 		syncCustomRows();
+	}
+
+	/**
+	 * Dedicated Tools entry, so the achievement browser is one click away
+	 * instead of being hidden at the bottom of the Copilot window.
+	 */
+	function achToolExec(fdiv) {
+		if (fdiv === undefined) {
+			return;
+		}
+		var btn = $('<input type="button">').val(L('COPILOT_ACH_BROWSE', 'Browse all'));
+		var summary = $('<span/>').css({'margin-left': '0.5em', 'opacity': 0.75})
+			.text(achSummaryText(achTotals()));
+		fdiv.empty().append(
+			$('<div/>').css({'font-size': '0.85em', 'margin-bottom': '0.5em'}).text(
+				L('COPILOT_ACH_TOOL_HELP',
+					'Browse every Copilot achievement and technique collection. Click a card to preview it.')),
+			$('<div/>').append(btn, summary)
+		);
+		btn.click(openAchBook);
+		openAchBook();
 	}
 
 	// ------------------------------------------------------------- signal glue
@@ -3235,6 +3296,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 		kernel.addWindow('copilot', L('COPILOT_BUTTON', 'HINT'), div, false, false, 5);
 		tools.regTool('copilot', L('TOOLS_COPILOT', 'Copilot'), toolExec);
+		tools.regTool('copilotach',
+			L('TOOLS_COPILOT_ACH', 'Copilot achievements'), achToolExec);
 		relayGlow.appendTo('body');
 		relayFlash.appendTo('body');
 		stageBar.appendTo('body');
