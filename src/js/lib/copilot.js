@@ -2625,6 +2625,11 @@ function makeCubeCopilot() {
 	// a stage finished and the next move came within this pause, i.e. the
 	// solver went straight on instead of stopping to look for the next stage
 	var FLOW_MS = 200;
+	// The pause is judged against the previous stage's average move interval.
+	// A fixed window is too strict for slow solvers and too loose for fast
+	// ones; keep a small floor for very high turn speeds.
+	var FLOW_FACTOR = 1.25;
+	var FLOW_MIN_MS = 160;
 	// A real "So Close" recovery takes longer than one algorithm burst.
 	// Without this a PLL's transient F2L dips could look like a rebuild.
 	var CHOKE_MS = 400;
@@ -2660,6 +2665,8 @@ function makeCubeCopilot() {
 				llTipDone: false,
 				ollFlowMarked: false,
 				mark: null,
+				segT0: 0,
+				segN: 0,
 				chokeArmed: false,
 				chokeBroken: false,
 				chokeChain: 0,
@@ -2678,6 +2685,22 @@ function makeCubeCopilot() {
 		}
 		reset();
 
+		function stageAvg(t) {
+			if (typeof t != 'number' || st.segN < 2) {
+				return 0;
+			}
+			return (t - st.segT0) / (st.segN - 1);
+		}
+
+		function flowMark(t, key) {
+			return {t: t, key: key, avg: stageAvg(t)};
+		}
+
+		function flowLimit(mark) {
+			return mark.avg > 0 ?
+				Math.max(FLOW_MIN_MS, mark.avg * FLOW_FACTOR) : FLOW_MS;
+		}
+
 		function step(s) {
 			var ev = [];
 			var prog = (s && typeof s.prog == 'number') ? s.prog : -1;
@@ -2685,6 +2708,14 @@ function makeCubeCopilot() {
 				return ev;
 			}
 			var prev = st.prev;
+			if (typeof s.t == 'number') {
+				if (st.segN == 0) {
+					st.segT0 = s.t;
+					st.segN = 1;
+				} else {
+					st.segN++;
+				}
+			}
 
 			// ---- "So Close": the last layer was reached, the F2L broke,
 			// and the solver rebuilt at least two pairs one at a time before
@@ -2727,7 +2758,7 @@ function makeCubeCopilot() {
 				var mark = st.mark;
 				st.mark = null;
 				if (typeof s.t == 'number' && typeof mark.t == 'number' &&
-						s.t >= mark.t && s.t - mark.t <= FLOW_MS &&
+						s.t >= mark.t && s.t - mark.t <= flowLimit(mark) &&
 						(mark.key != 'flowop' || prog > 0)) {
 					ev.push({key: mark.key});
 				}
@@ -2865,18 +2896,17 @@ function makeCubeCopilot() {
 				st.bestProg = prog;
 				if (drop == 1 && prog >= 1 && prog <= 6 &&
 						typeof s.t == 'number') {
-					st.mark = {
-						t: s.t,
-						key: prog == 6 ? 'flowcf' :
-							(prog >= 3 ? 'flowff' : 'flowfl')
-					};
+					st.mark = flowMark(s.t, prog == 6 ? 'flowcf' :
+						(prog >= 3 ? 'flowff' : 'flowfl'));
 				}
+				st.segT0 = 0;
+				st.segN = 0;
 			}
 			if (!st.ollFlowMarked && prog == 1 && s.eo && s.co &&
 					typeof s.t == 'number') {
 				st.ollFlowMarked = true;
 				if (!st.mark) {
-					st.mark = {t: s.t, key: 'flowop'};
+					st.mark = flowMark(s.t, 'flowop');
 				}
 			}
 			return ev;

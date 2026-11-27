@@ -186,6 +186,34 @@ var pausedFlow = run(7, [{prog: 6, t: 1000}, {prog: 6, t: 1250}]);
 check('250ms into the next stage breaks the flow',
 	!has(pausedFlow, 'flowcf'));
 
+// The boundary pause is relative to the previous stage's move interval.
+var slowStageFlow = run(7, [
+	{prog: 7, t: 1000},
+	{prog: 7, t: 1500},
+	{prog: 6, t: 2000},
+	{prog: 6, t: 2400}
+]);
+check('a 500ms stage still flows after a 400ms transition',
+	has(slowStageFlow, 'flowcf'));
+
+var fastStageFlow = run(7, [
+	{prog: 7, t: 1000},
+	{prog: 7, t: 1100},
+	{prog: 6, t: 1200},
+	{prog: 6, t: 1350}
+]);
+check('a 100ms stage flows after a 150ms transition',
+	has(fastStageFlow, 'flowcf'));
+
+var fastStagePause = run(7, [
+	{prog: 7, t: 1000},
+	{prog: 7, t: 1100},
+	{prog: 6, t: 1200},
+	{prog: 6, t: 1450}
+]);
+check('a 100ms stage does not flow after a 250ms transition',
+	!has(fastStagePause, 'flowcf'));
+
 var jumpFlow = run(7, [{prog: 5, t: 1000}, {prog: 5, t: 1100}]);
 check('a skipped stage does not invent flow', !has(jumpFlow, 'flowcf'));
 
