@@ -599,6 +599,15 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'}',
 		'.cp-book-title { flex: 1; font-size: 1.15rem; font-weight: bold; color: #ffd54a; }',
 		'.cp-book-count { font-family: Monospace; color: rgba(255, 255, 255, 0.7); }',
+		'.cp-book-reset {',
+		'    cursor: pointer;',
+		'    padding: 0.18rem 0.6rem;',
+		'    border-radius: 999px;',
+		'    background: rgba(255, 90, 90, 0.14);',
+		'    color: #ff9d9d;',
+		'    font-size: 0.82rem;',
+		'}',
+		'.cp-book-reset:hover { background: rgba(255, 90, 90, 0.26); color: #ffc4c4; }',
 		'.cp-book-close {',
 		'    cursor: pointer;',
 		'    padding: 0 0.25rem;',
@@ -1995,6 +2004,22 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		} catch (e) {}
 	}
 
+	function resetAchievements(force) {
+		if (!force && !confirm(L('COPILOT_ACH_RESET_CONFIRM',
+				'Clear all Copilot achievements and start over?'))) {
+			return false;
+		}
+		achTracker.reset();
+		saveAch();
+		hideAchToast();
+		refreshAchPanel();
+		refreshComboBadge();
+		if (achBook && achBook.hasClass('cp-book-open')) {
+			renderAchBook();
+		}
+		return true;
+	}
+
 	// ---------------------------------------------------- achievement browser
 
 	function achGroupLabel(group) {
@@ -2104,12 +2129,16 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		var win = $('<div class="cp-book-window"/>');
 		var head = $('<div class="cp-book-head"/>');
 		achBookCount = $('<span class="cp-book-count"/>');
+		var reset = $('<span class="cp-book-reset click"/>')
+			.attr('title', L('COPILOT_ACH_RESET', 'Reset all'))
+			.text(L('COPILOT_ACH_RESET', 'Reset all'));
 		var close = $('<span class="cp-book-close click"/>')
 			.attr('title', L('COPILOT_ACH_CLOSE', 'Close'))
 			.html('&times;');
 		head.append(
 			$('<div class="cp-book-title"/>').text(L('COPILOT_ACH_BROWSE', 'Achievements')),
 			achBookCount,
+			reset,
 			close
 		);
 		achBookTabs = $('<div class="cp-book-tabs"/>');
@@ -2130,6 +2159,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		win.append(head, achBookTabs, achBookGrid);
 		achBook.append(backdrop, win).appendTo('body');
 		backdrop.on('click', closeAchBook);
+		reset.on('click', function() {
+			resetAchievements();
+		});
 		close.on('click', closeAchBook);
 		achBook.on('click', '.cp-book-tab', function() {
 			achBookFilter = $(this).attr('data-filter') || 'all';
@@ -3167,15 +3199,19 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			return;
 		}
 		var btn = $('<input type="button">').val(L('COPILOT_ACH_BROWSE', 'Browse all'));
+		var btnReset = $('<input type="button">').val(L('COPILOT_ACH_RESET', 'Reset all'));
 		var summary = $('<span/>').css({'margin-left': '0.5em', 'opacity': 0.75})
 			.text(achSummaryText(achTotals()));
 		fdiv.empty().append(
 			$('<div/>').css({'font-size': '0.85em', 'margin-bottom': '0.5em'}).text(
 				L('COPILOT_ACH_TOOL_HELP',
 					'Browse every Copilot achievement and technique collection. Click a card to preview it.')),
-			$('<div/>').append(btn, summary)
+			$('<div/>').append(btn, ' ', btnReset, summary)
 		);
 		btn.click(openAchBook);
+		btnReset.click(function() {
+			resetAchievements();
+		});
 		openAchBook();
 	}
 
@@ -3332,6 +3368,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	return {
 		registerAchievementUi: registerAchievementUi,
 		openAchievements: openAchBook,
+		resetAchievements: function() {
+			return resetAchievements(true);
+		},
 		onFacelet: onFacelet,
 		requestHint: function() {
 			if (curFacelet) {

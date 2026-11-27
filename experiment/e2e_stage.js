@@ -705,6 +705,7 @@ var server = http.createServer(function(req, res) {
 			return {
 				open: box.hasClass('cp-book-open'),
 				count: box.find('.cp-book-card').length,
+				resetBtn: box.find('.cp-book-reset').length,
 				names: box.find('.cp-book-card-name').map(function() {
 					return $(this).text();
 				}).get(),
@@ -751,6 +752,13 @@ var server = http.createServer(function(req, res) {
 			kicker: $('#copilotAchToast .cp-ach-kicker').text(),
 			open: $('#copilotAchToast').hasClass('cp-ach-in')
 		};
+		var resetOk = copilotUI.resetAchievements();
+		await wait(120);
+		var afterReset = {
+			ok: resetOk,
+			count: $('#copilotAchBook .cp-book-count').text(),
+			summary: $('#copilotAchPanel .cp-ach-summary').text()
+		};
 		$('#copilotAchBook .cp-book-close').click();
 		await wait(100);
 		return {
@@ -764,6 +772,7 @@ var server = http.createServer(function(req, res) {
 			sawZbll: sawZbll,
 			techPreview: techPreview,
 			metaPreview: metaPreview,
+			afterReset: afterReset,
 			closed: !$('#copilotAchBook').hasClass('cp-book-open')
 		};
 	});
@@ -786,6 +795,9 @@ var server = http.createServer(function(req, res) {
 	}
 	if (book.all.count < 30) {
 		fail('achievement browser is missing cards: ' + book.all.count);
+	}
+	if (book.all.resetBtn != 1) {
+		fail('achievement browser has no reset-all button');
 	}
 	if (book.all.groups.join('|').indexOf('Advanced techniques') < 0 ||
 			book.all.groups.join('|').indexOf('Combos') < 0 ||
@@ -814,6 +826,10 @@ var server = http.createServer(function(req, res) {
 	if (!book.metaPreview.open || book.metaPreview.label != 'Lightspeed' ||
 			book.metaPreview.kicker.toLowerCase().indexOf('preview') < 0) {
 		fail('achievement preview: ' + JSON.stringify(book.metaPreview));
+	}
+	if (!book.afterReset.ok || book.afterReset.count != '0/37' ||
+			book.afterReset.summary.indexOf('0/37') < 0) {
+		fail('achievement reset: ' + JSON.stringify(book.afterReset));
 	}
 	if (!book.closed) {
 		fail('achievement browser did not close');

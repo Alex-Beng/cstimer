@@ -3205,9 +3205,14 @@ function makeCubeCopilot() {
 			};
 		}
 
+		function reset() {
+			st = freshState();
+		}
+
 		load(null);
 		return {
 			load: load,
+			reset: reset,
 			step: step,
 			state: function() {
 				return st;

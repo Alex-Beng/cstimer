@@ -175,6 +175,26 @@ check('catalog exposes technique groups', t.catalog().some(function(def) {
 	return def.key == 'zbll' && def.group == 'technique';
 }));
 
+// ------------------------------------------------------------ reset all
+t = tracker();
+step(t, ['zbll']);
+step(t, ['zbll']);
+step(t, ['zbll']);
+check('reset test starts with unlocked progress',
+	t.progress('zb3').cur == 3 && t.progress('zbll').cur == 1);
+t.reset();
+check('reset clears counters and collected cards',
+	t.state().solves == 0 && t.progress('zb3').cur == 0 &&
+	t.progress('zbll').cur == 0);
+check('reset clears the serialized save', (function() {
+	var saved = t.serialize();
+	return saved.solves == 0 && !Object.keys(saved.seen).length &&
+		!Object.keys(saved.unlocked).length;
+})());
+step(t, ['zbll']);
+check('achievements can unlock again after reset',
+	t.progress('zbll').cur == 1 && t.state().seen.zbll == 1);
+
 // ------------------------------------------------- custom achievement API
 copilot.registerAchievement({
 	key: 'solve10',
