@@ -2903,7 +2903,8 @@ function makeCubeCopilot() {
 			if (ACHIEVEMENT_UNLOCK_ORDER.indexOf(def.key) < 0) {
 				ACHIEVEMENT_UNLOCK_ORDER.push(def.key);
 			}
-			if (ACHIEVEMENT_PANEL_ORDER.indexOf(def.key) < 0) {
+			if (def.panel !== false &&
+					ACHIEVEMENT_PANEL_ORDER.indexOf(def.key) < 0) {
 				ACHIEVEMENT_PANEL_ORDER.push(def.key);
 			}
 		}
@@ -2928,16 +2929,94 @@ function makeCubeCopilot() {
 		return TECHNIQUE_KEYS.slice();
 	}
 
+	function methodCountOf(mask) {
+		var n = 0;
+		for (var i = 0; i < 4; i++) {
+			if (~~mask & (1 << i)) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	function registerStageFamily(family, group, stages) {
+		stages.forEach(function(s, i) {
+			registerAchievement({
+				key: s.key || family + (i + 1),
+				group: group,
+				family: family,
+				tier: i + 1,
+				prev: i ? (stages[i - 1].key || family + i) : '',
+				titleKey: s.titleKey,
+				title: s.title,
+				descKey: s.descKey || ('COPILOT_ACH_' + family.toUpperCase() + '_D'),
+				desc: s.desc,
+				param: s.param,
+				color: s.color || (i == 0 ? 'green' : (i == 1 ? 'blue' : 'gold')),
+				panel: false,
+				secret: !!s.secret,
+				check: s.check,
+				progress: s.progress,
+				stat: s.stat,
+				target: s.target
+			});
+		});
+	}
+
 	// ---------------------------------------------------- built-in catalog
 	// Registration order is also the toast priority.
 	registerAchievement({
 		key: 'codex',
 		group: 'challenge',
+		family: 'codex',
+		tier: 1,
 		check: function(ctx) {
 			return ctx.seenCount >= ctx.requiredCount;
 		},
 		progress: function(st) {
 			return {cur: seenTechniqueCount(st), target: TECHNIQUE_KEYS.length};
+		}
+	});
+	registerAchievement({
+		key: 'codex2',
+		group: 'challenge',
+		family: 'codex',
+		tier: 2,
+		prev: 'codex',
+		titleKey: 'COPILOT_ACH_CODEX',
+		title: 'Codex Master',
+		descKey: 'COPILOT_ACH_CODEX2_D',
+		desc: 'Collect every technique and use %s different 3x3 methods',
+		param: 3,
+		color: 'blue',
+		panel: false,
+		check: function(ctx) {
+			return ctx.seenCount >= ctx.requiredCount &&
+				methodCountOf(ctx.st.methods) >= 3;
+		},
+		progress: function(st) {
+			return {cur: Math.min(methodCountOf(st.methods), 3), target: 3};
+		}
+	});
+	registerAchievement({
+		key: 'codex3',
+		group: 'challenge',
+		family: 'codex',
+		tier: 3,
+		prev: 'codex2',
+		titleKey: 'COPILOT_ACH_CODEX',
+		title: 'Codex Master',
+		descKey: 'COPILOT_ACH_CODEX3_D',
+		desc: 'Collect every technique and use all %s 3x3 methods',
+		param: 4,
+		color: 'gold',
+		panel: false,
+		check: function(ctx) {
+			return ctx.seenCount >= ctx.requiredCount &&
+				methodCountOf(ctx.st.methods) >= 4;
+		},
+		progress: function(st) {
+			return {cur: Math.min(methodCountOf(st.methods), 4), target: 4};
 		}
 	});
 	registerAchievement({
@@ -3019,6 +3098,268 @@ function makeCubeCopilot() {
 		target: 3
 	});
 
+	registerStageFamily('solves', 'milestone', [
+		{key: 'solves1', titleKey: 'COPILOT_ACH_SOLVES1', title: 'First Steps',
+			descKey: 'COPILOT_ACH_SOLVES_D', desc: 'Complete %s solves',
+			param: 1, stat: 'solves', target: 1},
+		{key: 'solves2', titleKey: 'COPILOT_ACH_SOLVES2', title: 'Forged in Practice',
+			descKey: 'COPILOT_ACH_SOLVES_D', desc: 'Complete %s solves',
+			param: 100, stat: 'solves', target: 100},
+		{key: 'solves3', titleKey: 'COPILOT_ACH_SOLVES3', title: 'Thousand Trials',
+			descKey: 'COPILOT_ACH_SOLVES_D', desc: 'Complete %s solves',
+			param: 1000, stat: 'solves', target: 1000}
+	]);
+
+	registerStageFamily('best', 'milestone', [
+		{titleKey: 'COPILOT_ACH_BEST', title: 'Limit Breaker',
+			descKey: 'COPILOT_ACH_BEST_D', desc: 'Finish a solve under %s seconds',
+			param: 30, check: function(ctx) {
+				return ctx.st.best > 0 && ctx.st.best <= 30000;
+			}, progress: function(st) {
+				return {cur: st.best > 0 && st.best <= 30000 ? 1 : 0, target: 1};
+			}},
+		{titleKey: 'COPILOT_ACH_BEST', title: 'Limit Breaker',
+			descKey: 'COPILOT_ACH_BEST_D', desc: 'Finish a solve under %s seconds',
+			param: 20, check: function(ctx) {
+				return ctx.st.best > 0 && ctx.st.best <= 20000;
+			}, progress: function(st) {
+				return {cur: st.best > 0 && st.best <= 20000 ? 1 : 0, target: 1};
+			}},
+		{titleKey: 'COPILOT_ACH_BEST', title: 'Limit Breaker',
+			descKey: 'COPILOT_ACH_BEST_D', desc: 'Finish a solve under %s seconds',
+			param: 15, check: function(ctx) {
+				return ctx.st.best > 0 && ctx.st.best <= 15000;
+			}, progress: function(st) {
+				return {cur: st.best > 0 && st.best <= 15000 ? 1 : 0, target: 1};
+			}}
+	]);
+
+	registerStageFamily('streak', 'milestone', [
+		{titleKey: 'COPILOT_ACH_STREAK', title: 'Practice Makes Perfect',
+			descKey: 'COPILOT_ACH_STREAK_D', desc: 'Practice on %s consecutive days',
+			param: 3, stat: 'bestStreak', target: 3},
+		{titleKey: 'COPILOT_ACH_STREAK', title: 'Practice Makes Perfect',
+			descKey: 'COPILOT_ACH_STREAK_D', desc: 'Practice on %s consecutive days',
+			param: 7, stat: 'bestStreak', target: 7},
+		{titleKey: 'COPILOT_ACH_STREAK', title: 'Practice Makes Perfect',
+			descKey: 'COPILOT_ACH_STREAK_D', desc: 'Practice on %s consecutive days',
+			param: 30, stat: 'bestStreak', target: 30}
+	]);
+
+	function volumeProgress(st, solvesTarget, msTarget) {
+		var fromTime = Math.floor(st.dayMs / msTarget * solvesTarget);
+		return {
+			cur: Math.min(solvesTarget, Math.max(st.daySolves, fromTime)),
+			target: solvesTarget
+		};
+	}
+	registerStageFamily('volume', 'milestone', [
+		{titleKey: 'COPILOT_ACH_VOLUME', title: 'Sleepless Night',
+			descKey: 'COPILOT_ACH_VOLUME_D',
+			desc: 'Complete %s solves or spend %s minutes in one day',
+			param: [50, 60], check: function(ctx) {
+				return ctx.st.daySolves >= 50 || ctx.st.dayMs >= 3600000;
+			}, progress: function(st) {
+				return volumeProgress(st, 50, 3600000);
+			}},
+		{titleKey: 'COPILOT_ACH_VOLUME', title: 'Sleepless Night',
+			descKey: 'COPILOT_ACH_VOLUME_D',
+			desc: 'Complete %s solves or spend %s minutes in one day',
+			param: [100, 120], check: function(ctx) {
+				return ctx.st.daySolves >= 100 || ctx.st.dayMs >= 7200000;
+			}, progress: function(st) {
+				return volumeProgress(st, 100, 7200000);
+			}},
+		{titleKey: 'COPILOT_ACH_VOLUME', title: 'Sleepless Night',
+			descKey: 'COPILOT_ACH_VOLUME_D',
+			desc: 'Complete %s solves or spend %s minutes in one day',
+			param: [200, 240], check: function(ctx) {
+				return ctx.st.daySolves >= 200 || ctx.st.dayMs >= 14400000;
+			}, progress: function(st) {
+				return volumeProgress(st, 200, 14400000);
+			}}
+	]);
+
+	registerStageFamily('llskip', 'luck', [
+		{titleKey: 'COPILOT_ACH_LLSKIP', title: 'Chosen One',
+			descKey: 'COPILOT_ACH_LLSKIP_D', desc: 'Trigger %s last-layer skips',
+			param: 1, stat: 'llskip', target: 1},
+		{titleKey: 'COPILOT_ACH_LLSKIP', title: 'Chosen One',
+			descKey: 'COPILOT_ACH_LLSKIP_D', desc: 'Trigger %s last-layer skips',
+			param: 2, stat: 'llskip', target: 2},
+		{titleKey: 'COPILOT_ACH_LLSKIP', title: 'Chosen One',
+			descKey: 'COPILOT_ACH_LLSKIP_D', desc: 'Trigger %s last-layer skips',
+			param: 3, stat: 'llskip', target: 3}
+	]);
+
+	registerStageFamily('luck', 'luck', [
+		{titleKey: 'COPILOT_ACH_LUCK', title: 'Lucky Streak',
+			descKey: 'COPILOT_ACH_LUCK_D',
+			desc: 'Get an OLL/PLL skip in %s solves in a row',
+			param: 2, stat: 'luckStreak', target: 2},
+		{titleKey: 'COPILOT_ACH_LUCK', title: 'Lucky Streak',
+			descKey: 'COPILOT_ACH_LUCK_D',
+			desc: 'Get an OLL/PLL skip in %s solves in a row',
+			param: 3, stat: 'luckStreak', target: 3},
+		{titleKey: 'COPILOT_ACH_LUCK', title: 'Lucky Streak',
+			descKey: 'COPILOT_ACH_LUCK_D',
+			desc: 'Get an OLL/PLL skip in %s solves in a row',
+			param: 5, stat: 'luckStreak', target: 5}
+	]);
+
+	registerStageFamily('open', 'luck', [
+		{titleKey: 'COPILOT_ACH_OPEN', title: 'Perfect Opening',
+			descKey: 'COPILOT_ACH_OPEN_D',
+			desc: 'Finish the first two F2L pairs without a pause in %s seconds',
+			param: 20, check: function(ctx) {
+				return ctx.st.openBest > 0 && ctx.st.openBest <= 20000;
+			}, progress: function(st) {
+				return {cur: st.openBest > 0 && st.openBest <= 20000 ? 1 : 0,
+					target: 1};
+			}},
+		{titleKey: 'COPILOT_ACH_OPEN', title: 'Perfect Opening',
+			descKey: 'COPILOT_ACH_OPEN_D',
+			desc: 'Finish the first two F2L pairs without a pause in %s seconds',
+			param: 12, check: function(ctx) {
+				return ctx.st.openBest > 0 && ctx.st.openBest <= 12000;
+			}, progress: function(st) {
+				return {cur: st.openBest > 0 && st.openBest <= 12000 ? 1 : 0,
+					target: 1};
+			}},
+		{titleKey: 'COPILOT_ACH_OPEN', title: 'Perfect Opening',
+			descKey: 'COPILOT_ACH_OPEN_D',
+			desc: 'Finish the first two F2L pairs without a pause in %s seconds',
+			param: 7, check: function(ctx) {
+				return ctx.st.openBest > 0 && ctx.st.openBest <= 7000;
+			}, progress: function(st) {
+				return {cur: st.openBest > 0 && st.openBest <= 7000 ? 1 : 0,
+					target: 1};
+			}}
+	]);
+
+	registerStageFamily('lastmove', 'luck', [
+		{titleKey: 'COPILOT_ACH_LASTMOVE', title: 'Heavenly Finish',
+			descKey: 'COPILOT_ACH_LASTMOVE_D',
+			desc: 'Solve with a seamless final move %s times',
+			param: 1, stat: 'lastmove', target: 1},
+		{titleKey: 'COPILOT_ACH_LASTMOVE', title: 'Heavenly Finish',
+			descKey: 'COPILOT_ACH_LASTMOVE_D',
+			desc: 'Solve with a seamless final move %s times',
+			param: 3, stat: 'lastmove', target: 3},
+		{titleKey: 'COPILOT_ACH_LASTMOVE', title: 'Heavenly Finish',
+			descKey: 'COPILOT_ACH_LASTMOVE_D',
+			desc: 'Solve with a seamless final move %s times',
+			param: 10, stat: 'lastmove', target: 10}
+	]);
+
+	registerStageFamily('choke', 'fun', [
+		{titleKey: 'COPILOT_ACH_CHOKE', title: 'So Close',
+			descKey: 'COPILOT_ACH_CHOKE_D',
+			desc: 'Break the last layer, rebuild F2L, then solve %s times',
+			param: 1, stat: 'choke', target: 1},
+		{titleKey: 'COPILOT_ACH_CHOKE', title: 'So Close',
+			descKey: 'COPILOT_ACH_CHOKE_D',
+			desc: 'Break the last layer, rebuild F2L, then solve %s times',
+			param: 3, stat: 'choke', target: 3},
+		{titleKey: 'COPILOT_ACH_CHOKE', title: 'So Close',
+			descKey: 'COPILOT_ACH_CHOKE_D',
+			desc: 'Break the last layer, rebuild F2L, then solve %s times',
+			param: 10, stat: 'choke', target: 10}
+	]);
+
+	registerStageFamily('elegant', 'fun', [
+		{titleKey: 'COPILOT_ACH_ELEGANT', title: 'Elegance Never Dies',
+			descKey: 'COPILOT_ACH_ELEGANT_D',
+			desc: 'Keep every pause under one second for %s solves',
+			param: 1, stat: 'elegant', target: 1},
+		{titleKey: 'COPILOT_ACH_ELEGANT', title: 'Elegance Never Dies',
+			descKey: 'COPILOT_ACH_ELEGANT_D',
+			desc: 'Keep every pause under one second for %s solves',
+			param: 3, stat: 'elegant', target: 3},
+		{titleKey: 'COPILOT_ACH_ELEGANT', title: 'Elegance Never Dies',
+			descKey: 'COPILOT_ACH_ELEGANT_D',
+			desc: 'Keep every pause under one second for %s solves',
+			param: 10, stat: 'elegant', target: 10}
+	]);
+
+	registerStageFamily('onehand', 'fun', [
+		{titleKey: 'COPILOT_ACH_OH', title: 'Both Hands Tied',
+			descKey: 'COPILOT_ACH_OH_D', desc: 'Complete %s one-handed solves',
+			param: 1, stat: 'onehand', target: 1},
+		{titleKey: 'COPILOT_ACH_OH', title: 'Both Hands Tied',
+			descKey: 'COPILOT_ACH_OH_D', desc: 'Complete %s one-handed solves',
+			param: 5, stat: 'onehand', target: 5},
+		{titleKey: 'COPILOT_ACH_OH', title: 'Both Hands Tied',
+			descKey: 'COPILOT_ACH_OH_D', desc: 'Complete %s one-handed solves',
+			param: 20, stat: 'onehand', target: 20}
+	]);
+
+	registerStageFamily('roux', 'breadth', [
+		{titleKey: 'COPILOT_ACH_ROUX', title: 'Bridge Builder',
+			descKey: 'COPILOT_ACH_ROUX_D', desc: 'Complete %s Roux solves',
+			param: 1, stat: 'roux', target: 1},
+		{titleKey: 'COPILOT_ACH_ROUX', title: 'Bridge Builder',
+			descKey: 'COPILOT_ACH_ROUX_D', desc: 'Complete %s Roux solves',
+			param: 5, stat: 'roux', target: 5},
+		{titleKey: 'COPILOT_ACH_ROUX', title: 'Bridge Builder',
+			descKey: 'COPILOT_ACH_ROUX_D', desc: 'Complete %s Roux solves',
+			param: 20, stat: 'roux', target: 20}
+	]);
+
+	registerStageFamily('zz', 'breadth', [
+		{titleKey: 'COPILOT_ACH_ZZ', title: 'EO Maniac',
+			descKey: 'COPILOT_ACH_ZZ_D', desc: 'Complete %s ZZ solves',
+			param: 1, stat: 'zz', target: 1},
+		{titleKey: 'COPILOT_ACH_ZZ', title: 'EO Maniac',
+			descKey: 'COPILOT_ACH_ZZ_D', desc: 'Complete %s ZZ solves',
+			param: 5, stat: 'zz', target: 5},
+		{titleKey: 'COPILOT_ACH_ZZ', title: 'EO Maniac',
+			descKey: 'COPILOT_ACH_ZZ_D', desc: 'Complete %s ZZ solves',
+			param: 20, stat: 'zz', target: 20}
+	]);
+
+	registerStageFamily('lbl', 'breadth', [
+		{titleKey: 'COPILOT_ACH_LBL', title: 'Ancient Scroll',
+			descKey: 'COPILOT_ACH_LBL_D', desc: 'Complete %s LBL / corner-first solves',
+			param: 1, stat: 'lbl', target: 1},
+		{titleKey: 'COPILOT_ACH_LBL', title: 'Ancient Scroll',
+			descKey: 'COPILOT_ACH_LBL_D', desc: 'Complete %s LBL / corner-first solves',
+			param: 5, stat: 'lbl', target: 5},
+		{titleKey: 'COPILOT_ACH_LBL', title: 'Ancient Scroll',
+			descKey: 'COPILOT_ACH_LBL_D', desc: 'Complete %s LBL / corner-first solves',
+			param: 20, stat: 'lbl', target: 20}
+	]);
+
+	registerStageFamily('bld', 'special', [
+		{titleKey: 'COPILOT_ACH_BLD', title: 'Eyes Closed',
+			descKey: 'COPILOT_ACH_BLD_D',
+			desc: 'Complete %s blindfolded solves on the virtual cube',
+			param: 1, stat: 'bld', target: 1},
+		{titleKey: 'COPILOT_ACH_BLD', title: 'Eyes Closed',
+			descKey: 'COPILOT_ACH_BLD_D',
+			desc: 'Complete %s blindfolded solves on the virtual cube',
+			param: 3, stat: 'bld', target: 3},
+		{titleKey: 'COPILOT_ACH_BLD', title: 'Eyes Closed',
+			descKey: 'COPILOT_ACH_BLD_D',
+			desc: 'Complete %s blindfolded solves on the virtual cube',
+			param: 10, stat: 'bld', target: 10}
+	]);
+
+	registerStageFamily('gaze', 'secret', [
+		{titleKey: 'COPILOT_ACH_GAZE', title: "Developer's Gaze",
+			descKey: 'COPILOT_ACH_GAZE_D',
+			desc: 'Rotate the cube %s times in a row',
+			param: 25, stat: 'rotMax', target: 25, secret: true},
+		{titleKey: 'COPILOT_ACH_GAZE', title: "Developer's Gaze",
+			descKey: 'COPILOT_ACH_GAZE_D',
+			desc: 'Rotate the cube %s times in a row',
+			param: 50, stat: 'rotMax', target: 50, secret: true},
+		{titleKey: 'COPILOT_ACH_GAZE', title: "Developer's Gaze",
+			descKey: 'COPILOT_ACH_GAZE_D',
+			desc: 'Rotate the cube %s times in a row',
+			param: 100, stat: 'rotMax', target: 100, secret: true}
+	]);
+
 	// Technique tips are collectible cards.  They unlock silently because
 	// the tip toast itself is the reward.
 	TECHNIQUE_KEYS.forEach(function(key) {
@@ -3092,9 +3433,65 @@ function makeCubeCopilot() {
 				slot: 0,
 				xc: 0,
 				tps: 0,
+				best: 0,
+				bestStreak: 0,
+				streak: 0,
+				day: '',
+				lastDay: '',
+				daySolves: 0,
+				dayMs: 0,
+				llskip: 0,
+				luckStreak: 0,
+				choke: 0,
+				lastmove: 0,
+				elegant: 0,
+				onehand: 0,
+				roux: 0,
+				zz: 0,
+				lbl: 0,
+				bld: 0,
+				methods: 0,
+				openBest: 0,
+				rotMax: 0,
 				seen: {},
 				unlocked: {}
 			};
+		}
+
+		function localDayKey(date) {
+			var m = date.getMonth() + 1;
+			var d = date.getDate();
+			return date.getFullYear() + '-' + (m < 10 ? '0' : '') + m +
+				'-' + (d < 10 ? '0' : '') + d;
+		}
+
+		function dayNumber(key) {
+			var p = String(key || '').split('-');
+			if (p.length != 3) {
+				return NaN;
+			}
+			return Math.round(Date.UTC(~~p[0], ~~p[1] - 1, ~~p[2]) / 86400000);
+		}
+
+		function updateDay(timeMs) {
+			var today = localDayKey(new Date());
+			if (st.day != today) {
+				if (st.lastDay) {
+					st.streak = dayNumber(today) - dayNumber(st.lastDay) == 1 ?
+						st.streak + 1 : 1;
+				} else {
+					st.streak = 1;
+				}
+				st.lastDay = today;
+				st.day = today;
+				st.daySolves = 0;
+				st.dayMs = 0;
+			}
+			st.daySolves++;
+			st.dayMs += Math.max(0, ~~timeMs);
+			if (st.streak > st.bestStreak) {
+				st.bestStreak = st.streak;
+			}
 		}
 
 		function load(obj) {
@@ -3109,6 +3506,26 @@ function makeCubeCopilot() {
 			st.slot = Math.max(0, ~~obj.slot);
 			st.xc = Math.max(0, ~~obj.xc);
 			st.tps = Math.max(0, ~~obj.tps);
+			st.best = Math.max(0, ~~obj.best);
+			st.bestStreak = Math.max(0, ~~obj.bestStreak);
+			st.streak = Math.max(0, ~~obj.streak);
+			st.day = typeof obj.day == 'string' ? obj.day : '';
+			st.lastDay = typeof obj.lastDay == 'string' ? obj.lastDay : '';
+			st.daySolves = Math.max(0, ~~obj.daySolves);
+			st.dayMs = Math.max(0, ~~obj.dayMs);
+			st.llskip = Math.max(0, ~~obj.llskip);
+			st.luckStreak = Math.max(0, ~~obj.luckStreak);
+			st.choke = Math.max(0, ~~obj.choke);
+			st.lastmove = Math.max(0, ~~obj.lastmove);
+			st.elegant = Math.max(0, ~~obj.elegant);
+			st.onehand = Math.max(0, ~~obj.onehand);
+			st.roux = Math.max(0, ~~obj.roux);
+			st.zz = Math.max(0, ~~obj.zz);
+			st.lbl = Math.max(0, ~~obj.lbl);
+			st.bld = Math.max(0, ~~obj.bld);
+			st.methods = Math.max(0, ~~obj.methods) & 15;
+			st.openBest = Math.max(0, ~~obj.openBest);
+			st.rotMax = Math.max(0, ~~obj.rotMax);
 			if (obj.seen && typeof obj.seen == 'object') {
 				Object.keys(obj.seen).forEach(function(key) {
 					if (ACHIEVEMENT_DEF_MAP[key] && obj.seen[key]) {
@@ -3141,12 +3558,53 @@ function makeCubeCopilot() {
 				return !def || def.combo !== false;
 			});
 			st.solves++;
+			var stats = stats || {};
+			var timeMs = Math.max(0, ~~stats.time);
+			if (timeMs && (!st.best || timeMs < st.best)) {
+				st.best = timeMs;
+			}
+			updateDay(timeMs);
+			if (stats.method == 'roux') {
+				st.roux++;
+			} else if (stats.method == 'zz') {
+				st.zz++;
+			} else if (stats.method == 'lbl') {
+				st.lbl++;
+			}
+			if (stats.method) {
+				st.methods |= ({cfop: 1, roux: 2, zz: 4, lbl: 8})[stats.method] || 0;
+			}
+			if (stats.oh) {
+				st.onehand++;
+			}
+			if (stats.bld && stats.virtual) {
+				st.bld++;
+			}
+			if (stats.choke) {
+				st.choke++;
+			}
+			if (stats.lastGap > 0 && stats.lastGap <= 300) {
+				st.lastmove++;
+			}
+			if (stats.maxGap > 0 && stats.maxGap <= 1000) {
+				st.elegant++;
+			}
+			if (stats.openFlow && stats.openMs > 0 &&
+					(!st.openBest || stats.openMs < st.openBest)) {
+				st.openBest = stats.openMs;
+			}
+			st.rotMax = Math.max(st.rotMax, ~~stats.rotRun);
+			if (has.llskip) {
+				st.llskip++;
+			}
+			st.luckStreak = (has.ollskip || has.pll || has.epll) ?
+				st.luckStreak + 1 : 0;
 			var ctx = {
 				st: st,
 				has: has,
 				uniq: all,
 				comboKeys: comboKeys,
-				stats: stats || {},
+				stats: stats,
 				seenCount: seenTechniqueCount(st),
 				requiredCount: TECHNIQUE_KEYS.length
 			};
@@ -3155,7 +3613,8 @@ function makeCubeCopilot() {
 			});
 			ACHIEVEMENT_UNLOCK_ORDER.forEach(function(key) {
 				var def = ACHIEVEMENT_DEF_MAP[key];
-				if (def && !st.unlocked[key] && def.check(ctx)) {
+				if (def && !st.unlocked[key] &&
+						(!def.prev || st.unlocked[def.prev]) && def.check(ctx)) {
 					st.unlocked[key] = 1;
 					ev.push({key: key});
 				}
@@ -3167,6 +3626,9 @@ function makeCubeCopilot() {
 			var def = achievementDef(key);
 			if (!def) {
 				return {cur: 0, target: 1};
+			}
+			if (def.prev && !st.unlocked[def.prev]) {
+				return {cur: 0, target: def.target || 1};
 			}
 			if (typeof def.progress == 'function') {
 				return def.progress(st);
@@ -3202,6 +3664,26 @@ function makeCubeCopilot() {
 				slot: st.slot,
 				xc: st.xc,
 				tps: st.tps,
+				best: st.best,
+				bestStreak: st.bestStreak,
+				streak: st.streak,
+				day: st.day,
+				lastDay: st.lastDay,
+				daySolves: st.daySolves,
+				dayMs: st.dayMs,
+				llskip: st.llskip,
+				luckStreak: st.luckStreak,
+				choke: st.choke,
+				lastmove: st.lastmove,
+				elegant: st.elegant,
+				onehand: st.onehand,
+				roux: st.roux,
+				zz: st.zz,
+				lbl: st.lbl,
+				bld: st.bld,
+				methods: st.methods,
+				openBest: st.openBest,
+				rotMax: st.rotMax,
 				seen: seen,
 				unlocked: unlocked
 			};

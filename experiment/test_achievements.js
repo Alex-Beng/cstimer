@@ -46,11 +46,16 @@ function check(name, cond) {
 }
 
 function tracker() {
-	return copilot.makeAchievementTracker();
+	var t = copilot.makeAchievementTracker();
+	// Most assertions below test one rule in isolation.  Pretend the very
+	// first solve is already history so the staged "first solve" card does
+	// not add an unrelated event to every fresh tracker.
+	t.load({solves: 1, unlocked: {solves1: 1}});
+	return t;
 }
 
-function step(t, keys) {
-	return t.step(keys).map(function(ev) {
+function step(t, keys, stats) {
+	return t.step(keys, stats).map(function(ev) {
 		return ev.key;
 	});
 }
@@ -195,6 +200,49 @@ step(t, ['zbll']);
 check('achievements can unlock again after reset',
 	t.progress('zbll').cur == 1 && t.state().seen.zbll == 1);
 
+// ------------------------------------------------------- staged milestones
+t = copilot.makeAchievementTracker();
+var first = step(t, [], {time: 15000});
+check('the first solve unlocks its first stage', has(first, 'solves1'));
+check('one fast solve unlocks the best-time stages',
+	has(first, 'best1') && has(first, 'best2') && has(first, 'best3'));
+
+t = copilot.makeAchievementTracker();
+t.load({solves: 100, unlocked: {}});
+check('a later stage is hidden before its predecessor',
+	t.progress('solves2').cur == 0 && t.progress('solves3').cur == 0);
+var staged = step(t, []);
+check('stages unlock in order',
+	staged.indexOf('solves1') >= 0 &&
+	staged.indexOf('solves1') < staged.indexOf('solves2'));
+
+t = tracker();
+var yesterday = new Date();
+yesterday.setDate(yesterday.getDate() - 1);
+var y = yesterday.getFullYear();
+var m = yesterday.getMonth() + 1;
+var d = yesterday.getDate();
+var yKey = y + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d;
+t.load({solves: 1, unlocked: {solves1: 1}, streak: 2, bestStreak: 2,
+	lastDay: yKey});
+check('daily practice streak advances',
+	has(step(t, [], {time: 10000}), 'streak1'));
+
+t = tracker();
+step(t, [], {time: 10000, method: 'roux', oh: true});
+check('method and one-handed counters update',
+	t.state().roux == 1 && t.state().onehand == 1 &&
+	(t.state().methods & 2) != 0);
+
+t = tracker();
+step(t, [], {time: 10000, bld: true, virtual: true});
+check('virtual blind solves are counted', t.state().bld == 1);
+
+t = tracker();
+step(t, ['ollskip']);
+check('a lucky skip starts a streak',
+	has(step(t, ['pll']), 'luck1') && t.state().luckStreak == 2);
+
 // ------------------------------------------------- custom achievement API
 copilot.registerAchievement({
 	key: 'solve10',
@@ -203,7 +251,7 @@ copilot.registerAchievement({
 	target: 10
 });
 t = tracker();
-for (var si = 0; si < 9; si++) {
+for (var si = 0; si < 8; si++) {
 	step(t, []);
 }
 check('a custom achievement unlocks through its config',

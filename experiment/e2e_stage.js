@@ -706,6 +706,7 @@ var server = http.createServer(function(req, res) {
 				open: box.hasClass('cp-book-open'),
 				count: box.find('.cp-book-card').length,
 				resetBtn: box.find('.cp-book-reset').length,
+				locked: box.find('.cp-book-card.cp-book-locked').length,
 				names: box.find('.cp-book-card-name').map(function() {
 					return $(this).text();
 				}).get(),
@@ -799,10 +800,20 @@ var server = http.createServer(function(req, res) {
 	if (book.all.resetBtn != 1) {
 		fail('achievement browser has no reset-all button');
 	}
+	if (book.all.locked < 1 ||
+			book.all.names.join('|').indexOf('???') < 0) {
+		fail('locked stage cards are not hidden: ' + JSON.stringify(book.all));
+	}
+	if (book.all.names.join('|').indexOf('II · Limit Breaker') < 0) {
+		fail('unlocked stage I did not reveal stage II');
+	}
 	if (book.all.groups.join('|').indexOf('Advanced techniques') < 0 ||
 			book.all.groups.join('|').indexOf('Combos') < 0 ||
 			book.all.groups.join('|').indexOf('Speed') < 0 ||
-			book.all.groups.join('|').indexOf('Challenges') < 0) {
+			book.all.groups.join('|').indexOf('Challenges') < 0 ||
+			book.all.groups.join('|').indexOf('Milestones') < 0 ||
+			book.all.groups.join('|').indexOf('Luck') < 0 ||
+			book.all.groups.join('|').indexOf('Methods') < 0) {
 		fail('achievement browser groups: ' + book.all.groups.join('|'));
 	}
 	['ZBLL', 'TPS 10', 'Lightspeed', 'Four-Way F2L'].forEach(function(name) {
@@ -827,8 +838,9 @@ var server = http.createServer(function(req, res) {
 			book.metaPreview.kicker.toLowerCase().indexOf('preview') < 0) {
 		fail('achievement preview: ' + JSON.stringify(book.metaPreview));
 	}
-	if (!book.afterReset.ok || book.afterReset.count != '0/37' ||
-			book.afterReset.summary.indexOf('0/37') < 0) {
+	var total = book.all.countText.split('/')[1];
+	if (!book.afterReset.ok || book.afterReset.count != '0/' + total ||
+			book.afterReset.summary.indexOf('0/' + total) < 0) {
 		fail('achievement reset: ' + JSON.stringify(book.afterReset));
 	}
 	if (!book.closed) {

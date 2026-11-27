@@ -191,10 +191,20 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var techFacelets = [];
 	var techPairMask = 0;
 	var techFlow = 0;
+	var techFlowCF = false;
+	var techFlowFF = false;
 	var techBasic = 0;
 	var techMoveTs = [];
 	var techTpsMax = 0;
 	var techTpsTier = 0;
+	var techSolveStart = 0;
+	var techOpenMs = 0;
+	var techSawLL = false;
+	var techChoke = false;
+	var techLastGap = 0;
+	var techMaxGap = 0;
+	var techRotRun = 0;
+	var techRotMax = 0;
 	var techRotated = false;
 	var techNorotDone = false;
 	var techUseMoves = false;
@@ -679,7 +689,22 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'    box-shadow: inset 0 0 0 1px var(--cp-card-accent), 0 0 18px rgba(255, 213, 74, 0.12);',
 		'}',
 		'.cp-book-card-name { font-weight: bold; color: var(--cp-card-accent); margin-bottom: 0.15rem; }',
+		'.cp-book-tier {',
+		'    display: inline-block;',
+		'    min-width: 1.35em;',
+		'    margin-right: 0.3em;',
+		'    padding: 0 0.28em;',
+		'    border-radius: 0.3em;',
+		'    background: rgba(255, 255, 255, 0.12);',
+		'    color: rgba(255, 255, 255, 0.9);',
+		'    font-size: 0.72em;',
+		'    text-align: center;',
+		'    vertical-align: 0.08em;',
+		'}',
 		'.cp-book-card-desc { font-size: 0.82rem; line-height: 1.3; color: rgba(255, 255, 255, 0.75); overflow-wrap: anywhere; }',
+		'.cp-book-card.cp-book-locked { opacity: 0.38; cursor: default; }',
+		'.cp-book-card.cp-book-locked:hover { opacity: 0.38; transform: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }',
+		'.cp-book-card.cp-book-locked::before { opacity: 0.3; }',
 		'.cp-book-card-prog {',
 		'    position: absolute;',
 		'    right: 0.7rem;',
@@ -1560,6 +1585,25 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return STAGE_PLANS[mp] ? mp : '';
 	}
 
+	function isBlindScramble() {
+		return /^(333ni|444bld|555bld|r3ni)$/.test(
+			kernel.getProp('scrType', '333'));
+	}
+
+	function solveMethod(scrType) {
+		if (stagePlan() == 'roux' || scrType == 'roux' ||
+				hintMethod() == 'roux') {
+			return 'roux';
+		}
+		if (/^(eoline|eocross)$/.test(scrType)) {
+			return 'zz';
+		}
+		if (hintMethod() == 'lbl' || /corner/i.test(scrType)) {
+			return 'lbl';
+		}
+		return 'cfop';
+	}
+
 	function buildStageChips(plan) {
 		if (plan == stagePlanKey) {
 			return false;
@@ -1812,6 +1856,40 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return ACH_META[key] || ['', key, '', '', 'gold'];
 	}
 
+	function achDef(key) {
+		var defs = achTracker.catalog();
+		for (var i = 0; i < defs.length; i++) {
+			if (defs[i].key == key) {
+				return defs[i];
+			}
+		}
+		return null;
+	}
+
+	function achDescText(def) {
+		var desc = L(def.descKey, def.desc || '');
+		if (def.param !== undefined) {
+			var vals = def.param instanceof Array ? def.param : [def.param];
+			var n = 0;
+			desc = desc.replace(/%s/g, function() {
+				return vals[Math.min(n++, vals.length - 1)];
+			});
+		}
+		return desc;
+	}
+
+	function achHidden(key) {
+		var def = achDef(key);
+		if (!def) {
+			return false;
+		}
+		if (def.secret && def.tier == 1 &&
+				!achTracker.state().unlocked[key]) {
+			return true;
+		}
+		return !!(def.prev && !achTracker.state().unlocked[def.prev]);
+	}
+
 	function achTotals() {
 		var total = 0;
 		var done = 0;
@@ -1850,13 +1928,24 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	/** unified presentation info for meta achievements and technique tips */
 	function achUiInfo(key) {
+		var def = achDef(key);
 		var meta = ACH_META[key];
 		if (meta) {
 			return {
 				name: L(meta[0], meta[1]),
 				desc: L(meta[2], meta[3]),
 				color: meta[4] || 'gold',
-				tip: false
+				tip: false,
+				def: def
+			};
+		}
+		if (def && def.titleKey) {
+			return {
+				name: L(def.titleKey, def.title || key),
+				desc: achDescText(def),
+				color: def.color || 'gold',
+				tip: false,
+				def: def
 			};
 		}
 		if (TECH_TEXT[key]) {
@@ -1869,21 +1958,22 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				name: parts.label || TECH_LABELS[key] || key,
 				desc: parts.desc,
 				color: TECH_COLORS[key] || 'green',
-				tip: true
+				tip: true,
+				def: def
 			};
 		}
-		return {name: key, desc: '', color: 'green', tip: false};
+		return {name: key, desc: '', color: 'green', tip: false, def: def};
 	}
 
 	function showAchToast(key, preview) {
-		var meta = achMeta(key);
+		var info = achUiInfo(key);
 		achKicker.text(preview ?
 			L('COPILOT_ACH_PREVIEW', 'ACHIEVEMENT PREVIEW') :
 			L('COPILOT_ACH_UNLOCK', 'ACHIEVEMENT UNLOCKED'));
-		achLabel.text(L(meta[0], meta[1]));
-		achDesc.text(L(meta[2], meta[3]));
-		achToast[0].style.setProperty('--cp-ach-accent', achAccent(meta[4]));
-		achToast[0].style.setProperty('--cp-ach-glow', achGlow(meta[4]));
+		achLabel.text(info.name);
+		achDesc.text(info.desc);
+		achToast[0].style.setProperty('--cp-ach-accent', achAccent(info.color));
+		achToast[0].style.setProperty('--cp-ach-glow', achGlow(info.color));
 		achToast.toggleClass('cp-ach-preview', !!preview);
 		achToast.removeClass('cp-ach-out cp-ach-in');
 		void achToast[0].offsetWidth;
@@ -2023,6 +2113,24 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	// ---------------------------------------------------- achievement browser
 
 	function achGroupLabel(group) {
+		if (group == 'milestone') {
+			return L('COPILOT_ACH_GROUP_MILESTONE', 'Milestones');
+		}
+		if (group == 'luck') {
+			return L('COPILOT_ACH_GROUP_LUCK', 'Luck');
+		}
+		if (group == 'fun') {
+			return L('COPILOT_ACH_GROUP_FUN', 'Style');
+		}
+		if (group == 'breadth') {
+			return L('COPILOT_ACH_GROUP_BREADTH', 'Methods');
+		}
+		if (group == 'special') {
+			return L('COPILOT_ACH_GROUP_SPECIAL', 'Special');
+		}
+		if (group == 'secret') {
+			return L('COPILOT_ACH_GROUP_SECRET', 'Secrets');
+		}
 		if (group == 'technique') {
 			return L('COPILOT_ACH_GROUP_TECH', 'Advanced techniques');
 		}
@@ -2036,7 +2144,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function previewAch(key) {
-		if (!key) {
+		if (!key || achHidden(key)) {
 			return;
 		}
 		var info = achUiInfo(key);
@@ -2084,7 +2192,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		var defs = achTracker.catalog();
 		var totals = achTotals();
 		achBookCount.text(totals.done + '/' + totals.total);
-		var groups = ['technique', 'combo', 'speed', 'challenge'];
+		var groups = ['milestone', 'luck', 'fun', 'breadth', 'special',
+			'secret', 'technique', 'combo', 'speed', 'challenge'];
 		if (achBookFilter != 'all') {
 			groups = [achBookFilter];
 		}
@@ -2102,17 +2211,30 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				var info = achUiInfo(def.key);
 				var pr = achTracker.progress(def.key);
 				var ok = pr.cur >= pr.target;
+				var hidden = achHidden(def.key);
+				var name = $('<div class="cp-book-card-name"/>');
+				if (def.tier) {
+					name.append(
+						$('<span class="cp-book-tier"/>').text(
+							(['I', 'II', 'III'][def.tier - 1] || def.tier) + ' · '
+						)
+					);
+				}
+				name.append($('<span/>').text(hidden ? '???' : info.name));
 				achBookGrid.append(
 					$('<div class="cp-book-card"/>')
 						.attr('data-key', def.key)
 						.toggleClass('cp-book-done', ok)
 						.toggleClass('cp-book-tip', !!info.tip)
+						.toggleClass('cp-book-locked', hidden)
 						.css('--cp-card-accent', achAccent(info.color))
 						.append(
-							$('<div class="cp-book-card-name"/>').text(info.name),
-							$('<div class="cp-book-card-desc"/>').text(info.desc),
+							name,
+							$('<div class="cp-book-card-desc"/>').text(
+								hidden ? '???' : info.desc
+							),
 							$('<div class="cp-book-card-prog"/>').text(
-								ok ? '✓' : pr.cur + '/' + pr.target
+								hidden ? '' : (ok ? '✓' : pr.cur + '/' + pr.target)
 							)
 						)
 				);
@@ -2144,6 +2266,12 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		achBookTabs = $('<div class="cp-book-tabs"/>');
 		[
 			['all', L('COPILOT_ACH_ALL', 'All')],
+			['milestone', L('COPILOT_ACH_GROUP_MILESTONE', 'Milestones')],
+			['luck', L('COPILOT_ACH_GROUP_LUCK', 'Luck')],
+			['fun', L('COPILOT_ACH_GROUP_FUN', 'Style')],
+			['breadth', L('COPILOT_ACH_GROUP_BREADTH', 'Methods')],
+			['special', L('COPILOT_ACH_GROUP_SPECIAL', 'Special')],
+			['secret', L('COPILOT_ACH_GROUP_SECRET', 'Secrets')],
 			['technique', L('COPILOT_ACH_GROUP_TECH', 'Techniques')],
 			['combo', L('COPILOT_ACH_GROUP_COMBO', 'Combos')],
 			['speed', L('COPILOT_ACH_GROUP_SPEED', 'Speed')],
@@ -2195,62 +2323,76 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		techToast.css('z-index', '');
 	}
 
-	function finishTechniques() {
-		if (!techSteps) {
-			return;
+	function solveTotalMs(times) {
+		if (!times) {
+			return 0;
 		}
-		var plan = stagePlan();
-		if (plan == 'roux') {
-			return;
+		if (typeof times[1] == 'number' && times[1] > 0) {
+			return times[1];
 		}
-		var keys = [];
-		for (var i = 0; i < techAch.length; i++) {
-			if (techAch[i].key != 'norot') {
-				keys.push(techAch[i].key);
-			}
-		}
-		var evs = achTracker.step(keys, {
+		return (typeof times[0] == 'number' && times[0] > 0) ? times[0] : 0;
+	}
+
+	function buildSolveStats(totalMs) {
+		var scrType = kernel.getProp('scrType', '333');
+		var bld = isBlindScramble();
+		return {
+			time: totalMs,
 			flow: techFlow,
 			basic: techBasic,
 			tps: techTpsMax,
-			norot: techNorotDone
-		});
+			norot: techNorotDone,
+			openMs: techOpenMs,
+			openFlow: !!(techFlowCF && techFlowFF),
+			lastGap: techLastGap,
+			maxGap: techMaxGap,
+			choke: techChoke,
+			rotRun: techRotMax,
+			method: bld ? '' : solveMethod(scrType),
+			oh: /^333oh?$/.test(scrType),
+			bld: bld,
+			virtual: !isSmart && techUseMoves
+		};
+	}
+
+	function finishSolve(times) {
+		var stats = buildSolveStats(solveTotalMs(times));
+		var keys = [];
+		if (stats.method == 'cfop' && !stats.bld && techSteps) {
+			for (var i = 0; i < techAch.length; i++) {
+				if (techAch[i].key != 'norot') {
+					keys.push(techAch[i].key);
+				}
+			}
+		}
+		var evs = achTracker.step(keys, stats);
 		saveAch();
 		refreshAchPanel();
 		refreshComboBadge();
+		if (achBook && achBook.hasClass('cp-book-open')) {
+			renderAchBook();
+		}
 		for (var j = 0; j < evs.length; j++) {
 			queueAch(evs[j].key);
 		}
 	}
 
-	/**
-	 * Single-phase and Roux timers have no CFOP stepper, but a TPS solve is
-	 * still a TPS solve.  Score it without touching the technique keys.
-	 */
-	function finishSpeedAchievements() {
-		var evs = achTracker.step([], {tps: techTpsMax});
-		saveAch();
-		refreshAchPanel();
-		for (var i = 0; i < evs.length; i++) {
-			queueAch(evs[i].key);
-		}
-	}
-
 	function onSolveComplete(times) {
+		var scrType = kernel.getProp('scrType', '333');
 		// relay cubes finish on relaySolve, not on time
-		if (kernel.getProp('scrType', '333') != '333') {
+		if (/^r\d+$/.test(scrType)) {
+			return;
+		}
+		if (tools.getCurPuzzle() != '333') {
 			return;
 		}
 		if (times && typeof times[0] == 'number' && times[0] < 0) {
 			return;
 		}
-		if (!lastSolveSolved || !techSteps) {
-			if (!techSteps && techTpsMax > 0 && techLastProg == 0) {
-				finishSpeedAchievements();
-			}
+		if (!lastSolveSolved && techLastProg != 0) {
 			return;
 		}
-		finishTechniques();
+		finishSolve(times);
 	}
 
 	// ------------------------------------------------- end achievements
@@ -2322,8 +2464,18 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function techStep(facelet, prog) {
-		var sn = {prog: prog, t: $.now()};
+		var now = $.now();
+		var sn = {prog: prog, t: now};
 		techSteps++;
+		if (techSawLL && prog >= 3) {
+			techChoke = true;
+		}
+		if (prog <= 1) {
+			techSawLL = true;
+		}
+		if (!techOpenMs && prog <= 4 && techSolveStart > 0) {
+			techOpenMs = Math.max(1, now - techSolveStart);
+		}
 		if (prog > techMaxProg) {
 			techMaxProg = prog;
 		}
@@ -2350,6 +2502,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			if (evs[i].key.indexOf('flow') == 0) {
 				techFlow++;
 			}
+			if (evs[i].key == 'flowcf') {
+				techFlowCF = true;
+			} else if (evs[i].key == 'flowff') {
+				techFlowFF = true;
+			}
 			onTechEvent(evs[i]);
 		}
 		// Require that no F2L pair was solved at the start, so a nearly
@@ -2371,6 +2528,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	 */
 	function noteTurn(t) {
 		var last = techMoveTs[techMoveTs.length - 1];
+		if (last) {
+			var gap = t - last;
+			techLastGap = gap;
+			if (gap > techMaxGap) {
+				techMaxGap = gap;
+			}
+		}
 		if (last && t - last > 350) {
 			techMoveTs = [];
 		}
@@ -2403,8 +2567,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		if (/^[xyz](2|')?$/.test(move)) {
 			techRotated = true;
+			techRotRun++;
+			if (techRotRun > techRotMax) {
+				techRotMax = techRotRun;
+			}
 			return;
 		}
+		techRotRun = 0;
 		techUseMoves = true;
 		noteTurn($.now());
 	}
@@ -2450,10 +2619,20 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		techFacelets = [];
 		techPairMask = 0;
 		techFlow = 0;
+		techFlowCF = false;
+		techFlowFF = false;
 		techBasic = 0;
 		techMoveTs = [];
 		techTpsMax = 0;
 		techTpsTier = 0;
+		techSolveStart = 0;
+		techOpenMs = 0;
+		techSawLL = false;
+		techChoke = false;
+		techLastGap = 0;
+		techMaxGap = 0;
+		techRotRun = 0;
+		techRotMax = 0;
 		techRotated = false;
 		techNorotDone = false;
 		techUseMoves = false;
@@ -2521,6 +2700,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			stageFacelet = null;
 			lastSolveSolved = false;
 			resetTech();
+			techSolveStart = $.now();
 			var plan = stagePlan();
 			if (plan) {
 				buildStageChips(plan);
@@ -2583,9 +2763,10 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		var plan = stagePlan();
 		// Technique tips are independent of the multi-phase stepper: a
 		// single-phase smart/virtual solve should still report XC/ZBLL/...
-		// just like the TPS tips do.  Roux has no CFOP progress to read.
-		if (plan != 'roux' &&
-				(plan || kernel.getProp('cpMethod', 'cfop') != 'roux')) {
+		// just like the TPS tips do.  Non-CFOP and blind solves have no
+		// CFOP technique progress to read.
+		if (!isBlindScramble() &&
+				solveMethod(kernel.getProp('scrType', '333')) == 'cfop') {
 			techStep(facelet, prog);
 		}
 		if (!plan) {
@@ -3238,7 +3419,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			if (stageArmed && /^r\d+$/.test(kernel.getProp('scrType'))) {
 				// score the cube that just finished before its stepper resets
 				if (stageChips.length && stageIdx >= stageChips.length) {
-					finishTechniques();
+					finishSolve([0, ~~value[3]]);
 				}
 				if (!value[4]) {
 					restartStageForNextCube();
