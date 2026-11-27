@@ -123,6 +123,60 @@ var server = http.createServer(function(req, res) {
 	console.log('tool toggle:', JSON.stringify(toggled));
 	if (toggled.enabled !== true) fail('tool checkbox did not enable cpEnabled');
 
+	// the achievements tool must not open its browser just because the page
+	// loads or a new scramble arrives; only the Browse button should.
+	var achTool = await page.evaluate(function() {
+		var sels = document.querySelectorAll('#toolsDiv select');
+		var found = 0;
+		for (var i = 0; i < sels.length; i++) {
+			for (var j = 0; j < sels[i].options.length; j++) {
+				if (/Copilot (achievements|成就)/.test(sels[i].options[j].textContent || '')) {
+					sels[i].selectedIndex = j;
+					var ev = document.createEvent('HTMLEvents');
+					ev.initEvent('change', true, true);
+					sels[i].dispatchEvent(ev);
+					found++;
+					break;
+				}
+			}
+		}
+		return {found: found};
+	});
+	await page.waitForTimeout(600);
+	if (!achTool.found) fail('achievements tool is missing from the menu');
+
+	var ach = await page.evaluate(async function() {
+		function wait(ms) {
+			return new Promise(function(resolve) {
+				setTimeout(resolve, ms);
+			});
+		}
+		var before = $('#copilotAchBook').hasClass('cp-book-open');
+		kernel.pushSignal('scramble', ['333', "R U R' U' F2 D", 0]);
+		await wait(500);
+		var afterScramble = $('#copilotAchBook').hasClass('cp-book-open');
+		var browse = $('#toolsDiv input[type=button]').filter(function() {
+			return /Browse all|浏览全部/.test(this.value);
+		}).first();
+		browse.click();
+		await wait(200);
+		var afterClick = $('#copilotAchBook').hasClass('cp-book-open');
+		$('#copilotAchBook .cp-book-close').click();
+		await wait(100);
+		return {
+			before: before,
+			afterScramble: afterScramble,
+			afterClick: afterClick,
+			closed: !$('#copilotAchBook').hasClass('cp-book-open')
+		};
+	});
+	console.log('achievements tool:', JSON.stringify(ach));
+	if (ach.before || ach.afterScramble) {
+		fail('achievements tool opened itself without a click');
+	}
+	if (!ach.afterClick) fail('achievements Browse button did not open the browser');
+	if (!ach.closed) fail('achievements browser did not close');
+
 	await browser.close();
 	server.close();
 	console.log(failures == 0 ? 'ALL OK' : ('FAILURES: ' + failures));

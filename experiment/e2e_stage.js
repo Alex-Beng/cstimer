@@ -474,16 +474,29 @@ var server = http.createServer(function(req, res) {
 		await waitToast('EPLL', 12000);
 		var coll = state();
 
-		// a joined pair in the U layer, inserted by three moves
+		// a joined pair in the U layer, inserted by three moves.  The
+		// virtual move stream is what tells the tip where "three moves ago"
+		// is, so a rotation cannot shorten that window.
+		// This synthetic replay ends on a solved state; mark it rotated so it
+		// cannot also unlock the rotation-free achievement.
+		kernel.pushSignal('virtualMove', ['y']);
+		push("R U R'");
+		await wait(40);
+		kernel.pushSignal('virtualMove', ['R']);
 		push("R U R'");
 		await wait(60);
+		kernel.pushSignal('virtualMove', ['R']);
 		push("R U R' R");
 		await wait(60);
+		kernel.pushSignal('virtualMove', ["U'"]);
 		push("R U R' R U'");
 		await wait(60);
+		kernel.pushSignal('virtualMove', ["R'"]);
 		push("R U R' R U' R'");
 		await wait(200);
 		var basic = state();
+		push(F.solved);
+		await wait(100);
 
 		// the next solve must start with no leftover tip
 		kernel.pushSignal('timerStatus', -1);
@@ -498,6 +511,25 @@ var server = http.createServer(function(req, res) {
 		var fresh = state();
 		var freshAch = achState();
 
+		// A six move F2L that only reaches the standard shape for its last
+		// three moves.  The pair is joined after move 3 but not after move 2,
+		// so this is a conversion and must not report Basic F2L.
+		var convStart = 'RRDLUBDFLFRBURUFRRBLDFFLLFDBDRDDDLDBFBLFLRFLURUUBBUUBU';
+		var convMoves = ['R', 'U', "L'", 'U2', "R'", 'L'];
+		kernel.pushSignal('timerStatus', -1);
+		await wait(120);
+		push(convStart);
+		await wait(50);
+		kernel.pushSignal('timerStatus', 1);
+		await wait(60);
+		for (var c = 0; c < convMoves.length; c++) {
+			kernel.pushSignal('virtualMove', [convMoves[c]]);
+			push(convStart + ' ' + convMoves.slice(0, c + 1).join(' '));
+			await wait(60);
+		}
+		await wait(250);
+		var converted = state();
+
 		return {
 			before: before,
 			xc: xc,
@@ -506,6 +538,7 @@ var server = http.createServer(function(req, res) {
 			collAtOll: collAtOll,
 			coll: coll,
 			basic: basic,
+			converted: converted,
 			ach: ach,
 			fresh: fresh,
 			freshAch: freshAch
@@ -540,6 +573,10 @@ var server = http.createServer(function(req, res) {
 	}
 	if (tech.basic.combo.text.indexOf('Basic F2L') < 0) {
 		fail('basic F2L tip missing: ' + JSON.stringify(tech.basic));
+	}
+	if (tech.converted.combo.text.indexOf('Basic F2L') >= 0) {
+		fail('a converted F2L was reported as Basic F2L: ' +
+			JSON.stringify(tech.converted));
 	}
 	if (tech.fresh.toast.cls || tech.fresh.combo.on) {
 		fail('a new solve kept the previous technique tip: ' + JSON.stringify(tech.fresh));
@@ -650,13 +687,28 @@ var server = http.createServer(function(req, res) {
 		await wait(80);
 		kernel.pushSignal('time', [10000]);
 		await wait(500);
+
+		// a bluetooth cube has no virtualMove stream; the centre frame is
+		// used instead, so a rotation-free smart solve still counts
+		kernel.setProp('scrType', '333');
+		kernel.pushSignal('timerStatus', -1);
+		await wait(120);
+		kernel.pushSignal('giikerState', [faceletOf(scr)]);
+		await wait(60);
+		kernel.pushSignal('timerStatus', 1);
+		await wait(60);
+		kernel.pushSignal('giikerState', [mathlib.SOLVED_FACELET]);
+		await wait(300);
+		var smartCombo = $('#copilotTechToast').text();
+
 		return {
 			rotatedCombo: rotatedCombo,
 			rotatedPanel: rotatedPanel,
 			sawTps: sawTps,
 			combo: fastCombo,
 			panel: fastPanel,
-			singlePanel: panel()
+			singlePanel: panel(),
+			smartCombo: smartCombo
 		};
 	});
 	console.log('speed/norot: ' + JSON.stringify(speed));
@@ -681,6 +733,9 @@ var server = http.createServer(function(req, res) {
 	}
 	if (speed.singlePanel.indexOf('Speed Demon2/3') < 0) {
 		fail('a single-phase solve did not count towards the TPS streak: ' + speed.singlePanel);
+	}
+	if (speed.smartCombo.indexOf('No Rot') < 0) {
+		fail('a smart-cube solve could not complete No Rot: ' + speed.smartCombo);
 	}
 
 	// ---------------------------------------------------- achievement browser

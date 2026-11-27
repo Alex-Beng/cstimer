@@ -183,12 +183,16 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var techTracker = cubeCopilot.makeTechniqueTracker();
 	var techAch = [];
 	var techToastItems = [];
+	var tipAudio = null;
+	var tipAudioGain = null;
+	var tipSoundAt = 0;
 	var techSeedFacelet = null;
 	var techSeedProg = -1;
 	var techF2LFacelet = null;
 	var techPllFacelet = null;
 	var techSteps = 0;
-	var techFacelets = [];
+	var techFaceNo = 0;
+	var techHist = [];
 	var techPairMask = 0;
 	var techFlow = 0;
 	var techFlowCF = false;
@@ -208,6 +212,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var techRotated = false;
 	var techNorotDone = false;
 	var techUseMoves = false;
+	var techSmartCenter = null;
 	var techMaxProg = 0;
 	var techLastProg = -1;
 	var lastSolveSolved = false;
@@ -808,6 +813,15 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			} catch (e) {}
 		}
 		return ori.facelet;
+	}
+
+	/** the six centre stickers keep the hardware frame */
+	function smartCenterKey(facelet) {
+		if (!facelet || facelet.length != 54) {
+			return '';
+		}
+		return facelet.charAt(4) + facelet.charAt(13) + facelet.charAt(22) +
+			facelet.charAt(31) + facelet.charAt(40) + facelet.charAt(49);
 	}
 
 	function isCube3() {
@@ -1763,7 +1777,47 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		});
 	}
 
-	function showTechToast(ach) {
+	/**
+	 * Short WebAudio chime for a technique tip or an achievement.  The
+	 * context is created on the first user gesture, so the browser's autoplay
+	 * policy cannot block it; all failures stay silent.
+	 */
+	function playTipSound(cat, kind) {
+		if (!tipAudio || !kernel.getProp('cpTipSound', true)) {
+			return;
+		}
+		var now = Date.now();
+		if (now - tipSoundAt < 220) {
+			return;
+		}
+		tipSoundAt = now;
+		try {
+			if (tipAudio.state == 'suspended' && tipAudio.resume) {
+				tipAudio.resume();
+			}
+		} catch (e) {}
+		var base = kind == 'ach' ? 880 :
+			(cat == 'gold' ? 784 : (cat == 'blue' ? 659 : 587));
+		var notes = kind == 'ach' ? [base, base * 1.5] : [base];
+		var t0 = tipAudio.currentTime + 0.01;
+		for (var i = 0; i < notes.length; i++) {
+			var osc = tipAudio.createOscillator();
+			var gain = tipAudio.createGain();
+			var start = t0 + i * 0.1;
+			var end = start + (kind == 'ach' ? 0.18 : 0.1);
+			osc.type = 'sine';
+			osc.frequency.setValueAtTime(notes[i], start);
+			gain.gain.setValueAtTime(0.0001, start);
+			gain.gain.exponentialRampToValueAtTime(0.25, start + 0.012);
+			gain.gain.exponentialRampToValueAtTime(0.0001, end);
+			osc.connect(gain);
+			gain.connect(tipAudioGain);
+			osc.start(start);
+			osc.stop(end + 0.02);
+		}
+	}
+
+	function showTechToast(ach, silent) {
 		var parts = techParts(ach);
 		var el = $('<div class="cp-toast"/>')
 			.attr('data-key', ach.key)
@@ -1783,6 +1837,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		};
 		techToast.append(el);
 		techToastItems.push(item);
+		if (!silent) {
+			playTipSound(ach.cat, 'tech');
+		}
 		// Every tip that lands together stays visible; only drop filler cards
 		// when more than four would be on screen at once.
 		while (techToastItems.length > 4) {
@@ -1967,6 +2024,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	function showAchToast(key, preview) {
 		var info = achUiInfo(key);
+		if (!preview) {
+			playTipSound(info.color, 'ach');
+		}
 		achKicker.text(preview ?
 			L('COPILOT_ACH_PREVIEW', 'ACHIEVEMENT PREVIEW') :
 			L('COPILOT_ACH_UNLOCK', 'ACHIEVEMENT UNLOCKED'));
@@ -2159,7 +2219,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				cat: TECH_COLORS[key] || 'green',
 				req: false,
 				hold: 1700
-			});
+			}, true);
 			return;
 		}
 		if (achTid) {
@@ -2512,7 +2572,11 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		// Require that no F2L pair was solved at the start, so a nearly
 		// solved start cannot fake "all four pairs + last layer".  The first
 		// observed state is usually progress 7; a cross skip reports 6.
-		if (prog == 0 && techUseMoves && !techRotated && !techNorotDone &&
+		// A smart cube has no move stream, so fall back to its raw centre
+		// frame.  Some models keep that frame fixed and cannot prove a
+		// rotation either way; accept the solve instead of never unlocking.
+		var canNoRot = techUseMoves || (isSmart && !!techSmartCenter);
+		if (prog == 0 && canNoRot && !techRotated && !techNorotDone &&
 				techMaxProg >= 6) {
 			techNorotDone = true;
 			onTechEvent({key: 'norot'});
@@ -2575,24 +2639,53 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		techRotRun = 0;
 		techUseMoves = true;
+		techFaceNo++;
 		noteTurn($.now());
 	}
 
 	/**
 	 * A three move F2L insert: the pair was already joined in the U layer
-	 * three moves before it landed.  Keep a short history of facelets so the
-	 * caller does not need to know the moves themselves.
+	 * three face turns before it landed.  The history is indexed by face
+	 * turns, not by state notifications, so a whole-cube rotation (which
+	 * repeats the same facelet) cannot make the window shorter and turn a
+	 * mid-algorithm "standard" shape into a false Basic F2L tip.
 	 */
+	function techFaceletAt(n) {
+		for (var k = techHist.length - 1; k >= 0; k--) {
+			if (techHist[k].n < n) {
+				break;
+			}
+			if (techHist[k].n == n) {
+				return techHist[k].facelet;
+			}
+		}
+		return null;
+	}
+
 	function checkBasicPair(facelet) {
+		var last = techHist[techHist.length - 1];
+		var changed = !last || last.facelet != facelet;
+		// Virtual cubes provide exact move events.  A bluetooth cube only sends
+		// states, so count each distinct state as one face turn.
+		if (isSmart && changed) {
+			techFaceNo++;
+		}
 		var mask = 0;
 		try {
 			mask = cubeCopilot.pairMask(facelet);
 		} catch (e) {}
 		var added = mask & ~techPairMask;
-		if (added && techFacelets.length >= 3) {
-			var before = techFacelets[techFacelets.length - 3];
+		if (added) {
+			var target = techFaceNo - 3;
+			var before = techFaceletAt(target);
+			// A longer algorithm often reaches a standard shape for its last
+			// three moves.  That is a conversion, not a basic case: only
+			// count it if the pair was already joined before those moves.
+			var before2 = techFaceletAt(target - 1);
 			for (var i = 0; i < 4; i++) {
-				if ((added & (1 << i)) && cubeCopilot.basicPair(before, i)) {
+				if ((added & (1 << i)) && before &&
+						cubeCopilot.basicPair(before, i) &&
+						(!before2 || cubeCopilot.basicPair(before2, i))) {
 					techBasic++;
 					onTechEvent({key: 'basicf2l'});
 					break;
@@ -2600,9 +2693,12 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			}
 		}
 		techPairMask = mask;
-		techFacelets.push(facelet);
-		if (techFacelets.length > 6) {
-			techFacelets.shift();
+		last = techHist[techHist.length - 1];
+		if (!last || last.n != techFaceNo || last.facelet != facelet) {
+			techHist.push({n: techFaceNo, facelet: facelet});
+			if (techHist.length > 12) {
+				techHist.shift();
+			}
 		}
 	}
 
@@ -2616,7 +2712,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		techAch = [];
 		techF2LFacelet = null;
 		techPllFacelet = null;
-		techFacelets = [];
+		techFaceNo = 0;
+		techHist = [];
 		techPairMask = 0;
 		techFlow = 0;
 		techFlowCF = false;
@@ -2636,6 +2733,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		techRotated = false;
 		techNorotDone = false;
 		techUseMoves = false;
+		techSmartCenter = null;
 		techMaxProg = 0;
 		techLastProg = -1;
 		techSeedProg = (typeof seedProg == 'number') ? seedProg : -1;
@@ -2646,6 +2744,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		if (techSeedProg > techMaxProg) {
 			techMaxProg = techSeedProg;
+		}
+		if (techSeedFacelet) {
+			techHist.push({n: 0, facelet: techSeedFacelet});
 		}
 		techTracker.reset(techSeedProg);
 		stageTip.removeClass('cp-tip-on cp-tip-combo cp-tip-green cp-tip-gold cp-tip-blue cp-tip-new').text('');
@@ -2744,7 +2845,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 	}
 
-	function onStageFacelet(facelet) {
+	function onStageFacelet(facelet, raw) {
 		if (!facelet || facelet.length != 54) {
 			return;
 		}
@@ -2759,6 +2860,17 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		// even when a stepper plan is not configured.
 		if (isSmart) {
 			noteTurn($.now());
+			// A bluetooth cube cannot report whole-cube rotations directly.
+			// When the model includes the raw centre frame, a re-orientation
+			// is the only thing that can permute it.
+			var ck = smartCenterKey(raw || lastGiikerFacelet);
+			if (ck) {
+				if (!techSmartCenter) {
+					techSmartCenter = ck;
+				} else if (techSmartCenter != ck) {
+					techRotated = true;
+				}
+			}
 		}
 		var plan = stagePlan();
 		// Technique tips are independent of the multi-phase stepper: a
@@ -3393,7 +3505,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		btnReset.click(function() {
 			resetAchievements();
 		});
-		openAchBook();
 	}
 
 	// ------------------------------------------------------------- signal glue
@@ -3404,7 +3515,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			lastGiikerFacelet = value[0];
 			var gFacelet = smartFacelet(value[0]);
 			onFacelet(gFacelet, value[0]);
-			onStageFacelet(gFacelet);
+			onStageFacelet(gFacelet, value[0]);
 		} else if (signal == 'virtualState') {
 			isSmart = false;
 			smartOri = null;
@@ -3476,6 +3587,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		kernel.regProp('copilot', 'cpColor', 3, L('COPILOT_COLOR', 'Highlight color'), ['#ffd700'], 1);
 		kernel.regProp('copilot', 'cpTimeout', 2, L('COPILOT_TIMEOUT', 'Hint after no progress (s)'), [6, 0, 120], 1);
 		kernel.regProp('copilot', 'cpUndoMax', 2, L('COPILOT_UNDOMAX', 'Re-plan after this many wrong moves'), [3, 1, 10], 1);
+		kernel.regProp('copilot', 'cpTipSound', 0, L('COPILOT_TIP_SOUND', 'Tip sound'), [true], 1);
 		kernel.regProp('copilot', 'cpRelayTarget', ~2, L('COPILOT_RELAY_TARGET', '3x3 relay target per cube (s, 0 = off)'), [0, 0, 999], 1);
 		kernel.regProp('copilot', 'cpLlmode', 1, L('COPILOT_LLMODE', 'Last-layer method'), ['op', ['op', 'coll', 'zbll', 'alll', 'off'], [
 			L('COPILOT_LL_OP', 'OLL + PLL'),
@@ -3529,6 +3641,23 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		initProps();
 		buildAchPanel();
 		loadAch();
+		var AudioCtx = window.AudioContext || window.webkitAudioContext;
+		if (AudioCtx) {
+			$.waitUser.reg(function() {
+				if (tipAudio) {
+					return;
+				}
+				try {
+					tipAudio = new AudioCtx();
+					tipAudioGain = tipAudio.createGain();
+					tipAudioGain.gain.value = 0.7;
+					tipAudioGain.connect(tipAudio.destination);
+				} catch (e) {
+					tipAudio = null;
+					tipAudioGain = null;
+				}
+			});
+		}
 
 		kernel.addWindow('copilot', L('COPILOT_BUTTON', 'HINT'), div, false, false, 5);
 		tools.regTool('copilot', L('TOOLS_COPILOT', 'Copilot'), toolExec);
