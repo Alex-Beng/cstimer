@@ -2841,7 +2841,7 @@ function makeCubeCopilot() {
 		'multi', 'flowcf', 'flowff', 'flowfl', 'flowop', 'basicf2l'];
 	// Speed tips are collectible too, but they are not solving techniques:
 	// they do not count towards the codex or the per-solve combo.
-	var SPEED_TIP_KEYS = ['tps8', 'tps12', 'tps16'];
+	var SPEED_TIP_KEYS = ['tps6', 'tps8', 'tps10'];
 
 	// Compact-panel display order.  Custom achievements are appended.
 	var ACHIEVEMENT_PANEL_ORDER = ['hot3', 'zb3', 'coll3', 'slot3', 'xc3',
@@ -2970,7 +2970,7 @@ function makeCubeCopilot() {
 		key: 'speed',
 		group: 'speed',
 		check: function(ctx) {
-			return !!ctx.stats && ~~ctx.stats.tps >= 16;
+			return !!ctx.stats && ~~ctx.stats.tps >= 10;
 		}
 	});
 	registerAchievement({
@@ -3068,7 +3068,7 @@ function makeCubeCopilot() {
 			return !!(ctx.has.xc || ctx.has.xxc || ctx.has.xxxc || ctx.has.xxxxc);
 		}},
 		{stat: 'tps', test: function(ctx) {
-			return !!ctx.stats && ~~ctx.stats.tps >= 12;
+			return !!ctx.stats && ~~ctx.stats.tps >= 8;
 		}}
 	];
 

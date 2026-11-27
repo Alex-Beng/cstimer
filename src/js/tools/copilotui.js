@@ -180,14 +180,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var stagePopTid = 0;
 	var stageHideTid = 0;
 	var techToast = $('<div id="copilotTechToast"/>');
-	var techToastLabel = $('<div class="cp-toast-label"/>');
-	var techToastDesc = $('<div class="cp-toast-desc"/>');
-	techToast.append($('<div class="cp-toast-star">★</div>'), techToastLabel, techToastDesc);
 	var techTracker = cubeCopilot.makeTechniqueTracker();
 	var techAch = [];
-	var techToastKey = '';
-	var techToastTid = 0;
-	var techToastQueue = [];
+	var techToastItems = [];
 	var techSeedFacelet = null;
 	var techSeedProg = -1;
 	var techF2LFacelet = null;
@@ -234,13 +229,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		ollcp: 'OLLCP', llll: '1LLL', llskip: 'LL Skip',
 		multi: 'Multislotting', basicf2l: 'Basic F2L',
 		flowcf: 'Cross→F1', flowff: 'F2F', flowfl: 'F→LL', flowop: 'OLL→PLL',
-		tps8: 'TPS 8', tps12: 'TPS 12', tps16: 'TPS 16', norot: 'No Rot'
+		tps6: 'TPS 6', tps8: 'TPS 8', tps10: 'TPS 10', norot: 'No Rot'
 	};
 	var TECH_COLORS = {
 		xc: 'green', xxc: 'green', xxxc: 'green', xxxxc: 'green',
 		zbls: 'green', wv: 'green', ols: 'green', ollskip: 'green', multi: 'green',
 		basicf2l: 'green', flowcf: 'green', flowff: 'green', flowfl: 'green',
-		tps8: 'green', tps12: 'gold', tps16: 'gold', norot: 'gold',
+		tps6: 'green', tps8: 'gold', tps10: 'gold', norot: 'gold',
 		zbll: 'gold', coll: 'gold',
 		pll: 'blue', epll: 'blue', ollcp: 'blue', llll: 'blue', llskip: 'gold',
 		flowop: 'blue'
@@ -267,9 +262,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		flowff: ['COPILOT_TIP_FLOWFF', 'F2F · next pair without a pause'],
 		flowfl: ['COPILOT_TIP_FLOWFL', 'F→LL · straight into the last layer'],
 		flowop: ['COPILOT_TIP_FLOWOP', 'OLL→PLL · straight into PLL'],
+		tps6: ['COPILOT_TIP_TPS6', 'TPS 6 · six turns per second'],
 		tps8: ['COPILOT_TIP_TPS8', 'TPS 8 · eight turns per second'],
-		tps12: ['COPILOT_TIP_TPS12', 'TPS 12 · twelve turns per second'],
-		tps16: ['COPILOT_TIP_TPS16', 'TPS 16 · sixteen turns per second'],
+		tps10: ['COPILOT_TIP_TPS10', 'TPS 10 · ten turns per second'],
 		norot: ['COPILOT_TIP_NOROT',
 			'No Rotation · all 4 F2L pairs and the whole last layer without turning the cube']
 	};
@@ -289,9 +284,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		basic3: ['COPILOT_ACH_BASIC3', 'Back to Basics',
 			'COPILOT_ACH_BASIC3_D', '3 basic three-move F2L inserts in one solve', 'blue'],
 		tps3: ['COPILOT_ACH_TPS3', 'Speed Demon',
-			'COPILOT_ACH_TPS3_D', '3 solves in a row peaking at 12+ TPS', 'blue'],
+			'COPILOT_ACH_TPS3_D', '3 solves in a row peaking at 8+ TPS', 'blue'],
 		speed: ['COPILOT_ACH_SPEED', 'Lightspeed',
-			'COPILOT_ACH_SPEED_D', 'Reach 16 TPS in one solve', 'purple'],
+			'COPILOT_ACH_SPEED_D', 'Reach 10 TPS in one solve', 'purple'],
 		norot: ['COPILOT_ACH_NOROT', 'Four-Way F2L',
 			'COPILOT_ACH_NOROT_D',
 			'All 4 F2L pairs and the whole last layer without a cube rotation', 'gold'],
@@ -402,15 +397,21 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'    display: flex;',
 		'    flex-direction: column;',
 		'    align-items: center;',
+		'    gap: 0.45rem;',
+		'    font-family: Arial, sans-serif;',
+		'    color: #fff;',
+		'    pointer-events: none;',
+		'    transform: translateX(-50%);',
+		'}',
+		'#copilotTechToast .cp-toast {',
+		'    display: flex;',
+		'    flex-direction: column;',
+		'    align-items: center;',
 		'    padding: 0.6rem 1.15rem 0.7rem;',
 		'    border-radius: 0.8rem;',
 		'    background: rgba(15, 15, 15, 0.86);',
 		'    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4), inset 0 0 0 2px var(--cp-tip-accent), 0 0 26px var(--cp-tip-glow);',
-		'    font-family: Arial, sans-serif;',
-		'    color: #fff;',
-		'    pointer-events: none;',
 		'    opacity: 0;',
-		'    transform: translate(-50%, 0);',
 		'}',
 		'.cp-toast-star {',
 		'    font-size: 1.1rem;',
@@ -433,16 +434,16 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'}',
 		'html.m .cp-toast-label { font-size: 1.3rem; }',
 		'html.m .cp-toast-desc { font-size: 0.8rem; }',
-		'#copilotTechToast.cp-toast-in { animation: copilotToastIn 420ms cubic-bezier(.2, 1.5, .4, 1) forwards; }',
-		'#copilotTechToast.cp-toast-out { animation: copilotToastOut 440ms ease-in forwards; }',
+		'#copilotTechToast .cp-toast.cp-toast-in { animation: copilotToastIn 420ms cubic-bezier(.2, 1.5, .4, 1) forwards; }',
+		'#copilotTechToast .cp-toast.cp-toast-out { animation: copilotToastOut 440ms ease-in forwards; }',
 		'@keyframes copilotToastIn {',
-		'    0% { opacity: 0; transform: translate(-50%, 14px) scale(0.82); }',
-		'    60% { opacity: 1; transform: translate(-50%, -3px) scale(1.05); }',
-		'    100% { opacity: 1; transform: translate(-50%, 0) scale(1); }',
+		'    0% { opacity: 0; transform: translateY(14px) scale(0.82); }',
+		'    60% { opacity: 1; transform: translateY(-3px) scale(1.05); }',
+		'    100% { opacity: 1; transform: none; }',
 		'}',
 		'@keyframes copilotToastOut {',
-		'    0% { opacity: 1; transform: translate(-50%, 0) scale(1); }',
-		'    100% { opacity: 0; transform: translate(-50%, -22px) scale(0.96); }',
+		'    0% { opacity: 1; transform: none; }',
+		'    100% { opacity: 0; transform: translateY(-22px) scale(0.96); }',
 		'}',
 		'.cp-stage-combo {',
 		'    display: none;',
@@ -622,6 +623,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'}',
 		'.cp-book-grid {',
 		'    flex: 1;',
+		'    min-height: 0;',
 		'    overflow: auto;',
 		'    overscroll-behavior: contain;',
 		'    padding: 0.7rem 1rem 1.2rem;',
@@ -647,7 +649,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);',
 		'    opacity: 0.62;',
 		'    transition: opacity 0.15s, box-shadow 0.15s, transform 0.15s;',
-		'    overflow: hidden;',
 		'}',
 		'.cp-book-card::before {',
 		'    content: "";',
@@ -669,7 +670,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'    box-shadow: inset 0 0 0 1px var(--cp-card-accent), 0 0 18px rgba(255, 213, 74, 0.12);',
 		'}',
 		'.cp-book-card-name { font-weight: bold; color: var(--cp-card-accent); margin-bottom: 0.15rem; }',
-		'.cp-book-card-desc { font-size: 0.82rem; line-height: 1.3; color: rgba(255, 255, 255, 0.75); }',
+		'.cp-book-card-desc { font-size: 0.82rem; line-height: 1.3; color: rgba(255, 255, 255, 0.75); overflow-wrap: anywhere; }',
 		'.cp-book-card-prog {',
 		'    position: absolute;',
 		'    right: 0.7rem;',
@@ -1710,86 +1711,81 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	}
 
 	function showTechToast(ach) {
-		var flow = ach.key.indexOf('flow') == 0;
-		var speed = /^tps/.test(ach.key);
-		if (!flow && !speed) {
-			// a real technique tip outranks any flow or TPS tips still waiting
-			for (var i = techToastQueue.length - 1; i >= 0; i--) {
-				var queued = techToastQueue[i].key;
-				if (queued.indexOf('flow') == 0 || /^tps/.test(queued)) {
-					techToastQueue.splice(i, 1);
-				}
-			}
-		}
-		techToastQueue.push(ach);
-		// Drop filler tips before a technique tip when the queue overflows.
-		while (techToastQueue.length > 4) {
+		var parts = techParts(ach);
+		var el = $('<div class="cp-toast"/>')
+			.attr('data-key', ach.key)
+			.append(
+				$('<div class="cp-toast-star">★</div>'),
+				$('<div class="cp-toast-label"/>').text(parts.label),
+				$('<div class="cp-toast-desc"/>').text(parts.desc)
+			);
+		el[0].style.setProperty('--cp-tip-accent', techAccent(ach.cat));
+		el[0].style.setProperty('--cp-tip-glow', techGlow(ach.cat));
+		var item = {
+			key: ach.key,
+			el: el,
+			tid: 0,
+			hold: ach.hold || (/^tps/.test(ach.key) ? 1100 :
+				(ach.key.indexOf('flow') == 0 ? 750 : 1500))
+		};
+		techToast.append(el);
+		techToastItems.push(item);
+		// Every tip that lands together stays visible; only drop filler cards
+		// when more than four would be on screen at once.
+		while (techToastItems.length > 4) {
 			var drop = -1;
-			for (var j = 0; j < techToastQueue.length; j++) {
-				if (/^tps/.test(techToastQueue[j].key)) {
+			for (var j = 0; j < techToastItems.length; j++) {
+				if (/^tps/.test(techToastItems[j].key)) {
 					drop = j;
 					break;
 				}
 			}
 			if (drop < 0) {
-				for (j = 0; j < techToastQueue.length; j++) {
-					if (techToastQueue[j].key.indexOf('flow') == 0) {
+				for (j = 0; j < techToastItems.length; j++) {
+					if (techToastItems[j].key.indexOf('flow') == 0) {
 						drop = j;
 						break;
 					}
 				}
 			}
-			techToastQueue.splice(drop >= 0 ? drop : 0, 1);
+			var old = techToastItems.splice(drop >= 0 ? drop : 0, 1)[0];
+			if (old.tid) {
+				clearTimeout(old.tid);
+			}
+			old.el.remove();
 		}
-		pumpTechToast();
-	}
-
-	// Several techniques can land at the same moment (a COLL that flows
-	// straight into the PLL, two connected pair changes, ...).  Queue them so
-	// every one is shown instead of the last one winning.
-	function pumpTechToast() {
-		if (techToastTid || !techToastQueue.length) {
-			return;
-		}
-		var ach = techToastQueue.shift();
-		var parts = techParts(ach);
-		techToastKey = ach.key;
-		techToastLabel.text(parts.label);
-		techToastDesc.text(parts.desc);
 		positionTechToast();
-		techToast[0].style.setProperty('--cp-tip-accent', techAccent(ach.cat));
-		techToast[0].style.setProperty('--cp-tip-glow', techGlow(ach.cat));
-		techToast.removeClass('cp-toast-out cp-toast-in');
-		void techToast[0].offsetWidth;
 		techToast.addClass('cp-toast-in');
-		if (techToastTid) {
-			clearTimeout(techToastTid);
-			techToastTid = 0;
-		}
-		var hold = ach.hold || 1500;
-		techToastTid = setTimeout(function() {
-			techToast.removeClass('cp-toast-in').addClass('cp-toast-out');
-			techToastTid = setTimeout(function() {
-				techToastTid = 0;
-				techToastKey = '';
-				techToast.removeClass('cp-toast-out');
-				techToastLabel.text('');
-				techToastDesc.text('');
-				pumpTechToast();
+		void el[0].offsetWidth;
+		el.addClass('cp-toast-in');
+		item.tid = setTimeout(function() {
+			el.removeClass('cp-toast-in').addClass('cp-toast-out');
+			item.tid = setTimeout(function() {
+				item.tid = 0;
+				for (var i = 0; i < techToastItems.length; i++) {
+					if (techToastItems[i] === item) {
+						techToastItems.splice(i, 1);
+						break;
+					}
+				}
+				el.remove();
+				if (!techToastItems.length) {
+					techToast.removeClass('cp-toast-in cp-toast-out');
+				}
 			}, 460);
-		}, hold);
+		}, item.hold);
 	}
 
 	function hideTechToast() {
-		techToastQueue.length = 0;
-		if (techToastTid) {
-			clearTimeout(techToastTid);
-			techToastTid = 0;
+		for (var i = 0; i < techToastItems.length; i++) {
+			var item = techToastItems[i];
+			if (item.tid) {
+				clearTimeout(item.tid);
+			}
+			item.el.remove();
 		}
-		techToastKey = '';
+		techToastItems.length = 0;
 		techToast.removeClass('cp-toast-in cp-toast-out');
-		techToastLabel.text('');
-		techToastDesc.text('');
 	}
 
 	// ------------------------------------------------------- achievements
@@ -2229,15 +2225,15 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 
 	function refreshTechText() {
 		renderTechCombo();
-		if (!techToastKey) {
-			return;
-		}
-		for (var i = 0; i < techAch.length; i++) {
-			if (techAch[i].key == techToastKey) {
-				var parts = techParts(techAch[i]);
-				techToastLabel.text(parts.label);
-				techToastDesc.text(parts.desc);
-				return;
+		for (var i = 0; i < techToastItems.length; i++) {
+			var item = techToastItems[i];
+			for (var j = 0; j < techAch.length; j++) {
+				if (techAch[j].key == item.key) {
+					var parts = techParts(techAch[j]);
+					item.el.find('.cp-toast-label').text(parts.label);
+					item.el.find('.cp-toast-desc').text(parts.desc);
+					break;
+				}
 			}
 		}
 	}
@@ -2361,7 +2357,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (tps > techTpsMax) {
 			techTpsMax = tps;
 		}
-		var tier = tps >= 16 ? 16 : (tps >= 12 ? 12 : (tps >= 8 ? 8 : 0));
+		var tier = tps >= 10 ? 10 : (tps >= 8 ? 8 : (tps >= 6 ? 6 : 0));
 		if (tier > techTpsTier) {
 			techTpsTier = tier;
 			onTechEvent({key: 'tps' + tier});
@@ -3308,7 +3304,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			if (stageBar.hasClass('cp-stage-on')) {
 				placeStageBar();
 			}
-			if (techToastKey) {
+			if (techToastItems.length) {
 				positionTechToast();
 			}
 		});

@@ -724,6 +724,18 @@ var server = http.createServer(function(req, res) {
 		$('.cp-ach-browse').click();
 		await wait(180);
 		var all = snapshot();
+		var grid = $('#copilotAchBook .cp-book-grid');
+		var gridEl = grid[0];
+		gridEl.scrollTop = gridEl.scrollHeight;
+		await wait(80);
+		var gridRect = gridEl.getBoundingClientRect();
+		var winRect = $('#copilotAchBook .cp-book-window')[0].getBoundingClientRect();
+		var lastCard = grid.find('.cp-book-card').last()[0].getBoundingClientRect();
+		var bookLayout = {
+			scrollable: gridEl.scrollHeight > gridEl.clientHeight,
+			insideWindow: gridRect.bottom <= winRect.bottom + 1,
+			lastCardVisible: lastCard.bottom <= gridRect.bottom + 1
+		};
 		$('#copilotAchBook .cp-book-tab[data-filter="technique"]').click();
 		await wait(100);
 		var tech = snapshot();
@@ -747,6 +759,7 @@ var server = http.createServer(function(req, res) {
 			toolOptions: toolOptions,
 			api: api,
 			all: all,
+			layout: bookLayout,
 			tech: tech,
 			sawZbll: sawZbll,
 			techPreview: techPreview,
@@ -780,13 +793,17 @@ var server = http.createServer(function(req, res) {
 			book.all.groups.join('|').indexOf('Challenges') < 0) {
 		fail('achievement browser groups: ' + book.all.groups.join('|'));
 	}
-	['ZBLL', 'TPS 16', 'Lightspeed', 'Four-Way F2L'].forEach(function(name) {
+	['ZBLL', 'TPS 10', 'Lightspeed', 'Four-Way F2L'].forEach(function(name) {
 		if (book.all.names.indexOf(name) < 0) {
 			fail('achievement browser is missing ' + name);
 		}
 	});
 	if (!/^\d+\/\d+$/.test(book.all.countText)) {
 		fail('achievement browser count: ' + book.all.countText);
+	}
+	if (!book.layout.scrollable || !book.layout.insideWindow ||
+			!book.layout.lastCardVisible) {
+		fail('achievement browser grid is clipped: ' + JSON.stringify(book.layout));
 	}
 	if (book.tech.filter != 'Advanced techniques' || book.tech.count != 21) {
 		fail('technique filter: ' + JSON.stringify(book.tech));

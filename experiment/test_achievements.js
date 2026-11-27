@@ -108,25 +108,25 @@ function stepStats(t, keys, stats) {
 }
 
 t = tracker();
-check('Lightspeed at 16 TPS', has(stepStats(t, [], {tps: 16}), 'speed'));
-check('Lightspeed is not repeated', !has(stepStats(t, [], {tps: 18}), 'speed'));
+check('Lightspeed at 10 TPS', has(stepStats(t, [], {tps: 10}), 'speed'));
+check('Lightspeed is not repeated', !has(stepStats(t, [], {tps: 12}), 'speed'));
 
 t = tracker();
-stepStats(t, [], {tps: 12});
-stepStats(t, [], {tps: 12});
-check('手速狂人 after three 12+ TPS solves', has(stepStats(t, [], {tps: 13}), 'tps3'));
+stepStats(t, [], {tps: 8});
+stepStats(t, [], {tps: 8});
+check('手速狂人 after three 8+ TPS solves', has(stepStats(t, [], {tps: 9}), 'tps3'));
 
 t = tracker();
-stepStats(t, [], {tps: 12});
-stepStats(t, [], {tps: 12});
-stepStats(t, [], {tps: 7});
-check('a slow solve resets the TPS streak', !has(stepStats(t, [], {tps: 12}), 'tps3'));
-check('TPS streak restarts from one', !has(stepStats(t, [], {tps: 12}), 'tps3'));
-check('TPS streak reaches three again', has(stepStats(t, [], {tps: 12}), 'tps3'));
+stepStats(t, [], {tps: 8});
+stepStats(t, [], {tps: 8});
+stepStats(t, [], {tps: 5});
+check('a slow solve resets the TPS streak', !has(stepStats(t, [], {tps: 8}), 'tps3'));
+check('TPS streak restarts from one', !has(stepStats(t, [], {tps: 8}), 'tps3'));
+check('TPS streak reaches three again', has(stepStats(t, [], {tps: 8}), 'tps3'));
 
 t = tracker();
-check('16 TPS still counts towards the 12+ streak',
-	stepStats(t, [], {tps: 16}).length == 1 &&
+check('10 TPS still counts towards the 8+ streak',
+	stepStats(t, [], {tps: 10}).length == 1 &&
 	t.state().tps == 1);
 
 // ------------------------------------------------------------- no rotation
@@ -138,7 +138,7 @@ check('四向无转 is not repeated',
 
 t = tracker();
 check('TPS tiers are not required for 图鉴大师',
-	t.requiredKeys().indexOf('tps16') < 0 &&
+	t.requiredKeys().indexOf('tps10') < 0 &&
 	t.requiredKeys().indexOf('tps8') < 0);
 check('no-rotation is not a codex technique', t.requiredKeys().indexOf('norot') < 0);
 
@@ -165,10 +165,10 @@ check('codex progress is complete', t.progress('codex').cur == t.progress('codex
 
 // -------------------------------------------------- tips as achievements
 t = tracker();
-t.step(['zbll', 'tps16'], {tps: 16});
+t.step(['zbll', 'tps10'], {tps: 10});
 check('a technique card is collected', t.progress('zbll').cur == 1 &&
 	t.progress('zbll').target == 1);
-check('a TPS tip is collected too', t.progress('tps16').cur == 1);
+check('a TPS tip is collected too', t.progress('tps10').cur == 1);
 check('a TPS tip does not inflate the combo', t.state().hot == 1);
 check('a TPS tip does not inflate the codex', t.progress('codex').cur == 1);
 check('catalog exposes technique groups', t.catalog().some(function(def) {
