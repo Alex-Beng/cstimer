@@ -403,6 +403,11 @@ var server = http.createServer(function(req, res) {
 					cls: toast.attr('class') || '',
 					label: toast.find('.cp-ach-label').text(),
 					desc: toast.find('.cp-ach-desc').text(),
+					kicker: toast.find('.cp-ach-kicker').text(),
+					extras: toast.find('.cp-ach-more-row').map(function() {
+						return $(this).text();
+					}).get(),
+					multi: toast.hasClass('cp-ach-multi'),
 					open: toast.hasClass('cp-ach-in') && !toast.hasClass('cp-ach-out')
 				},
 				panel: $('#copilotAchPanel').text(),
@@ -583,6 +588,12 @@ var server = http.createServer(function(req, res) {
 	}
 	if (!tech.ach.toast.open || tech.ach.toast.label.indexOf('Triple Combo') < 0) {
 		fail('achievement toast did not pop: ' + JSON.stringify(tech.ach));
+	}
+	if (!tech.ach.toast.multi || tech.ach.toast.extras.length < 1) {
+		fail('simultaneous achievements were not grouped: ' + JSON.stringify(tech.ach));
+	}
+	if (tech.ach.toast.kicker.indexOf('ACHIEVEMENTS UNLOCKED') < 0) {
+		fail('grouped achievement kicker is wrong: ' + JSON.stringify(tech.ach));
 	}
 	if (tech.ach.panel.indexOf('Triple Combo') < 0 ||
 			tech.ach.panel.indexOf('✓') < 0) {

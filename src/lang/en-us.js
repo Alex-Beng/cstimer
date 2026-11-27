@@ -851,3 +851,4 @@ var TOOLS_BLDHELPER_SCR = 'Scrambler';
 var GSOLVER_SQ1 = 'Shape|Color';
 var GSOLVER_NOSOLNMOVES = 'no solution found in %d moves';
 var COPILOT_TIP_SOUND = 'Tip sound';
+var COPILOT_ACH_UNLOCK_MULTI = '%s ACHIEVEMENTS UNLOCKED';

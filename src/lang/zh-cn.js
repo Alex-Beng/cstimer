@@ -851,3 +851,4 @@ var TOOLS_BLDHELPER_SCR = '打乱';
 var GSOLVER_SQ1 = '形状|颜色';
 var GSOLVER_NOSOLNMOVES = '在%d步内未找到解法';
 var COPILOT_TIP_SOUND = '提示音效';
+var COPILOT_ACH_UNLOCK_MULTI = '解锁 %s 项成就';

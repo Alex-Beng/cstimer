@@ -221,9 +221,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var achKicker = $('<div class="cp-ach-kicker"/>');
 	var achLabel = $('<div class="cp-ach-label"/>');
 	var achDesc = $('<div class="cp-ach-desc"/>');
-	achToast.append(achKicker, achLabel, achDesc);
-	var achQueue = [];
-	var achShowing = false;
+	var achMore = $('<div class="cp-ach-more"/>');
+	achToast.append(achKicker, achLabel, achDesc, achMore);
 	var achTid = 0;
 	var achPanel = $('<div id="copilotAchPanel"/>');
 	var achRows = {};
@@ -518,6 +517,28 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'    color: rgba(255, 255, 255, 0.86);',
 		'    white-space: nowrap;',
 		'}',
+		'.cp-ach-more {',
+		'    display: none;',
+		'    flex-direction: column;',
+		'    gap: 0.18rem;',
+		'    min-width: 15rem;',
+		'    margin-top: 0.55rem;',
+		'    padding-top: 0.45rem;',
+		'    border-top: 1px solid rgba(255, 255, 255, 0.16);',
+		'}',
+		'#copilotAchToast.cp-ach-multi .cp-ach-more { display: flex; }',
+		'.cp-ach-more-row {',
+		'    font-size: 0.92rem;',
+		'    line-height: 1.35;',
+		'    color: rgba(255, 255, 255, 0.92);',
+		'    white-space: nowrap;',
+		'}',
+		'.cp-ach-more-star {',
+		'    margin-right: 0.4rem;',
+		'    color: var(--cp-ach-accent);',
+		'}',
+		'.cp-ach-more-name { font-weight: bold; }',
+		'.cp-ach-more-rest { opacity: 0.65; }',
 		'html.m .cp-ach-label { font-size: 1.6rem; }',
 		'html.m .cp-ach-desc { font-size: 0.8rem; }',
 		'#copilotAchToast.cp-ach-in {',
@@ -1796,25 +1817,33 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				tipAudio.resume();
 			}
 		} catch (e) {}
-		var base = kind == 'ach' ? 880 :
-			(cat == 'gold' ? 784 : (cat == 'blue' ? 659 : 587));
-		var notes = kind == 'ach' ? [base, base * 1.5] : [base];
 		var t0 = tipAudio.currentTime + 0.01;
-		for (var i = 0; i < notes.length; i++) {
+		function tone(freq, start, dur, peak) {
 			var osc = tipAudio.createOscillator();
 			var gain = tipAudio.createGain();
-			var start = t0 + i * 0.1;
-			var end = start + (kind == 'ach' ? 0.18 : 0.1);
-			osc.type = 'sine';
-			osc.frequency.setValueAtTime(notes[i], start);
+			osc.type = 'square';
+			osc.frequency.setValueAtTime(freq, start);
 			gain.gain.setValueAtTime(0.0001, start);
-			gain.gain.exponentialRampToValueAtTime(0.25, start + 0.012);
-			gain.gain.exponentialRampToValueAtTime(0.0001, end);
+			gain.gain.linearRampToValueAtTime(peak, start + 0.006);
+			gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
 			osc.connect(gain);
 			gain.connect(tipAudioGain);
 			osc.start(start);
-			osc.stop(end + 0.02);
+			osc.stop(start + dur + 0.01);
 		}
+		if (kind == 'ach') {
+			// a short classic "level up" arpeggio
+			var arp = [523.25, 659.25, 783.99, 1046.5];
+			for (var i = 0; i < arp.length; i++) {
+				tone(arp[i], t0 + i * 0.08,
+					i == arp.length - 1 ? 0.3 : 0.085, 0.16);
+			}
+			return;
+		}
+		// coin-style two-note blip, transposed by tip rarity
+		var base = cat == 'gold' ? 1046.5 : (cat == 'blue' ? 880 : 987.77);
+		tone(base, t0, 0.06, 0.13);
+		tone(base * 1.3348, t0 + 0.06, 0.13, 0.13);
 	}
 
 	function showTechToast(ach, silent) {
@@ -2022,16 +2051,42 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return {name: key, desc: '', color: 'green', tip: false, def: def};
 	}
 
-	function showAchToast(key, preview) {
-		var info = achUiInfo(key);
+	var achExtraMax = 4;
+
+	function showAchGroup(keys, preview) {
+		if (!keys || !keys.length) {
+			return;
+		}
+		var infos = [];
+		for (var i = 0; i < keys.length && i <= achExtraMax; i++) {
+			infos.push(achUiInfo(keys[i]));
+		}
+		var info = infos[0];
 		if (!preview) {
 			playTipSound(info.color, 'ach');
 		}
-		achKicker.text(preview ?
-			L('COPILOT_ACH_PREVIEW', 'ACHIEVEMENT PREVIEW') :
-			L('COPILOT_ACH_UNLOCK', 'ACHIEVEMENT UNLOCKED'));
+		if (preview) {
+			achKicker.text(L('COPILOT_ACH_PREVIEW', 'ACHIEVEMENT PREVIEW'));
+		} else if (keys.length > 1) {
+			achKicker.text(L('COPILOT_ACH_UNLOCK_MULTI',
+				'%s ACHIEVEMENTS UNLOCKED').replace('%s', keys.length));
+		} else {
+			achKicker.text(L('COPILOT_ACH_UNLOCK', 'ACHIEVEMENT UNLOCKED'));
+		}
 		achLabel.text(info.name);
 		achDesc.text(info.desc);
+		achMore.empty();
+		for (i = 1; i < infos.length; i++) {
+			achMore.append($('<div class="cp-ach-more-row"/>').append(
+				$('<span class="cp-ach-more-star"/>').text('★'),
+				$('<span class="cp-ach-more-name"/>').text(infos[i].name)
+			));
+		}
+		if (keys.length > achExtraMax + 1) {
+			achMore.append($('<div class="cp-ach-more-row cp-ach-more-rest"/>')
+				.text('+' + (keys.length - achExtraMax - 1)));
+		}
+		achToast.toggleClass('cp-ach-multi', keys.length > 1);
 		achToast[0].style.setProperty('--cp-ach-accent', achAccent(info.color));
 		achToast[0].style.setProperty('--cp-ach-glow', achGlow(info.color));
 		achToast.toggleClass('cp-ach-preview', !!preview);
@@ -2040,26 +2095,17 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		achToast.addClass('cp-ach-in');
 	}
 
-	function pumpAchToast() {
-		if (achShowing || !achQueue.length) {
-			return;
+	function scheduleAchHide(hold) {
+		if (achTid) {
+			clearTimeout(achTid);
 		}
-		achShowing = true;
-		showAchToast(achQueue.shift());
 		achTid = setTimeout(function() {
 			achToast.removeClass('cp-ach-in').addClass('cp-ach-out');
 			achTid = setTimeout(function() {
 				achTid = 0;
-				achShowing = false;
 				achToast.removeClass('cp-ach-out');
-				pumpAchToast();
 			}, 480);
-		}, 2300);
-	}
-
-	function queueAch(key) {
-		achQueue.push(key);
-		pumpAchToast();
+		}, hold);
 	}
 
 	function hideAchToast() {
@@ -2067,9 +2113,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			clearTimeout(achTid);
 			achTid = 0;
 		}
-		achQueue = [];
-		achShowing = false;
-		achToast.removeClass('cp-ach-in cp-ach-out');
+		achToast.removeClass('cp-ach-in cp-ach-out cp-ach-multi cp-ach-preview');
+		achMore.empty();
 	}
 
 	function buildAchPanel() {
@@ -2226,18 +2271,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			clearTimeout(achTid);
 			achTid = 0;
 		}
-		achQueue = [];
-		achShowing = true;
-		showAchToast(key, true);
-		achTid = setTimeout(function() {
-			achToast.removeClass('cp-ach-in').addClass('cp-ach-out');
-			achTid = setTimeout(function() {
-				achTid = 0;
-				achShowing = false;
-				achToast.removeClass('cp-ach-out');
-				pumpAchToast();
-			}, 480);
-		}, 2300);
+		showAchGroup([key], true);
+		scheduleAchHide(2300);
 	}
 
 	function renderAchBook() {
@@ -2432,8 +2467,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (achBook && achBook.hasClass('cp-book-open')) {
 			renderAchBook();
 		}
-		for (var j = 0; j < evs.length; j++) {
-			queueAch(evs[j].key);
+		if (evs.length) {
+			var unlocked = [];
+			for (var j = 0; j < evs.length; j++) {
+				unlocked.push(evs[j].key);
+			}
+			showAchGroup(unlocked, false);
+			scheduleAchHide(Math.min(5600, 2400 + (unlocked.length - 1) * 620));
 		}
 	}
 
