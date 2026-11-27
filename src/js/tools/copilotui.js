@@ -2642,6 +2642,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (prog == 1 && sn.eo && sn.co && sn.cp && !techPllFacelet) {
 			techPllFacelet = facelet;
 		}
+		var f2lWasDone = !!techTracker.state().f2l;
 		var evs = techTracker.step(sn);
 		for (var i = 0; i < evs.length; i++) {
 			if (evs[i].key.indexOf('flow') == 0) {
@@ -2666,7 +2667,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			techNorotDone = true;
 			onTechEvent({key: 'norot'});
 		}
-		checkBasicPair(facelet);
+		checkBasicPair(facelet, f2lWasDone);
 	}
 
 	/**
@@ -2744,19 +2745,19 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	 * repeats the same facelet) cannot make the window shorter and turn a
 	 * mid-algorithm "standard" shape into a false Basic F2L tip.
 	 */
-	function techFaceletAt(n) {
+	function techHistAt(n) {
 		for (var k = techHist.length - 1; k >= 0; k--) {
 			if (techHist[k].n < n) {
 				break;
 			}
 			if (techHist[k].n == n) {
-				return techHist[k].facelet;
+				return techHist[k];
 			}
 		}
 		return null;
 	}
 
-	function checkBasicPair(facelet) {
+	function checkBasicPair(facelet, f2lDone) {
 		var last = techHist[techHist.length - 1];
 		var changed = !last || last.facelet != facelet;
 		// Virtual cubes provide exact move events.  A bluetooth cube only sends
@@ -2771,15 +2772,19 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		var added = mask & ~techPairMask;
 		if (added) {
 			var target = techFaceNo - 3;
-			var before = techFaceletAt(target);
+			var before = techHistAt(target);
+			var before2 = techHistAt(target - 1);
 			// A longer algorithm often reaches a standard shape for its last
 			// three moves.  That is a conversion, not a basic case: only
-			// count it if the pair was already joined before those moves.
-			var before2 = techFaceletAt(target - 1);
+			// count it if the pair was already joined before those moves,
+			// and that window started before F2L was complete.  OLL/PLL
+			// algorithms can transiently rebuild a pair, but those states
+			// belong to the last layer and must not count as F2L inserts.
 			for (var i = 0; i < 4; i++) {
-				if ((added & (1 << i)) && before &&
-						cubeCopilot.basicPair(before, i) &&
-						(!before2 || cubeCopilot.basicPair(before2, i))) {
+				if ((added & (1 << i)) && before && !before.f2lDone &&
+						(!before2 || !before2.f2lDone) &&
+						cubeCopilot.basicPair(before.facelet, i) &&
+						(!before2 || cubeCopilot.basicPair(before2.facelet, i))) {
 					techBasic++;
 					onTechEvent({key: 'basicf2l'});
 					break;
@@ -2789,7 +2794,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		techPairMask = mask;
 		last = techHist[techHist.length - 1];
 		if (!last || last.n != techFaceNo || last.facelet != facelet) {
-			techHist.push({n: techFaceNo, facelet: facelet});
+			techHist.push({n: techFaceNo, facelet: facelet,
+				f2lDone: !!f2lDone});
 			if (techHist.length > 12) {
 				techHist.shift();
 			}
@@ -2839,7 +2845,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			techMaxProg = techSeedProg;
 		}
 		if (techSeedFacelet) {
-			techHist.push({n: 0, facelet: techSeedFacelet});
+			techHist.push({n: 0, facelet: techSeedFacelet, f2lDone: false});
 		}
 		techTracker.reset(techSeedProg);
 		stageTip.removeClass('cp-tip-on cp-tip-combo cp-tip-green cp-tip-gold cp-tip-blue cp-tip-new').text('');

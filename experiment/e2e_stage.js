@@ -479,11 +479,22 @@ var server = http.createServer(function(req, res) {
 		await waitToast('EPLL', 12000);
 		var coll = state();
 
+		// finish the COLL/EPLL solve and inspect its achievement toast
+		kernel.pushSignal('timerStatus', -1);
+		await wait(150);
+		kernel.pushSignal('time', [10000]);
+		await wait(400);
+		var ach = achState();
+
 		// a joined pair in the U layer, inserted by three moves.  The
 		// virtual move stream is what tells the tip where "three moves ago"
 		// is, so a rotation cannot shorten that window.
 		// This synthetic replay ends on a solved state; mark it rotated so it
 		// cannot also unlock the rotation-free achievement.
+		push("R U R'");
+		await wait(50);
+		kernel.pushSignal('timerStatus', 1);
+		await wait(60);
 		kernel.pushSignal('virtualMove', ['y']);
 		push("R U R'");
 		await wait(40);
@@ -508,7 +519,6 @@ var server = http.createServer(function(req, res) {
 		await wait(150);
 		kernel.pushSignal('time', [10000]);
 		await wait(400);
-		var ach = achState();
 		push(F.scr);
 		await wait(50);
 		kernel.pushSignal('timerStatus', 1);
@@ -567,10 +577,18 @@ var server = http.createServer(function(req, res) {
 	if (!tech.zbll.toast.open || tech.zbll.toast.label.indexOf('ZBLL') < 0) {
 		fail('ZBLL achievement toast: ' + JSON.stringify(tech.zbll));
 	}
+	if (tech.zbll.combo.text.indexOf('Basic F2L') >= 0) {
+		fail('an OLL algorithm was reported as Basic F2L: ' +
+			JSON.stringify(tech.zbll));
+	}
 	if (!tech.coll.toast.open || tech.coll.toast.label.indexOf('EPLL') < 0 ||
 			tech.coll.combo.text.indexOf('COLL') < 0 ||
 			tech.coll.combo.text.indexOf('EPLL') < 0) {
 		fail('EPLL achievement toast after COLL: ' + JSON.stringify(tech.coll));
+	}
+	if (tech.coll.combo.text.indexOf('Basic F2L') >= 0) {
+		fail('a COLL/EPLL algorithm was reported as Basic F2L: ' +
+			JSON.stringify(tech.coll));
 	}
 	if (!tech.collAtOll.toast.open || tech.collAtOll.toast.label.indexOf('COLL') < 0 ||
 			tech.collAtOll.combo.text.indexOf('COLL') < 0) {
