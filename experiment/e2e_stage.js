@@ -712,6 +712,11 @@ var server = http.createServer(function(req, res) {
 		await wait(300);
 		var smartCombo = $('#copilotTechToast').text();
 
+		var tpsSeen = {};
+		try {
+			tpsSeen = JSON.parse(kernel.getProp('cpAch', '{}')).seen || {};
+		} catch (e) {}
+
 		return {
 			rotatedCombo: rotatedCombo,
 			rotatedPanel: rotatedPanel,
@@ -719,7 +724,8 @@ var server = http.createServer(function(req, res) {
 			combo: fastCombo,
 			panel: fastPanel,
 			singlePanel: panel(),
-			smartCombo: smartCombo
+			smartCombo: smartCombo,
+			tpsSeen: tpsSeen
 		};
 	});
 	console.log('speed/norot: ' + JSON.stringify(speed));
@@ -747,6 +753,10 @@ var server = http.createServer(function(req, res) {
 	}
 	if (speed.smartCombo.indexOf('No Rot') < 0) {
 		fail('a smart-cube solve could not complete No Rot: ' + speed.smartCombo);
+	}
+	if (!speed.tpsSeen.tps6 || !speed.tpsSeen.tps8 || !speed.tpsSeen.tps10) {
+		fail('a fast solve did not collect every TPS tier: ' +
+			JSON.stringify(speed.tpsSeen));
 	}
 
 	// ---------------------------------------------------- achievement browser

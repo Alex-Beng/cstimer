@@ -2610,10 +2610,24 @@ function makeCubeCopilot() {
 		};
 	}
 
+	/** every speed tip tier reached by a burst, lowest first */
+	function tpsTiers(tps) {
+		var tiers = [];
+		[6, 8, 10].forEach(function(tier) {
+			if (tps >= tier) {
+				tiers.push(tier);
+			}
+		});
+		return tiers;
+	}
+
 	var PAIR_KEYS = ['', 'xc', 'xxc', 'xxxc', 'xxxxc'];
 	// a stage finished and the next move came within this pause, i.e. the
 	// solver went straight on instead of stopping to look for the next stage
 	var FLOW_MS = 520;
+	// A real "So Close" recovery takes longer than one algorithm burst.
+	// Without this a PLL's transient F2L dips could look like a rebuild.
+	var CHOKE_MS = 400;
 
 	/**
 	 * State machine for the advanced-technique achievements.  It consumes the
@@ -2646,6 +2660,11 @@ function makeCubeCopilot() {
 				llTipDone: false,
 				ollFlowMarked: false,
 				mark: null,
+				chokeArmed: false,
+				chokeBroken: false,
+				chokeChain: 0,
+				chokeAt: 0,
+				choke: false,
 				bestProg: 7,
 				done: false
 			};
@@ -2666,6 +2685,42 @@ function makeCubeCopilot() {
 				return ev;
 			}
 			var prev = st.prev;
+
+			// ---- "So Close": the last layer was reached, the F2L broke,
+			// and the solver rebuilt at least two pairs one at a time before
+			// reaching the last layer again.  A PLL algorithm also makes the
+			// F2L progress dip for a few moves, so a dip alone is not enough:
+			// require a monotone pair-by-pair rebuild and a recovery that
+			// lasts longer than a single algorithm burst.
+			if (!st.chokeArmed && prog <= 1) {
+				st.chokeArmed = true;
+			}
+			if (st.chokeArmed && !st.choke) {
+				if (prog >= 4) {
+					if (!st.chokeBroken) {
+						st.chokeBroken = true;
+						st.chokeAt = typeof s.t == 'number' ? s.t : 0;
+					}
+					if (prog > prev) {
+						st.chokeChain = 0;
+					}
+				} else if (prog <= 1) {
+					var slowEnough = !st.chokeAt || typeof s.t != 'number' ||
+						s.t - st.chokeAt >= CHOKE_MS;
+					if (st.chokeChain >= 2 && slowEnough) {
+						st.choke = true;
+					}
+					st.chokeBroken = false;
+					st.chokeChain = 0;
+					st.chokeAt = 0;
+				} else if (st.chokeBroken) {
+					if (prev >= 3 && prev <= 6 && prog == prev - 1) {
+						st.chokeChain++;
+					} else if (prog != prev) {
+						st.chokeChain = 0;
+					}
+				}
+			}
 
 			// ---- connected stages
 			if (st.mark) {
@@ -3720,6 +3775,7 @@ function makeCubeCopilot() {
 			return getStage(cubieFromFacelet(facelet), method);
 		},
 		techniqueState: techniqueState,
+		tpsTiers: tpsTiers,
 		basicPair: basicPair,
 		pairMask: pairMask,
 		makeTechniqueTracker: makeTechniqueTracker,

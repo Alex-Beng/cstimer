@@ -182,6 +182,57 @@ check('a long pause breaks the flow', !has(slowFlow, 'flowcf') &&
 var jumpFlow = run(7, [{prog: 5, t: 1000}, {prog: 5, t: 1100}]);
 check('a skipped stage does not invent flow', !has(jumpFlow, 'flowcf'));
 
+// ---------------------------------------------------------------- speed tiers
+check('TPS 8 also reaches TPS 6',
+	copilot.tpsTiers(8).join(',') == '6,8');
+check('TPS 10 reaches every speed tip',
+	copilot.tpsTiers(10).join(',') == '6,8,10');
+check('TPS 5 reaches no speed tip', copilot.tpsTiers(5).length == 0);
+
+// ---------------------------------------------------------------- So Close
+function chokeState(steps) {
+	var t = copilot.makeTechniqueTracker();
+	t.reset(7);
+	steps.forEach(function(s) {
+		t.step(s);
+	});
+	return t.state();
+}
+
+var realChoke = chokeState([
+	{prog: 6}, {prog: 5}, {prog: 4}, {prog: 3}, {prog: 2},
+	{prog: 1, eo: true, co: true, t: 1000},
+	{prog: 7, t: 1600},
+	{prog: 6, t: 1900},
+	{prog: 5, t: 2250},
+	{prog: 4, t: 2600},
+	{prog: 3, t: 2950},
+	{prog: 2, t: 3300},
+	{prog: 1, eo: true, co: true, t: 3650}
+]);
+check('So Close: rebuilding pairs one by one counts', realChoke.choke);
+
+var pllDip = chokeState([
+	{prog: 1, eo: true, co: true, t: 1000},
+	{prog: 7, t: 1200},
+	{prog: 4, t: 1350},
+	{prog: 7, t: 1500},
+	{prog: 3, t: 1650},
+	{prog: 7, t: 1800},
+	{prog: 1, eo: true, co: true, t: 1950},
+	{prog: 0, t: 2100}
+]);
+check('So Close: a PLL dip is not a rebuild', !pllDip.choke);
+
+var onePair = chokeState([
+	{prog: 1, eo: true, co: true, t: 1000},
+	{prog: 7, t: 1200},
+	{prog: 3, t: 1500},
+	{prog: 2, t: 1800},
+	{prog: 1, eo: true, co: true, t: 2100}
+]);
+check('So Close: a single last pair is not enough', !onePair.choke);
+
 var ollcp = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false, cp: false},
 	{prog: 2, eo: false, co: false, cp: false},
 	{prog: 1, eo: true, co: true, cp: true}, SOLVED]);
@@ -405,6 +456,50 @@ function replayAlg(setup, alg, tail, llEo) {
 	});
 	return {keys: keys, st: caseState};
 }
+
+// Every PLL algorithm temporarily breaks the F2L while it runs.  None of them
+// may be mistaken for a real "So Close" recovery.
+var realPll = {n: 0, choke: []};
+ctx.PLL_DATA.forEach(function(entry) {
+	var ix = entry.indexOf('|');
+	var name = entry.slice(0, ix);
+	var alg = entry.slice(ix + 1);
+	var cc = new mathlib.CubieCube();
+	try {
+		invAlg(alg).trim().split(/\s+/).forEach(function(m) {
+			if (m) {
+				cc.selfMoveStr(m);
+			}
+		});
+	} catch (e) {
+		return;
+	}
+	var first = cc.toFaceCube();
+	var t = copilot.makeTechniqueTracker();
+	t.reset(7);
+	t.step({prog: cubeutil.getProgress(first, 'cf4op'), eo: true, co: true,
+		t: 1000});
+	alg.trim().split(/\s+/).forEach(function(m, idx) {
+		cc.selfMoveStr(m);
+		var facelet = cc.toFaceCube();
+		var prog = cubeutil.getProgress(facelet, 'cf4op');
+		var sn = {prog: prog, t: 1150 + idx * 150};
+		if (prog <= 3) {
+			var st = copilot.techniqueState(facelet);
+			sn.eo = st.eo;
+			sn.co = st.co;
+			sn.cp = st.cp;
+		}
+		t.step(sn);
+	});
+	realPll.n++;
+	if (t.state().choke) {
+		realPll.choke.push(name);
+	}
+});
+check('real PLL algorithms are never So Close (' + realPll.n + ' checked' +
+	(realPll.choke.length ? ', false: ' + realPll.choke.join(' ') : '') + ')',
+	realPll.n == ctx.PLL_DATA.length && realPll.choke.length == 0);
 
 var realColl = {n: 0, miss: []};
 ctx.COLL_DATA.forEach(function(entry) {

@@ -201,10 +201,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var techMoveTs = [];
 	var techTpsMax = 0;
 	var techTpsTier = 0;
+	var techTpsHit = [];
 	var techSolveStart = 0;
 	var techOpenMs = 0;
-	var techSawLL = false;
-	var techChoke = false;
 	var techLastGap = 0;
 	var techMaxGap = 0;
 	var techRotRun = 0;
@@ -275,8 +274,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		basicf2l: ['COPILOT_TIP_BASICF2L', 'Basic F2L · three move insert'],
 		flowcf: ['COPILOT_TIP_FLOWCF', 'Cross→F1 · straight on without a pause'],
 		flowff: ['COPILOT_TIP_FLOWFF', 'F2F · next pair without a pause'],
-		flowfl: ['COPILOT_TIP_FLOWFL', 'F→LL · straight into the last layer'],
-		flowop: ['COPILOT_TIP_FLOWOP', 'OLL→PLL · straight into PLL'],
+		flowfl: ['COPILOT_TIP_FLOWFL', 'F→LL · last F2L pair into OLL without a pause'],
+		flowop: ['COPILOT_TIP_FLOWOP', 'OLL→PLL · OLL into PLL without a pause'],
 		tps6: ['COPILOT_TIP_TPS6', 'TPS 6 · six turns per second'],
 		tps8: ['COPILOT_TIP_TPS8', 'TPS 8 · eight turns per second'],
 		tps10: ['COPILOT_TIP_TPS10', 'TPS 10 · ten turns per second'],
@@ -2475,6 +2474,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	function buildSolveStats(totalMs) {
 		var scrType = kernel.getProp('scrType', '333');
 		var bld = isBlindScramble();
+		var tst = techTracker.state();
 		return {
 			time: totalMs,
 			flow: techFlow,
@@ -2485,7 +2485,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			openFlow: !!(techFlowCF && techFlowFF),
 			lastGap: techLastGap,
 			maxGap: techMaxGap,
-			choke: techChoke,
+			choke: !!(tst && tst.choke),
 			rotRun: techRotMax,
 			method: bld ? '' : solveMethod(scrType),
 			oh: /^333oh?$/.test(scrType),
@@ -2501,6 +2501,13 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			for (var i = 0; i < techAch.length; i++) {
 				if (techAch[i].key != 'norot') {
 					keys.push(techAch[i].key);
+				}
+			}
+			// Lower TPS tiers are collected silently, so reaching TPS 8
+			// also unlocks TPS 6 instead of only the highest burst.
+			for (i = 0; i < techTpsHit.length; i++) {
+				if (keys.indexOf(techTpsHit[i]) < 0) {
+					keys.push(techTpsHit[i]);
 				}
 			}
 		}
@@ -2611,12 +2618,6 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		var now = $.now();
 		var sn = {prog: prog, t: now};
 		techSteps++;
-		if (techSawLL && prog >= 3) {
-			techChoke = true;
-		}
-		if (prog <= 1) {
-			techSawLL = true;
-		}
 		if (!techOpenMs && prog <= 4 && techSolveStart > 0) {
 			techOpenMs = Math.max(1, now - techSolveStart);
 		}
@@ -2701,9 +2702,18 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (tps > techTpsMax) {
 			techTpsMax = tps;
 		}
-		var tier = tps >= 10 ? 10 : (tps >= 8 ? 8 : (tps >= 6 ? 6 : 0));
+		var tiers = cubeCopilot.tpsTiers(tps);
+		for (var i = 0; i < tiers.length; i++) {
+			var key = 'tps' + tiers[i];
+			if (techTpsHit.indexOf(key) < 0) {
+				techTpsHit.push(key);
+			}
+		}
+		var tier = tiers.length ? tiers[tiers.length - 1] : 0;
 		if (tier > techTpsTier) {
 			techTpsTier = tier;
+			// only the highest new tier gets a toast; the lower tiers are
+			// collected above and unlock at the end of the solve
 			onTechEvent({key: 'tps' + tier});
 		}
 	}
@@ -2806,10 +2816,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		techMoveTs = [];
 		techTpsMax = 0;
 		techTpsTier = 0;
+		techTpsHit = [];
 		techSolveStart = 0;
 		techOpenMs = 0;
-		techSawLL = false;
-		techChoke = false;
 		techLastGap = 0;
 		techMaxGap = 0;
 		techRotRun = 0;
