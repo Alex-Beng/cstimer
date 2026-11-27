@@ -248,7 +248,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		zbls: ['COPILOT_TIP_ZBLS', 'ZBLS · last F2L pair + top cross at once'],
 		wv: ['COPILOT_TIP_WV', 'WV/SV · last F2L pair + top corners oriented'],
 		ols: ['COPILOT_TIP_OLS', 'OLS · last F2L pair + top layer oriented'],
-		ollskip: ['COPILOT_TIP_OLLSKIP', 'OLL skip · top layer already oriented'],
+		ollskip: ['COPILOT_TIP_OLLSKIP', 'OLL skip · top layer oriented when F2L ends'],
 		zbll: ['COPILOT_TIP_ZBLL', 'ZBLL%s · last layer in one algorithm'],
 		coll: ['COPILOT_TIP_COLL', 'COLL%s · top corners in one algorithm'],
 		pll: ['COPILOT_TIP_PLL', 'PLL%s · top layer in one algorithm'],

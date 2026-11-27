@@ -103,16 +103,21 @@ var wv = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: true, co: false},
 	{prog: 2, eo: true, co: true, cp: false}]);
 check('WV/SV', has(wv, 'wv'));
 check('WV is not ZBLS', !has(wv, 'zbls'));
+check('WV also skips OLL', has(wv, 'ollskip'));
 
 var ols = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: false, co: false},
 	{prog: 2, eo: true, co: true, cp: false}]);
 check('OLS', has(ols, 'ols'));
-check('OLS is not an OLL skip', !has(ols, 'ollskip'));
+check('OLS also skips OLL', has(ols, 'ollskip'));
 
 var ollskip = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: true, co: true},
 	{prog: 2, eo: true, co: true, cp: false}]);
 check('OLL skip when the last pair adds no orientation', has(ollskip, 'ollskip'));
 check('OLL skip is not OLS', !has(ollskip, 'ols'));
+
+var noOllskip = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: true, co: false},
+	{prog: 2, eo: true, co: false}]);
+check('no OLL skip when corners remain unoriented', !has(noOllskip, 'ollskip'));
 
 var eoFirst = run(7, [CROSS_ONLY, P1, P2, {prog: 3, eo: true, co: false},
 	{prog: 2, eo: true, co: false}]);

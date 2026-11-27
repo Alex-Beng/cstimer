@@ -2736,6 +2736,11 @@ function makeCubeCopilot() {
 				st.llCo = !!s.co;
 				st.llCp = !!s.cp;
 				if (st.pair3) {
+					if (st.llEo && st.llCo) {
+						// OLL was skipped: orientation was already complete
+						// when F2L ended, no matter which technique did it.
+						ev.push({key: 'ollskip'});
+					}
 					if (!st.eo3 && st.llEo && !st.llCo) {
 						ev.push({key: 'zbls'});
 					}
@@ -2746,9 +2751,6 @@ function makeCubeCopilot() {
 					}
 					if (st.eo3 && st.llCo && !st.co3) {
 						ev.push({key: 'wv'});
-					}
-					if (st.eo3 && st.llCo && st.co3) {
-						ev.push({key: 'ollskip'});
 					}
 				}
 				st.oriented = st.llEo && st.llCo;
