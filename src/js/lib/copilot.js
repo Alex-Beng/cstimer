@@ -2624,7 +2624,7 @@ function makeCubeCopilot() {
 	var PAIR_KEYS = ['', 'xc', 'xxc', 'xxxc', 'xxxxc'];
 	// a stage finished and the next move came within this pause, i.e. the
 	// solver went straight on instead of stopping to look for the next stage
-	var FLOW_MS = 520;
+	var FLOW_MS = 200;
 	// A real "So Close" recovery takes longer than one algorithm burst.
 	// Without this a PLL's transient F2L dips could look like a rebuild.
 	var CHOKE_MS = 400;

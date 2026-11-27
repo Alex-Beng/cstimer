@@ -179,6 +179,13 @@ var slowFlow = run(7, [
 check('a long pause breaks the flow', !has(slowFlow, 'flowcf') &&
 	!has(slowFlow, 'flowff'));
 
+var quickFlow = run(7, [{prog: 6, t: 1000}, {prog: 6, t: 1150}]);
+check('150ms into the next stage keeps the flow', has(quickFlow, 'flowcf'));
+
+var pausedFlow = run(7, [{prog: 6, t: 1000}, {prog: 6, t: 1250}]);
+check('250ms into the next stage breaks the flow',
+	!has(pausedFlow, 'flowcf'));
+
 var jumpFlow = run(7, [{prog: 5, t: 1000}, {prog: 5, t: 1100}]);
 check('a skipped stage does not invent flow', !has(jumpFlow, 'flowcf'));
 
