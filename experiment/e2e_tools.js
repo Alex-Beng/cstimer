@@ -127,7 +127,6 @@ var server = http.createServer(function(req, res) {
 	// loads or a new scramble arrives; only the Browse button should.
 	var achTool = await page.evaluate(function() {
 		var sels = document.querySelectorAll('#toolsDiv select');
-		var found = 0;
 		for (var i = 0; i < sels.length; i++) {
 			for (var j = 0; j < sels[i].options.length; j++) {
 				if (/Copilot (achievements|成就)/.test(sels[i].options[j].textContent || '')) {
@@ -135,12 +134,11 @@ var server = http.createServer(function(req, res) {
 					var ev = document.createEvent('HTMLEvents');
 					ev.initEvent('change', true, true);
 					sels[i].dispatchEvent(ev);
-					found++;
-					break;
+					return {found: 1};
 				}
 			}
 		}
-		return {found: found};
+		return {found: 0};
 	});
 	await page.waitForTimeout(600);
 	if (!achTool.found) fail('achievements tool is missing from the menu');
@@ -176,6 +174,49 @@ var server = http.createServer(function(req, res) {
 	}
 	if (!ach.afterClick) fail('achievements Browse button did not open the browser');
 	if (!ach.closed) fail('achievements browser did not close');
+
+	// the summary inside the achievements tool must follow a reset
+	var reset = await page.evaluate(async function() {
+		function wait(ms) {
+			return new Promise(function(resolve) {
+				setTimeout(resolve, ms);
+			});
+		}
+		kernel.setProp('scrType', '333');
+		kernel.setProp('vrcMP', 'cf4op');
+		kernel.pushSignal('timerStatus', -1);
+		await wait(100);
+		kernel.pushSignal('virtualState', [mathlib.SOLVED_FACELET]);
+		await wait(50);
+		kernel.pushSignal('timerStatus', 1);
+		await wait(50);
+		kernel.pushSignal('virtualState', [mathlib.SOLVED_FACELET]);
+		await wait(100);
+		kernel.pushSignal('timerStatus', -1);
+		await wait(80);
+		kernel.pushSignal('time', [10000]);
+		await wait(300);
+		var before = $('.cp-ach-tool-summary').text();
+		var panelBefore = $('#copilotAchPanel .cp-ach-summary').text();
+		copilotUI.resetAchievements();
+		await wait(200);
+		return {
+			before: before,
+			panelBefore: panelBefore,
+			after: $('.cp-ach-tool-summary').text(),
+			panelAfter: $('#copilotAchPanel .cp-ach-summary').text()
+		};
+	});
+	console.log('reset summary:', JSON.stringify(reset));
+	if (reset.before.indexOf('0/') >= 0) {
+		fail('the test solve did not unlock an achievement: ' + reset.before);
+	}
+	if (reset.after.indexOf('0/') < 0) {
+		fail('the achievements tool summary did not reset: ' + reset.after);
+	}
+	if (reset.after != reset.panelAfter) {
+		fail('tool and panel summaries disagree after reset: ' + JSON.stringify(reset));
+	}
 
 	await browser.close();
 	server.close();

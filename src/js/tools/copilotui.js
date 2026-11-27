@@ -222,7 +222,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	var achLabel = $('<div class="cp-ach-label"/>');
 	var achDesc = $('<div class="cp-ach-desc"/>');
 	var achMore = $('<div class="cp-ach-more"/>');
-	achToast.append(achKicker, achLabel, achDesc, achMore);
+	var achBadge = $('<div class="cp-ach-badge"/>');
+	achToast.append(achKicker, achLabel, achDesc, achMore, achBadge);
 	var achTid = 0;
 	var achPanel = $('<div id="copilotAchPanel"/>');
 	var achRows = {};
@@ -519,19 +520,22 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'}',
 		'.cp-ach-more {',
 		'    display: none;',
-		'    flex-direction: column;',
-		'    gap: 0.18rem;',
-		'    min-width: 15rem;',
+		'    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);',
+		'    column-gap: 1rem;',
+		'    row-gap: 0.16rem;',
+		'    max-width: 34rem;',
 		'    margin-top: 0.55rem;',
 		'    padding-top: 0.45rem;',
 		'    border-top: 1px solid rgba(255, 255, 255, 0.16);',
 		'}',
-		'#copilotAchToast.cp-ach-multi .cp-ach-more { display: flex; }',
+		'#copilotAchToast.cp-ach-multi .cp-ach-more { display: grid; }',
 		'.cp-ach-more-row {',
 		'    font-size: 0.92rem;',
 		'    line-height: 1.35;',
 		'    color: rgba(255, 255, 255, 0.92);',
 		'    white-space: nowrap;',
+		'    overflow: hidden;',
+		'    text-overflow: ellipsis;',
 		'}',
 		'.cp-ach-more-star {',
 		'    margin-right: 0.4rem;',
@@ -539,8 +543,37 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		'}',
 		'.cp-ach-more-name { font-weight: bold; }',
 		'.cp-ach-more-rest { opacity: 0.65; }',
+		'.cp-ach-badge {',
+		'    position: absolute;',
+		'    top: -0.72rem;',
+		'    right: -0.72rem;',
+		'    display: none;',
+		'    align-items: center;',
+		'    justify-content: center;',
+		'    min-width: 1.8rem;',
+		'    height: 1.8rem;',
+		'    padding: 0 0.45rem;',
+		'    border-radius: 999px;',
+		'    background: var(--cp-ach-accent);',
+		'    color: #1a1024;',
+		'    font-size: 0.95rem;',
+		'    font-weight: bold;',
+		'    box-shadow: 0 0 16px var(--cp-ach-glow);',
+		'}',
+		'#copilotAchToast.cp-ach-multi .cp-ach-badge { display: flex; }',
+		'#copilotAchToast.cp-ach-multi {',
+		'    box-shadow: 0 0 0 3px var(--cp-ach-accent), 0 0 56px var(--cp-ach-glow), 0 18px 52px rgba(0, 0, 0, 0.58);',
+		'}',
+		'@keyframes copilotAchRowIn {',
+		'    0% { opacity: 0; transform: translateY(6px); }',
+		'    100% { opacity: 1; transform: none; }',
+		'}',
+		'.cp-ach-multi .cp-ach-more-row {',
+		'    animation: copilotAchRowIn 320ms ease-out both;',
+		'}',
 		'html.m .cp-ach-label { font-size: 1.6rem; }',
 		'html.m .cp-ach-desc { font-size: 0.8rem; }',
+		'html.m .cp-ach-more { grid-template-columns: minmax(0, 1fr); max-width: 20rem; }',
 		'#copilotAchToast.cp-ach-in {',
 		'    animation: copilotAchIn 560ms cubic-bezier(.2, 1.5, .4, 1) forwards;',
 		'}',
@@ -1803,7 +1836,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 	 * context is created on the first user gesture, so the browser's autoplay
 	 * policy cannot block it; all failures stay silent.
 	 */
-	function playTipSound(cat, kind) {
+	function playTipSound(cat, kind, count) {
 		if (!tipAudio || !kernel.getProp('cpTipSound', true)) {
 			return;
 		}
@@ -1834,9 +1867,15 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (kind == 'ach') {
 			// a short classic "level up" arpeggio
 			var arp = [523.25, 659.25, 783.99, 1046.5];
+			if (count > 1) {
+				arp.push(1318.5);
+			}
+			if (count > 3) {
+				arp.push(1567.98);
+			}
 			for (var i = 0; i < arp.length; i++) {
 				tone(arp[i], t0 + i * 0.08,
-					i == arp.length - 1 ? 0.3 : 0.085, 0.16);
+					i == arp.length - 1 ? 0.32 : 0.085, 0.16);
 			}
 			return;
 		}
@@ -2051,7 +2090,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		return {name: key, desc: '', color: 'green', tip: false, def: def};
 	}
 
-	var achExtraMax = 4;
+	var achExtraMax = 12;
 
 	function showAchGroup(keys, preview) {
 		if (!keys || !keys.length) {
@@ -2063,7 +2102,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		var info = infos[0];
 		if (!preview) {
-			playTipSound(info.color, 'ach');
+			playTipSound(info.color, 'ach', keys.length);
 		}
 		if (preview) {
 			achKicker.text(L('COPILOT_ACH_PREVIEW', 'ACHIEVEMENT PREVIEW'));
@@ -2077,7 +2116,9 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		achDesc.text(info.desc);
 		achMore.empty();
 		for (i = 1; i < infos.length; i++) {
-			achMore.append($('<div class="cp-ach-more-row"/>').append(
+			achMore.append($('<div class="cp-ach-more-row"/>').css(
+				'animation-delay', ((i - 1) * 55) + 'ms'
+			).append(
 				$('<span class="cp-ach-more-star"/>').text('★'),
 				$('<span class="cp-ach-more-name"/>').text(infos[i].name)
 			));
@@ -2086,6 +2127,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 			achMore.append($('<div class="cp-ach-more-row cp-ach-more-rest"/>')
 				.text('+' + (keys.length - achExtraMax - 1)));
 		}
+		achBadge.text('×' + keys.length);
 		achToast.toggleClass('cp-ach-multi', keys.length > 1);
 		achToast[0].style.setProperty('--cp-ach-accent', achAccent(info.color));
 		achToast[0].style.setProperty('--cp-ach-glow', achGlow(info.color));
@@ -2143,6 +2185,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (toolAchSpan) {
 			toolAchSpan.text(summary);
 		}
+		$('.cp-ach-tool-summary').text(summary);
 		browseAchBtn.off('click').on('click', openAchBook);
 	}
 
@@ -2172,6 +2215,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		if (toolAchSpan) {
 			toolAchSpan.text(summary);
 		}
+		$('.cp-ach-tool-summary').text(summary);
 	}
 
 	function refreshComboBadge() {
@@ -2473,7 +2517,7 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 				unlocked.push(evs[j].key);
 			}
 			showAchGroup(unlocked, false);
-			scheduleAchHide(Math.min(5600, 2400 + (unlocked.length - 1) * 620));
+			scheduleAchHide(Math.min(8000, 2600 + (unlocked.length - 1) * 400));
 		}
 	}
 
@@ -3533,7 +3577,8 @@ var copilotUI = execMain(function(kernel, timer, tools, cubeutil, logohint) {
 		}
 		var btn = $('<input type="button">').val(L('COPILOT_ACH_BROWSE', 'Browse all'));
 		var btnReset = $('<input type="button">').val(L('COPILOT_ACH_RESET', 'Reset all'));
-		var summary = $('<span/>').css({'margin-left': '0.5em', 'opacity': 0.75})
+		var summary = $('<span class="cp-ach-tool-summary"/>')
+			.css({'margin-left': '0.5em', 'opacity': 0.75})
 			.text(achSummaryText(achTotals()));
 		fdiv.empty().append(
 			$('<div/>').css({'font-size': '0.85em', 'margin-bottom': '0.5em'}).text(
